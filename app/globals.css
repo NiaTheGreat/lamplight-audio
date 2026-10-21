@@ -1198,8 +1198,9 @@ input[type="range"]::-moz-range-thumb {
   border: 0;
   background: transparent;
   color: var(--cream-2);
-  font-size: 14px;
-  padding: 0 4px;
+  font-size: 13px;
+  padding: 0;
+  min-width: 0;
 }
 
 .seg button[aria-checked="true"] {

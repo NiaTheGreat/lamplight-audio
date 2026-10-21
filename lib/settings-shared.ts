@@ -25,7 +25,7 @@ export type Settings = {
 
 export const DEFAULT_SETTINGS: Settings = { voice: "ballad", speed: 1, sleep: 0, dim: 15 };
 
-export const SPEEDS = [0.85, 1, 1.15, 1.3];
+export const SPEEDS = [0.85, 1, 1.15, 1.3, 1.5, 1.75, 2];
 export const SLEEP_OPTIONS = [0, 15, 30, 60, -1];
 
 /** Clamp anything from the client into a valid Settings object. */
