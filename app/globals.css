@@ -1,0 +1,173 @@
+:root {
+  --bg: #0f1115;
+  --panel: #181b22;
+  --line: #2a2f3a;
+  --text: #e8e9ec;
+  --muted: #9aa0ad;
+  --accent: #b8a1ff;
+  --accent-ink: #1a1230;
+  --danger: #ff8a8a;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 20px 16px 80px;
+  padding-top: max(20px, env(safe-area-inset-top));
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin: 0 0 16px;
+}
+
+h2 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.error {
+  color: var(--danger);
+  margin: 8px 0 0;
+}
+
+label.check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--accent);
+}
+
+input[type="password"],
+input[type="file"] {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+}
+
+button,
+.btn {
+  appearance: none;
+  border: 0;
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 16px;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--accent-ink);
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+}
+
+button.ghost,
+.btn.ghost,
+select {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+select {
+  border-radius: 10px;
+  padding: 11px 10px;
+  font-size: 16px;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.row > .grow {
+  flex: 1;
+}
+
+audio {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.status {
+  margin-top: 10px;
+  color: var(--accent);
+}
+
+ol.chapters {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+ol.chapters li button {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--text);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  font-weight: 400;
+  padding: 14px 4px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+ol.chapters li.active button {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.recent button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-top: 8px;
+}
