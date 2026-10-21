@@ -3,6 +3,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BookSummary } from "@/lib/types";
 
+type JobInfo = {
+  status: "running" | "done" | "cancelled" | "error";
+  chapter: number;
+  total: number;
+  updatedAt: number;
+  error?: string;
+};
+// A running job that hasn't saved progress for this long has probably lost its worker.
+const STALE_MS = 8 * 60 * 1000;
+
 type Recent = { id: string; title: string; author?: string; chapterCount: number; narrated?: number[] };
 type Last = { id: string; chapter: number; time: number };
 
@@ -56,6 +66,7 @@ export default function Home() {
   const [rate, setRate] = useState(1);
   const [bulk, setBulk] = useState<{ chapter: number; total: number; pct: number } | null>(null);
   const bulkToken = useRef(0);
+  const [job, setJob] = useState<JobInfo | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [charsPerMin, setCharsPerMin] = useState(900);
 
@@ -204,6 +215,22 @@ export default function Home() {
     if (on && b) prefetch(b, chapterRef.current + 1);
   }
 
+  async function startBackground(b: BookSummary) {
+    setError("");
+    const res = await fetch(`/api/books/${b.id}/narrate`, { method: "POST" });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(data.error ?? "Couldn't start background narration.");
+      return;
+    }
+    setJob((await res.json()) as JobInfo);
+  }
+
+  async function stopBackground(b: BookSummary) {
+    await fetch(`/api/books/${b.id}/narrate`, { method: "DELETE" }).catch(() => {});
+    setJob(null);
+  }
+
   function stopPrepareAll() {
     bulkToken.current++;
     setBulk(null);
@@ -229,6 +256,30 @@ export default function Home() {
       /* offline: keep what we have */
     }
   }, []);
+
+  // Follow the background job for the open book while it runs.
+  const jobBookId = book?.id;
+  useEffect(() => {
+    setJob(null);
+    if (!jobBookId) return;
+    let alive = true;
+    const poll = async () => {
+      try {
+        const res = await fetch(`/api/books/${jobBookId}/narrate`);
+        if (!res.ok || !alive) return;
+        setJob((await res.json()) as JobInfo | null);
+        void refreshLibrary();
+      } catch {
+        /* try again next tick */
+      }
+    };
+    void poll();
+    const timer = setInterval(poll, 6000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [jobBookId, refreshLibrary]);
 
   // Update the "x/y narrated" counts whenever a narration job finishes.
   useEffect(() => {
@@ -459,6 +510,38 @@ export default function Home() {
             />
             Narrate the next chapter while I listen, and play it automatically
           </label>
+        ) : null}
+
+        {book ? (
+          job?.status === "running" ? (
+            <>
+              <p className="status">
+                {Date.now() - job.updatedAt > STALE_MS
+                  ? "Background narration looks stalled."
+                  : `Narrating in the background: chapter ${Math.min(job.chapter + 1, job.total)} of ${job.total}. You can close this page.`}
+              </p>
+              <div className="row">
+                {Date.now() - job.updatedAt > STALE_MS ? (
+                  <button type="button" className="ghost" onClick={() => void startBackground(book)}>
+                    Resume
+                  </button>
+                ) : null}
+                <button type="button" className="ghost" onClick={() => void stopBackground(book)}>
+                  Stop background narration
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              {job?.status === "done" ? <p className="status">Whole book narrated.</p> : null}
+              {job?.status === "error" ? (
+                <p className="error">Background narration stopped: {job.error}</p>
+              ) : null}
+              <button type="button" className="ghost" onClick={() => void startBackground(book)}>
+                {job?.status === "error" ? "Retry in the background" : `Narrate whole book in the background (about $${estimate})`}
+              </button>
+            </>
+          )
         ) : null}
 
         {book ? (

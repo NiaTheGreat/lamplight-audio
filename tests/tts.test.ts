@@ -1,6 +1,11 @@
 import { createServer, type Server } from "node:http";
-import { rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+const cacheDir = mkdtempSync(path.join(tmpdir(), "abg-test-"));
+process.env.CACHE_DIR = cacheDir;
 
 let server: Server;
 let calls = 0;
@@ -19,7 +24,7 @@ beforeAll(async () => {
 });
 afterAll(() => {
   server.close();
-  rmSync(".cache", { recursive: true, force: true });
+  rmSync(cacheDir, { recursive: true, force: true });
 });
 
 describe("synthesizeChapter", () => {

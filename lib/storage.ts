@@ -12,7 +12,8 @@ import { del, list, put } from "@vercel/blob";
  */
 const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 const localRoot = () =>
-  process.env.VERCEL ? "/tmp/audiobook-cache" : path.join(process.cwd(), ".cache");
+  process.env.CACHE_DIR ||
+  (process.env.VERCEL ? "/tmp/audiobook-cache" : path.join(process.cwd(), ".cache"));
 
 export async function putObject(
   key: string,

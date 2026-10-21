@@ -27,6 +27,8 @@ Open http://localhost:3000. Locally, audio is cached in `./.cache`.
 
 Narrating a long first chapter can take a minute or more. If requests time out on your plan, enable Fluid Compute in the Vercel project settings.
 
+**Background narration:** "Narrate whole book in the background" works without keeping the page open. A worker route (`/api/worker/[id]`) narrates for up to ~250 seconds, saves its place in Blob (`jobs/<id>.json`), then calls itself to continue. If a hop is lost, the page shows "stalled" after 8 minutes with a Resume button. It needs the production URL to be reachable from the function itself, so turn off Vercel Deployment Protection for the production domain (preview URLs behind SSO won't chain).
+
 ## Cost
 
 Narration is the only real cost, and it is paid once per chapter (replays come from cache).

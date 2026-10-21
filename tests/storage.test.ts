@@ -1,8 +1,13 @@
-import { rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { deleteObject, listKeys, putObject } from "@/lib/storage";
 
-afterAll(() => rmSync(".cache/library", { recursive: true, force: true }));
+const cacheDir = mkdtempSync(path.join(tmpdir(), "abg-test-"));
+process.env.CACHE_DIR = cacheDir;
+
+afterAll(() => rmSync(cacheDir, { recursive: true, force: true }));
 
 describe("library storage", () => {
   it("lists and deletes keys under a prefix", async () => {
