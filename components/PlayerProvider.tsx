@@ -549,6 +549,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const removeBook = useCallback(
     async (id: string) => {
+      // Unload it first, or the player's background refresh would put it back.
+      if (bookRef.current?.id === id) {
+        audioRef.current?.pause();
+        loadToken.current++;
+        bookRef.current = null;
+        loadedRef.current = "";
+        setBook(null);
+        setPlaying(false);
+        setPreparing(null);
+        setJob(null);
+      }
       await fetch(`/api/books/${id}`, { method: "DELETE" }).catch(() => {});
       await refreshLibrary();
     },
