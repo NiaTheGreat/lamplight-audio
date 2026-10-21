@@ -4,7 +4,7 @@
  * then sentences, then words, so narration never cuts mid-sentence unless it
  * has to.
  */
-export function splitForTts(text: string, max = 3800): string[] {
+export function splitForTts(text: string, max = 1500): string[] {
   const paragraphs = text
     .split(/\n{2,}/)
     .map((p) => p.trim())
