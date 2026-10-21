@@ -9,6 +9,7 @@ type Last = { id: string; chapter: number; time: number };
 const LAST_KEY = "abg:last";
 const CPM_KEY = "abg:cpm";
 const RATE_KEY = "abg:rate";
+const AUTONEXT_KEY = "abg:autonext";
 
 // Rough all-in narration cost: gpt-4o-mini-tts is ~$0.015/min and tts-1 is $15 per
 // million characters. Both land near $15-17 per million characters of text.
@@ -41,6 +42,8 @@ export default function Home() {
   const bookRef = useRef<BookSummary | null>(null);
   const chapterRef = useRef(0);
   const rateRef = useRef(1);
+  const autoNextRef = useRef(true);
+  const [autoNext, setAutoNext] = useState(true);
   const loadToken = useRef(0);
   const lastSaved = useRef(0);
 
@@ -105,7 +108,8 @@ export default function Home() {
 
   const prefetch = useCallback(
     (b: BookSummary, index: number) => {
-      if (index >= b.chapters.length) return;
+      if (index >= b.chapters.length || !autoNextRef.current) return;
+      if (readyRef.current.has(`${b.id}:${index}`)) return;
       prepare(b, index).catch(() => {});
     },
     [prepare],
@@ -191,6 +195,15 @@ export default function Home() {
     }
   }
 
+  function toggleAutoNext(on: boolean) {
+    autoNextRef.current = on;
+    setAutoNext(on);
+    writeStore(AUTONEXT_KEY, on);
+    // Turning it on mid-chapter should start the next one right away.
+    const b = bookRef.current;
+    if (on && b) prefetch(b, chapterRef.current + 1);
+  }
+
   function stopPrepareAll() {
     bulkToken.current++;
     setBulk(null);
@@ -224,6 +237,9 @@ export default function Home() {
     const savedRate = readStore<number>(RATE_KEY, 1);
     setRate(savedRate);
     rateRef.current = savedRate;
+    const savedAuto = readStore<boolean>(AUTONEXT_KEY, true);
+    autoNextRef.current = savedAuto;
+    setAutoNext(savedAuto);
 
     const last = readStore<Last | null>(LAST_KEY, null);
     if (!last) return;
@@ -319,6 +335,8 @@ export default function Home() {
     if (next >= b.chapters.length) return;
     const audio = audioRef.current;
     if (!audio) return;
+    // With auto-narrate off, only roll straight on into a chapter that's ready.
+    if (!autoNextRef.current && !readyRef.current.has(`${b.id}:${next}`)) return;
     // A very long chapter may still be narrating; wait for it rather than
     // playing a 202.
     if (!readyRef.current.has(`${b.id}:${next}`)) {
@@ -425,6 +443,17 @@ export default function Home() {
             {book.chapters.length} chapters · about ${estimate} to narrate everything the first
             time. Replays are free because audio is cached.
           </p>
+        ) : null}
+
+        {book ? (
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={autoNext}
+              onChange={(e) => toggleAutoNext(e.target.checked)}
+            />
+            Narrate the next chapter while I listen, and play it automatically
+          </label>
         ) : null}
 
         {book ? (
