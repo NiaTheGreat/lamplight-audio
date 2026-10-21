@@ -544,6 +544,11 @@ p {
   cursor: pointer;
 }
 
+.dropzone.over {
+  border-color: var(--amber);
+  background: var(--raised);
+}
+
 .dropzone .big {
   font-family: var(--serif);
   font-size: 24px;

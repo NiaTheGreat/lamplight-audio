@@ -13,6 +13,16 @@ export default function AddFic() {
   const [skipNotes, setSkipNotes] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [over, setOver] = useState(false);
+
+  function chooseFile(file: File | undefined) {
+    if (!file) return;
+    if (!/\.epub$/i.test(file.name) && file.type !== "application/epub+zip") {
+      setError("That doesn't look like an EPUB. On AO3, use Download, then EPUB.");
+      return;
+    }
+    void upload(file);
+  }
 
   async function upload(file: File) {
     setError("");
@@ -33,7 +43,12 @@ export default function AddFic() {
   }
 
   return (
-    <main className="screen">
+    <main
+      className="screen"
+      // A drop that misses the box shouldn't make the browser open the file.
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => e.preventDefault()}
+    >
       <div className="eyebrow">New on the shelf</div>
       <h1 className="display">Add a fic</h1>
 
@@ -46,15 +61,37 @@ export default function AddFic() {
           aria-label="Choose an EPUB file"
           tabIndex={-1}
           onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) void upload(file);
+            chooseFile(e.target.files?.[0]);
+            e.target.value = "";
           }}
         />
-        <button className="dropzone" disabled={busy} onClick={() => fileRef.current?.click()}>
+        <button
+          className={`dropzone ${over ? "over" : ""}`}
+          disabled={busy}
+          onClick={() => fileRef.current?.click()}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            setOver(true);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+            setOver(true);
+          }}
+          onDragLeave={(e) => {
+            // Ignore leaves into the button's own children.
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOver(false);
+          }}
+          onDrop={(e) => {
+            e.preventDefault();
+            setOver(false);
+            if (!busy) chooseFile(e.dataTransfer.files?.[0]);
+          }}
+        >
           <Icon name="book" size={44} stroke={1.25} />
-          <span className="big">{busy ? "Reading your EPUB…" : "Choose an EPUB"}</span>
+          <span className="big">{busy ? "Reading your EPUB…" : over ? "Drop it here" : "Choose an EPUB"}</span>
           <span className="muted" style={{ maxWidth: 250, lineHeight: 1.45 }}>
-            On AO3, open the work and use Download, then EPUB. Then pick the file here.
+            On AO3, open the work and use Download, then EPUB. Then pick the file here, or drop it on this box.
           </span>
         </button>
         {error ? <p className="error" role="alert">{error}</p> : null}
