@@ -300,6 +300,8 @@ export default function Home() {
   }
 
   function onEnded() {
+    // The silent unlock clip also ends; that must not count as a finished chapter.
+    if (audioRef.current?.src.startsWith("data:")) return;
     const b = bookRef.current;
     if (!b) return;
     const next = chapterRef.current + 1;
