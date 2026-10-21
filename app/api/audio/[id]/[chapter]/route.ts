@@ -1,6 +1,6 @@
 import { serveBytes } from "@/lib/http";
 import { getObject, putObject } from "@/lib/storage";
-import { audioKey, synthesize } from "@/lib/tts";
+import { audioKey, synthesizeChapter, type ChapterProgress } from "@/lib/tts";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export const maxDuration = 300;
 
 // If the same chapter is requested twice at once (e.g. prefetch + play),
 // only generate it once.
-const inflight = new Map<string, Promise<Buffer>>();
+const inflight = new Map<string, Promise<ChapterProgress>>();
 
 export async function GET(
   req: Request,
@@ -34,16 +34,25 @@ export async function GET(
   if (!audio) {
     let job = inflight.get(key);
     if (!job) {
-      job = synthesize(ch.text)
-        .then(async (buf) => {
-          await putObject(key, buf, "audio/mpeg");
-          return buf;
+      job = synthesizeChapter(ch.text)
+        .then(async (result) => {
+          if (result.done) await putObject(key, result.audio, "audio/mpeg");
+          return result;
         })
         .finally(() => inflight.delete(key));
       inflight.set(key, job);
     }
     try {
-      audio = await job;
+      const result = await job;
+      // Not finished within this request's time budget. Finished chunks are
+      // cached, so the client just asks again and the work resumes.
+      if (!result.done) {
+        return Response.json(
+          { ready: result.ready, total: result.total },
+          { status: 202, headers: { "Cache-Control": "no-store" } },
+        );
+      }
+      audio = result.audio;
     } catch (err) {
       const message = err instanceof Error ? err.message : "Narration failed.";
       return new Response(message, { status: 502 });

@@ -52,11 +52,41 @@ export default function Home() {
   const [recent, setRecent] = useState<Recent[]>([]);
   const [rate, setRate] = useState(1);
 
-  const prefetch = useCallback((b: BookSummary, index: number) => {
-    if (index >= b.chapters.length) return;
-    // Asking for one byte makes the server narrate and cache the next chapter.
-    fetch(`/api/audio/${b.id}/${index}`, { headers: { Range: "bytes=0-0" } }).catch(() => {});
-  }, []);
+  // Ask the server to narrate a chapter. Long chapters come back 202 with
+  // progress; each retry resumes where the last one stopped.
+  const readyRef = useRef(new Set<string>());
+  const prepare = useCallback(
+    async (
+      b: BookSummary,
+      index: number,
+      onProgress?: (ready: number, total: number) => void,
+      cancelled: () => boolean = () => false,
+    ) => {
+      for (;;) {
+        const res = await fetch(`/api/audio/${b.id}/${index}`, {
+          headers: { Range: "bytes=0-0" },
+        });
+        if (cancelled()) return false;
+        if (res.status === 202) {
+          const p = (await res.json()) as { ready: number; total: number };
+          onProgress?.(p.ready, p.total);
+          continue;
+        }
+        if (!res.ok) throw new Error((await res.text()) || `Request failed (${res.status})`);
+        readyRef.current.add(`${b.id}:${index}`);
+        return true;
+      }
+    },
+    [],
+  );
+
+  const prefetch = useCallback(
+    (b: BookSummary, index: number) => {
+      if (index >= b.chapters.length) return;
+      prepare(b, index).catch(() => {});
+    },
+    [prepare],
+  );
 
   const startChapter = useCallback(
     async (b: BookSummary, index: number, startAt = 0) => {
@@ -76,11 +106,17 @@ export default function Home() {
       audio.play().catch(() => {});
 
       try {
-        const res = await fetch(`/api/audio/${b.id}/${index}`, {
-          headers: { Range: "bytes=0-0" },
-        });
-        if (token !== loadToken.current) return;
-        if (!res.ok) throw new Error((await res.text()) || `Request failed (${res.status})`);
+        const ok = await prepare(
+          b,
+          index,
+          (ready, total) => {
+            if (token === loadToken.current) {
+              setStatus(`Preparing chapter ${index + 1}… ${Math.round((ready / total) * 100)}%`);
+            }
+          },
+          () => token !== loadToken.current,
+        );
+        if (!ok || token !== loadToken.current) return;
       } catch (err) {
         if (token !== loadToken.current) return;
         setStatus("");
@@ -97,7 +133,7 @@ export default function Home() {
       writeStore(LAST_KEY, { id: b.id, chapter: index, time: startAt } satisfies Last);
       prefetch(b, index + 1);
     },
-    [prefetch],
+    [prefetch, prepare],
   );
 
   // iOS only allows audio to start from a tap. Playing a silent clip during the
@@ -206,9 +242,15 @@ export default function Home() {
     if (!b) return;
     const next = chapterRef.current + 1;
     if (next >= b.chapters.length) return;
-    // Straight to the (already prefetched) next chapter.
     const audio = audioRef.current;
     if (!audio) return;
+    // A very long chapter may still be narrating; wait for it rather than
+    // playing a 202.
+    if (!readyRef.current.has(`${b.id}:${next}`)) {
+      void startChapter(b, next);
+      return;
+    }
+    // Prefetched: swap straight over so lock-screen playback keeps going.
     chapterRef.current = next;
     setChapter(next);
     audio.src = `/api/audio/${b.id}/${next}`;

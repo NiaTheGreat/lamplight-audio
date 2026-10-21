@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { getObject, putObject } from "./storage";
 import { splitForTts } from "./text";
 
 const model = () => process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
@@ -69,10 +70,39 @@ async function mapLimit<T, R>(
   return results;
 }
 
-/** Turn a chapter's text into one MP3 buffer. */
-export async function synthesize(text: string): Promise<Buffer> {
+export type ChapterProgress =
+  | { done: true; audio: Buffer }
+  | { done: false; ready: number; total: number };
+
+/**
+ * Narrate a chapter chunk by chunk. Every finished chunk is cached on its own,
+ * so a chapter too long for one request just picks up where it stopped on the
+ * next call. No new chunk is started after `deadlineMs`; the caller reports
+ * progress and the client asks again.
+ */
+export async function synthesizeChapter(
+  text: string,
+  deadlineMs = 200_000,
+): Promise<ChapterProgress> {
   const chunks = splitForTts(text);
-  const parts = await mapLimit(chunks, 3, (chunk) => synthChunk(chunk));
+  const keys = chunks.map(audioKey);
+  const stop = Date.now() + deadlineMs;
+  const parts = new Array<Buffer | null>(chunks.length).fill(null);
+
+  await mapLimit(chunks, 3, async (chunk, i) => {
+    const cached = await getObject(keys[i]);
+    if (cached) {
+      parts[i] = cached;
+      return;
+    }
+    if (Date.now() >= stop) return;
+    const audio = await synthChunk(chunk);
+    await putObject(keys[i], audio, "audio/mpeg");
+    parts[i] = audio;
+  });
+
+  const ready = parts.filter(Boolean).length;
+  if (ready < chunks.length) return { done: false, ready, total: chunks.length };
   // MP3 frames can simply be concatenated.
-  return Buffer.concat(parts);
+  return { done: true, audio: Buffer.concat(parts as Buffer[]) };
 }

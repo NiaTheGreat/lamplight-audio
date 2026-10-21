@@ -16,7 +16,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 
 - `lib/epub.ts` EPUB parsing and note stripping. The riskiest code, since it is written against how AO3 structures EPUBs.
 - `lib/text.ts` splits chapters into chunks under OpenAI's 4096-character limit.
-- `lib/tts.ts` calls OpenAI, retries on 429/5xx, and joins the MP3 pieces.
+- `lib/tts.ts` calls OpenAI, retries on 429/5xx, caches each chunk, and joins the MP3 pieces.
 - `lib/http.ts` serves audio with HTTP Range support. iOS Safari needs this to play and seek.
 - `app/api/audio/[id]/[chapter]/route.ts` generates a chapter if it isn't cached, then serves it.
 - `app/page.tsx` the single-page player (upload, chapter list, speed, resume, lock-screen controls).
@@ -33,4 +33,4 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 
 - Note-stripping has been checked against one real EPUB (an AO3 work run through Calibre, which turns note headings into plain `<p>` labels and renames preface/afterword files). A raw, unconverted AO3 download hasn't been tried. If an EPUB leaks notes into the narration, fix `lib/epub.ts` and add that case to `tests/epub.test.ts`.
 - iOS lock-screen playback and auto-advance between chapters haven't been tested on a real phone.
-- Chapter narration can take a minute or more the first time. Very long chapters may hit Vercel's function time limit.
+- Chapter narration can take a minute or more the first time. Long chapters are narrated chunk by chunk (`synthesizeChapter` in `lib/tts.ts`): each chunk is cached on its own, and if the ~200s budget runs out the audio route returns `202 {ready,total}` and the player retries, resuming where it stopped. The 202/retry flow hasn't been tried against real Vercel or a real phone.

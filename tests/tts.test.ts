@@ -1,0 +1,43 @@
+import { createServer, type Server } from "node:http";
+import { rmSync } from "node:fs";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+
+let server: Server;
+let calls = 0;
+
+beforeAll(async () => {
+  server = createServer((req, res) => {
+    calls++;
+    req.resume();
+    req.on("end", () => res.end(Buffer.from("MP3")));
+  });
+  await new Promise<void>((r) => server.listen(0, r));
+  const { port } = server.address() as { port: number };
+  process.env.OPENAI_BASE_URL = `http://127.0.0.1:${port}`;
+  process.env.OPENAI_API_KEY = "test";
+  delete process.env.BLOB_READ_WRITE_TOKEN;
+});
+afterAll(() => {
+  server.close();
+  rmSync(".cache", { recursive: true, force: true });
+});
+
+describe("synthesizeChapter", () => {
+  const text = Array.from({ length: 6 }, (_, i) => `${"word ".repeat(700)}${i}`).join("\n\n");
+
+  it("returns progress when out of time, then resumes from cached chunks", async () => {
+    const { synthesizeChapter } = await import("@/lib/tts");
+    const partial = await synthesizeChapter(text, -1);
+    expect(partial).toMatchObject({ done: false, ready: 0 });
+    expect(calls).toBe(0);
+
+    const full = await synthesizeChapter(text);
+    expect(full.done).toBe(true);
+    const made = calls;
+    expect(made).toBeGreaterThan(1);
+
+    const again = await synthesizeChapter(text, -1);
+    expect(again.done).toBe(true);
+    expect(calls).toBe(made);
+  });
+});
