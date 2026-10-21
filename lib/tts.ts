@@ -44,9 +44,12 @@ async function synthChunk(input: string): Promise<Buffer> {
     });
     if (res.ok) return Buffer.from(await res.arrayBuffer());
 
-    lastError = `OpenAI TTS error ${res.status}: ${(await res.text()).slice(0, 300)}`;
-    // Only retry rate limits and server errors.
+    const detail = (await res.text()).slice(0, 300);
+    lastError = `OpenAI TTS error ${res.status}: ${detail}`;
+    // Only retry rate limits and server errors. An empty balance is a 429 too,
+    // but waiting won't fix it.
     if (res.status !== 429 && res.status < 500) break;
+    if (detail.includes("insufficient_quota")) break;
     await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
   }
   throw new Error(lastError);
