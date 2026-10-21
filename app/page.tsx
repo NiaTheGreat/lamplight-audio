@@ -52,6 +52,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [recent, setRecent] = useState<Recent[]>([]);
   const [rate, setRate] = useState(1);
+  const [bulk, setBulk] = useState<{ chapter: number; total: number; pct: number } | null>(null);
+  const bulkToken = useRef(0);
   const [progress, setProgress] = useState<number | null>(null);
   const [charsPerMin, setCharsPerMin] = useState(900);
 
@@ -162,6 +164,38 @@ export default function Home() {
     },
     [prefetch, prepare],
   );
+
+  // Narrate every chapter in order so the whole book is ready to play instantly.
+  // Runs while this page stays open; chapters already cached are skipped fast.
+  async function prepareAll(b: BookSummary) {
+    const token = ++bulkToken.current;
+    const cancelled = () => token !== bulkToken.current;
+    setError("");
+    try {
+      for (let i = 0; i < b.chapters.length; i++) {
+        if (cancelled()) return;
+        setBulk({ chapter: i + 1, total: b.chapters.length, pct: 0 });
+        const ok = await prepare(
+          b,
+          i,
+          (ready, total) =>
+            !cancelled() &&
+            setBulk({ chapter: i + 1, total: b.chapters.length, pct: Math.round((ready / total) * 100) }),
+          cancelled,
+        );
+        if (!ok) return;
+      }
+    } catch (err) {
+      if (!cancelled()) setError(err instanceof Error ? err.message : "Couldn't prepare the book.");
+    } finally {
+      if (!cancelled()) setBulk(null);
+    }
+  }
+
+  function stopPrepareAll() {
+    bulkToken.current++;
+    setBulk(null);
+  }
 
   // iOS only allows audio to start from a tap. Playing a silent clip during the
   // tap "unlocks" the element so we can start the real audio after the server
@@ -372,6 +406,26 @@ export default function Home() {
             {book.chapters.length} chapters · about ${estimate} to narrate everything the first
             time. Replays are free because audio is cached.
           </p>
+        ) : null}
+
+        {book ? (
+          bulk ? (
+            <>
+              <p className="status">
+                Preparing chapter {bulk.chapter} of {bulk.total}… keep this page open.
+              </p>
+              <div className="progress" role="progressbar" aria-valuenow={Math.round(((bulk.chapter - 1 + bulk.pct / 100) / bulk.total) * 100)} aria-valuemin={0} aria-valuemax={100}>
+                <div style={{ width: `${Math.max(4, ((bulk.chapter - 1 + bulk.pct / 100) / bulk.total) * 100)}%` }} />
+              </div>
+              <button type="button" className="ghost" onClick={stopPrepareAll}>
+                Stop preparing
+              </button>
+            </>
+          ) : (
+            <button type="button" className="ghost" onClick={() => void prepareAll(book)}>
+              Prepare all chapters now (about ${estimate})
+            </button>
+          )
         ) : null}
 
         <audio ref={audioRef} controls preload="none" onEnded={onEnded} onLoadedMetadata={onLoadedMetadata} onTimeUpdate={onTimeUpdate} />
