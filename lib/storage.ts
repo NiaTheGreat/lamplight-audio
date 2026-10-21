@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { del, list, put } from "@vercel/blob";
+import { del, get, list, put } from "@vercel/blob";
 
 /**
  * Tiny key/value store for parsed books and generated audio.
@@ -56,24 +56,42 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   throw lastError;
 }
 
+/** Read through the public CDN address. Kept as a fallback for the authenticated read below. */
+async function readViaPublicUrl(key: string): Promise<Buffer | null> {
+  const { blobs } = await list({ prefix: key, limit: 5 });
+  const hit = blobs.find((b) => b.pathname === key);
+  if (!hit) return null;
+  // The upload time in the URL makes every overwrite a fresh cache entry.
+  const res = await fetch(`${hit.url}?v=${new Date(hit.uploadedAt).getTime()}`, { cache: "no-store" });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`Storage read failed (${res.status}) for ${key}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
 /**
  * Read an object. Returns null only when it genuinely isn't there. A read that
  * keeps failing throws, so callers never mistake a hiccup for "missing" (which
  * would make books vanish from the shelf, or re-narrate audio that exists).
+ *
+ * Blob reads go through the SDK with the store's own token. Records we rewrite
+ * bypass the CDN cache so they are never stale; audio (immutable) may use it.
  */
 export async function getObject(key: string): Promise<Buffer | null> {
   if (useBlob()) {
     return withRetry(async () => {
-      const { blobs } = await list({ prefix: key, limit: 5 });
-      const hit = blobs.find((b) => b.pathname === key);
-      if (!hit) return null;
-      // The upload time in the URL makes every overwrite a fresh cache entry.
-      const res = await fetch(`${hit.url}?v=${new Date(hit.uploadedAt).getTime()}`, {
-        cache: "no-store",
-      });
-      if (res.status === 404) return null;
-      if (!res.ok) throw new Error(`Storage read failed (${res.status}) for ${key}`);
-      return Buffer.from(await res.arrayBuffer());
+      try {
+        const result = await get(key, { access: "public", useCache: isImmutable(key) });
+        if (!result) return null;
+        if (result.statusCode !== 200 || !result.stream) return null;
+        return Buffer.from(await new Response(result.stream).arrayBuffer());
+      } catch (err) {
+        // If the authenticated read fails for any reason, try the public address once.
+        try {
+          return await readViaPublicUrl(key);
+        } catch {
+          throw err;
+        }
+      }
     });
   }
   try {

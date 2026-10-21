@@ -15,7 +15,8 @@ export async function GET(
   const raw = await getObject(`books/${id}.json`);
   if (!raw) return NextResponse.json({ error: "Book not found." }, { status: 404 });
   const summary = summarize(JSON.parse(raw.toString("utf8")) as Book);
-  const entryRaw = await getObject(`library/${id}.json`);
+  // A shelf entry that can't be read is treated like a missing one and rebuilt below.
+  const entryRaw = await getObject(`library/${id}.json`).catch(() => null);
   let hasEntry = false;
   if (entryRaw) {
     try {
@@ -36,7 +37,7 @@ export async function GET(
       addedAt: Date.now(),
       narrated: [],
     };
-    await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json");
+    await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json").catch(() => {});
   }
   return NextResponse.json(summary, { headers: { "Cache-Control": "no-store" } });
 }
