@@ -40,4 +40,6 @@ export type LibraryEntry = {
   author?: string;
   chapterCount: number;
   addedAt: number;
+  /** Chapter indexes whose narration is finished and cached. */
+  narrated?: number[];
 };

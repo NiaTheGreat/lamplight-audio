@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BookSummary } from "@/lib/types";
 
-type Recent = { id: string; title: string; author?: string; chapterCount: number };
+type Recent = { id: string; title: string; author?: string; chapterCount: number; narrated?: number[] };
 type Last = { id: string; chapter: number; time: number };
 
 const LAST_KEY = "abg:last";
@@ -230,6 +230,11 @@ export default function Home() {
     }
   }, []);
 
+  // Update the "x/y narrated" counts whenever a narration job finishes.
+  useEffect(() => {
+    if (progress === null && bulk === null) void refreshLibrary();
+  }, [progress, bulk, refreshLibrary]);
+
   // Restore saved state on first load.
   useEffect(() => {
     void refreshLibrary();
@@ -425,7 +430,7 @@ export default function Home() {
             <div className="row" key={r.id}>
               <button className="ghost grow" onClick={() => void openRecent(r)}>
                 {r.title}
-                {r.author ? ` · ${r.author}` : ""} · {r.chapterCount} ch
+                {r.author ? ` · ${r.author}` : ""} · {r.narrated?.length ?? 0}/{r.chapterCount} narrated
               </button>
               <button className="ghost" aria-label={`Remove ${r.title}`} onClick={() => void removeBook(r)}>
                 ✕

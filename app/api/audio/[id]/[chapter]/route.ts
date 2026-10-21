@@ -1,4 +1,5 @@
 import { serveBytes } from "@/lib/http";
+import { markNarrated } from "@/lib/library";
 import { getObject, hasObject, putObject } from "@/lib/storage";
 import { audioKey, chapterProgress, synthesizeChapter, type ChapterProgress } from "@/lib/tts";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
@@ -45,7 +46,10 @@ export async function GET(
     if (!job) {
       job = synthesizeChapter(ch.text)
         .then(async (result) => {
-          if (result.done) await putObject(key, result.audio, "audio/mpeg");
+          if (result.done) {
+            await putObject(key, result.audio, "audio/mpeg");
+            await markNarrated(id, ch.index);
+          }
           return result;
         })
         .finally(() => inflight.delete(key));
@@ -67,6 +71,9 @@ export async function GET(
       return new Response(message, { status: 502 });
     }
   }
+
+  // Books narrated before the library tracked this get caught up when played.
+  if (req.headers.get("range") === "bytes=0-0") await markNarrated(id, ch.index);
 
   const wantsDownload = new URL(req.url).searchParams.get("download") === "1";
   return serveBytes(
