@@ -26,6 +26,9 @@ export async function putObject(
       contentType,
       addRandomSuffix: false,
       allowOverwrite: true,
+      // Blob's default is a month at the CDN; records we rewrite (library,
+      // settings, progress, jobs) must not be served stale.
+      cacheControlMaxAge: 60,
     });
     return;
   }
@@ -42,7 +45,10 @@ export async function getObject(key: string): Promise<Buffer | null> {
     const { blobs } = await list({ prefix: key, limit: 5 });
     const hit = blobs.find((b) => b.pathname === key);
     if (!hit) return null;
-    const res = await fetch(hit.url);
+    // The upload time in the URL makes every overwrite a fresh cache entry.
+    const res = await fetch(`${hit.url}?v=${new Date(hit.uploadedAt).getTime()}`, {
+      cache: "no-store",
+    });
     if (!res.ok) return null;
     return Buffer.from(await res.arrayBuffer());
   }

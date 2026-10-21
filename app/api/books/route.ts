@@ -9,7 +9,13 @@ export const maxDuration = 60;
 
 /** The saved library, newest first. */
 export async function GET() {
-  const keys = await listKeys("library/");
+  let keys: string[];
+  try {
+    keys = await listKeys("library/");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Couldn't read the library.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
   const entries = await Promise.all(
     keys.map(async (key) => {
       try {

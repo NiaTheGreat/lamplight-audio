@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteObject, getObject } from "@/lib/storage";
+import { deleteObject, getObject, putObject } from "@/lib/storage";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -16,12 +16,27 @@ export async function GET(
   if (!raw) return NextResponse.json({ error: "Book not found." }, { status: 404 });
   const summary = summarize(JSON.parse(raw.toString("utf8")) as Book);
   const entryRaw = await getObject(`library/${id}.json`);
+  let hasEntry = false;
   if (entryRaw) {
     try {
       summary.narrated = (JSON.parse(entryRaw.toString("utf8")) as LibraryEntry).narrated ?? [];
+      hasEntry = true;
     } catch {
-      /* ignore a bad entry */
+      /* a bad entry is rebuilt below */
     }
+  }
+  // A stored book that never made it onto the shelf (or whose entry was lost) gets one.
+  if (!hasEntry) {
+    const entry: LibraryEntry = {
+      id,
+      title: summary.title,
+      author: summary.author,
+      chapterCount: summary.chapters.length,
+      voice: summary.voice,
+      addedAt: Date.now(),
+      narrated: [],
+    };
+    await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json");
   }
   return NextResponse.json(summary, { headers: { "Cache-Control": "no-store" } });
 }
