@@ -23,6 +23,12 @@ export function audioKey(text: string): string {
   return `audio/${hash}.mp3`;
 }
 
+// Narrated speech is never smaller than this per character (a 1500-char chunk is
+// 80+ seconds of audio). Anything smaller is an empty or cut-off file.
+const MIN_BYTES_PER_CHAR = 50;
+const looksComplete = (audio: Buffer, text: string) =>
+  audio.length >= text.length * MIN_BYTES_PER_CHAR;
+
 async function synthChunk(input: string): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set.");
@@ -46,7 +52,12 @@ async function synthChunk(input: string): Promise<Buffer> {
       },
       body: JSON.stringify(body),
     });
-    if (res.ok) return Buffer.from(await res.arrayBuffer());
+    if (res.ok) {
+      const audio = Buffer.from(await res.arrayBuffer());
+      if (looksComplete(audio, input)) return audio;
+      lastError = `OpenAI returned too little audio (${audio.length} bytes) for ${input.length} characters.`;
+      continue;
+    }
 
     const detail = (await res.text()).slice(0, 300);
     lastError = `OpenAI TTS error ${res.status}: ${detail}`;
@@ -98,7 +109,7 @@ export async function synthesizeChapter(
 
   await mapLimit(chunks, 3, async (chunk, i) => {
     const cached = await getObject(keys[i]);
-    if (cached) {
+    if (cached && looksComplete(cached, chunk)) {
       parts[i] = cached;
       return;
     }

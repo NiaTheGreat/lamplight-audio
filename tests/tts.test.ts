@@ -9,7 +9,7 @@ beforeAll(async () => {
   server = createServer((req, res) => {
     calls++;
     req.resume();
-    req.on("end", () => res.end(Buffer.from("MP3")));
+    req.on("end", () => res.end(Buffer.alloc(200_000, 1)));
   });
   await new Promise<void>((r) => server.listen(0, r));
   const { port } = server.address() as { port: number };
@@ -39,6 +39,19 @@ describe("synthesizeChapter", () => {
     const again = await synthesizeChapter(text, -1);
     expect(again.done).toBe(true);
     expect(calls).toBe(made);
+  });
+
+  it("regenerates a cached chunk that is empty or cut off", async () => {
+    const { synthesizeChapter, audioKey } = await import("@/lib/tts");
+    const { putObject } = await import("@/lib/storage");
+    const { splitForTts } = await import("@/lib/text");
+    const t = `${"damaged ".repeat(150)}.`;
+    const [chunk] = splitForTts(t);
+    await putObject(audioKey(chunk), Buffer.from("MP3"), "audio/mpeg");
+    const before = calls;
+    const result = await synthesizeChapter(t);
+    expect(result.done).toBe(true);
+    expect(calls).toBe(before + 1);
   });
 
   it("reports how many chunks are cached", async () => {

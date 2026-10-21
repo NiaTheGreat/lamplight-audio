@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { del, list, put } from "@vercel/blob";
@@ -29,7 +30,10 @@ export async function putObject(
   }
   const file = path.join(localRoot(), key);
   await fs.mkdir(path.dirname(file), { recursive: true });
-  await fs.writeFile(file, data);
+  // Write then rename, so stopping the server mid-write can't leave a partial file.
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  await fs.writeFile(tmp, data);
+  await fs.rename(tmp, file);
 }
 
 export async function getObject(key: string): Promise<Buffer | null> {
