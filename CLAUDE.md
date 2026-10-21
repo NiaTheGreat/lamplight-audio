@@ -31,6 +31,6 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 
 ## Known gaps
 
-- Note-stripping has been checked against one real EPUB (an AO3 work run through Calibre, which turns note headings into plain `<p>` labels and renames preface/afterword files). A raw, unconverted AO3 download hasn't been tried. If an EPUB leaks notes into the narration, fix `lib/epub.ts` and add that case to `tests/epub.test.ts`.
+- Note-stripping has been checked against one real AO3 download ("Download > EPUB"). AO3 builds its EPUBs with Calibre, so they turn note headings into plain `<p>` labels and name the files `*_split_000.xhtml` instead of preface/afterword. Other AO3 works may differ (series, anonymous works, many chapters). If an EPUB leaks notes into the narration, fix `lib/epub.ts` and add that case to `tests/epub.test.ts`.
 - iOS lock-screen playback and auto-advance between chapters haven't been tested on a real phone.
 - Chapter narration can take a minute or more the first time. Long chapters are narrated chunk by chunk (`synthesizeChapter` in `lib/tts.ts`): each chunk is cached on its own, and if the ~200s budget runs out the audio route returns `202 {ready,total}` and the player retries, resuming where it stopped. The 202/retry flow hasn't been tried against real Vercel or a real phone.
