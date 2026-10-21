@@ -31,6 +31,6 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 
 ## Known gaps
 
-- The note-stripping logic has only been tested on a made-up EPUB, not a real AO3 download. If a real EPUB leaks notes into the narration, fix `lib/epub.ts` and add that case to `tests/epub.test.ts`.
+- Note-stripping has been checked against one real EPUB (an AO3 work run through Calibre, which turns note headings into plain `<p>` labels and renames preface/afterword files). A raw, unconverted AO3 download hasn't been tried. If an EPUB leaks notes into the narration, fix `lib/epub.ts` and add that case to `tests/epub.test.ts`.
 - iOS lock-screen playback and auto-advance between chapters haven't been tested on a real phone.
 - Chapter narration can take a minute or more the first time. Very long chapters may hit Vercel's function time limit.

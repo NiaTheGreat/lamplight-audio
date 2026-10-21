@@ -85,6 +85,29 @@ describe("parseEpub", () => {
     expect(book.chapters[1].text).not.toMatch(/Chapter Text/i);
   });
 
+  it("strips notes labelled with plain <p> (Calibre-converted AO3 EPUBs)", async () => {
+    const zip = new JSZip();
+    zip.file("META-INF/container.xml", `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`);
+    zip.file("content.opf", `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>`);
+    zip.file("c.xhtml", xhtml(`<div id="chapters"><div><h2 class="heading">Chapter 5: Hard Talks</h2><p>Chapter Notes</p><blockquote class="userstuff"><p>CALIBRENOTE skip me.</p></blockquote></div><div class="userstuff2"><p>Notes</p><p>Regina only took her eyes off her son when he disappeared.</p></div></div>`));
+    const book = await parseEpub(await zip.generateAsync({ type: "nodebuffer" }));
+    expect(book.chapters[0].text).not.toContain("CALIBRENOTE");
+    expect(book.chapters[0].text).not.toContain("Chapter Notes");
+    expect(book.chapters[0].text).toContain("Notes\n\nRegina");
+  });
+
+  it("drops #preface/#afterword pages even when the file names are generic", async () => {
+    const zip = new JSZip();
+    zip.file("META-INF/container.xml", `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`);
+    zip.file("content.opf", `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="a" href="s_000.xhtml" media-type="application/xhtml+xml"/><item id="b" href="s_001.xhtml" media-type="application/xhtml+xml"/><item id="c" href="s_002.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="a"/><itemref idref="b"/><itemref idref="c"/></spine></package>`);
+    zip.file("s_000.xhtml", xhtml(`<div id="preface"><h2>Preface</h2><p>PREFACETAGS Rating: Explicit and more words here.</p></div>`));
+    zip.file("s_001.xhtml", xhtml(`<div id="chapters"><h2>Chapter 1</h2><p>The only story text lives here, honestly.</p></div>`));
+    zip.file("s_002.xhtml", xhtml(`<div id="afterword"><h2>Afterword</h2><p>Please drop by the Archive and comment.</p></div>`));
+    const book = await parseEpub(await zip.generateAsync({ type: "nodebuffer" }));
+    expect(book.chapters).toHaveLength(1);
+    expect(book.chapters[0].title).toBe("Chapter 1");
+  });
+
   it("keeps notes when skipNotes is off", async () => {
     const book = await parseEpub(await buildEpub(), { skipNotes: false });
     const all = book.chapters.map((c) => c.text).join("\n");

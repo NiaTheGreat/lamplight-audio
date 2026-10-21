@@ -43,6 +43,15 @@ export function extractChapter(
   });
   if (!title) title = $("title").first().text().replace(/\s+/g, " ").trim();
 
+  // Calibre-split AO3 EPUBs lose the preface.xhtml/afterword.xhtml file names,
+  // but the wrapper ids survive.
+  // The last chapter file can carry an empty #afterword after #chapters, so
+  // only treat the page as notes when there is no story container.
+  if (skipNotes && $("#preface, #afterword").length && !$("#chapters").length) {
+    return { title, text: "" };
+  }
+  if (skipNotes) $("#preface, #afterword").remove();
+
   $("script, style, head, nav, .landmark").remove();
   $("h1, h2, h3, h4, h5, h6").each((_, el) => {
     if (LANDMARK_HEADING.test($(el).text())) $(el).remove();
@@ -52,9 +61,12 @@ export function extractChapter(
     // AO3 structure: .meta groups hold chapter summary/notes/end notes.
     $(".meta, #notes, #summary, #endnotes, .notes, .summary").remove();
     // Generic: a "Notes"/"Summary" heading plus the blockquote(s) right after it.
-    $("h1, h2, h3, h4, h5, h6").each((_, el) => {
+    // Calibre-converted AO3 EPUBs turn these headings into plain <p> labels, so
+    // a <p> only counts when a blockquote follows it.
+    $("h1, h2, h3, h4, h5, h6, p").each((_, el) => {
       const heading = $(el);
       if (!NOTE_HEADING.test(heading.text())) return;
+      if (heading.is("p") && !heading.next().is("blockquote")) return;
       let next = heading.next();
       while (next.length && next.is("blockquote")) {
         const current = next;
