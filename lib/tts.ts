@@ -3,7 +3,7 @@ import { getObject, hasObject, putObject } from "./storage";
 import { splitForTts } from "./text";
 
 const model = () => process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
-const voice = () => process.env.OPENAI_TTS_VOICE || "coral";
+const voice = () => process.env.OPENAI_TTS_VOICE || "ballad";
 const supportsInstructions = () => model().startsWith("gpt-4o");
 const instructions = () =>
   process.env.TTS_INSTRUCTIONS ||
