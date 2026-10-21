@@ -9,11 +9,15 @@ const instructions = () =>
   process.env.TTS_INSTRUCTIONS ||
   "Read this aloud as a warm, natural audiobook narrator. Keep a steady pace and give dialogue a little life.";
 
+// gpt-4o-mini-tts sometimes clips the last words of a request. A trailing pad
+// gives it something harmless to end on. Override with TTS_END_PAD (empty = off).
+const endPad = () => process.env.TTS_END_PAD ?? "\n\n…";
+
 /** Cache key: same text + same voice settings => same audio, generated once. */
 export function audioKey(text: string): string {
   const hash = createHash("sha256")
     .update(
-      [model(), voice(), supportsInstructions() ? instructions() : "", text].join("\u0000"),
+      [model(), voice(), supportsInstructions() ? instructions() : "", endPad(), text].join("\u0000"),
     )
     .digest("hex");
   return `audio/${hash}.mp3`;
@@ -26,7 +30,7 @@ async function synthChunk(input: string): Promise<Buffer> {
   const body: Record<string, unknown> = {
     model: model(),
     voice: voice(),
-    input,
+    input: input + endPad(),
     response_format: "mp3",
   };
   if (supportsInstructions()) body.instructions = instructions();
