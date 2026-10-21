@@ -1,7 +1,13 @@
 import { serveBytes } from "@/lib/http";
 import { markNarrated } from "@/lib/library";
-import { getObject, hasObject, putObject } from "@/lib/storage";
-import { audioKey, chapterProgress, defaultVoice, synthesizeChapter, type ChapterProgress } from "@/lib/tts";
+import { getObject, getPublicUrl, hasObject, putObject } from "@/lib/storage";
+import {
+  audioKey,
+  chapterProgress,
+  defaultVoice,
+  synthesizeChapter,
+  type ChapterProgress,
+} from "@/lib/tts";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -13,6 +19,14 @@ export const maxDuration = 300;
 // only generate it once.
 const inflight = new Map<string, Promise<ChapterProgress>>();
 
+/**
+ * Query modes:
+ *  ?progress=1  how many chunks are cached so far
+ *  ?prepare=1   make sure the chapter exists (narrating it if needed); no audio bytes
+ *  ?download=1  the MP3 as a named download, served by this function
+ *  (none)       the audio itself: redirected to its public CDN address when there
+ *               is one, so the browser streams it without routing bytes through us
+ */
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string; chapter: string }> },
@@ -21,6 +35,7 @@ export async function GET(
   if (!BOOK_ID_RE.test(id) || !/^\d{1,4}$/.test(chapter)) {
     return new Response("Bad request", { status: 400 });
   }
+  const query = new URL(req.url).searchParams;
 
   const raw = await getObject(`books/${id}.json`);
   if (!raw) return new Response("Book not found. Upload the EPUB again.", { status: 404 });
@@ -32,7 +47,7 @@ export async function GET(
   const voice = book.voice ?? defaultVoice();
   const key = audioKey(ch.text, voice);
 
-  if (new URL(req.url).searchParams.get("progress") === "1") {
+  if (query.get("progress") === "1") {
     const done = await hasObject(key);
     const p = await chapterProgress(ch.text, voice);
     return Response.json(done ? { ready: p.total, total: p.total } : p, {
@@ -40,9 +55,7 @@ export async function GET(
     });
   }
 
-  let audio = await getObject(key);
-
-  if (!audio) {
+  const generate = () => {
     let job = inflight.get(key);
     if (!job) {
       job = synthesizeChapter(ch.text, undefined, voice)
@@ -56,27 +69,55 @@ export async function GET(
         .finally(() => inflight.delete(key));
       inflight.set(key, job);
     }
+    return job;
+  };
+
+  // Not finished within this request's time budget. Finished chunks are
+  // cached, so the client just asks again and the work resumes.
+  const notYet = (r: { ready: number; total: number }) =>
+    Response.json(
+      { ready: r.ready, total: r.total },
+      { status: 202, headers: { "Cache-Control": "no-store" } },
+    );
+
+  if (query.get("prepare") === "1") {
+    if (await hasObject(key)) {
+      // Books narrated before the library tracked this get caught up here.
+      await markNarrated(id, ch.index);
+      return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+    }
     try {
-      const result = await job;
-      // Not finished within this request's time budget. Finished chunks are
-      // cached, so the client just asks again and the work resumes.
-      if (!result.done) {
-        return Response.json(
-          { ready: result.ready, total: result.total },
-          { status: 202, headers: { "Cache-Control": "no-store" } },
-        );
-      }
-      audio = result.audio;
+      const result = await generate();
+      if (!result.done) return notYet(result);
+      return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Narration failed.";
-      return new Response(message, { status: 502 });
+      return new Response(err instanceof Error ? err.message : "Narration failed.", { status: 502 });
     }
   }
 
-  // Books narrated before the library tracked this get caught up when played.
-  if (req.headers.get("range") === "bytes=0-0") await markNarrated(id, ch.index);
+  const wantsDownload = query.get("download") === "1";
 
-  const wantsDownload = new URL(req.url).searchParams.get("download") === "1";
+  if (!wantsDownload) {
+    const url = await getPublicUrl(key);
+    if (url) {
+      return new Response(null, {
+        status: 307,
+        headers: { Location: url, "Cache-Control": "private, max-age=3600" },
+      });
+    }
+  }
+
+  let audio = await getObject(key);
+  if (!audio) {
+    try {
+      const result = await generate();
+      if (!result.done) return notYet(result);
+      audio = result.audio;
+    } catch (err) {
+      return new Response(err instanceof Error ? err.message : "Narration failed.", { status: 502 });
+    }
+  }
+
   return serveBytes(
     req,
     audio,

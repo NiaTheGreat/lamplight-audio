@@ -13,7 +13,13 @@ export default async function LoginPage({
         <button type="submit" className="btn primary block">
           Unlock
         </button>
-        {error ? <p className="error" role="alert">That password didn&apos;t match.</p> : null}
+        {error ? (
+          <p className="error" role="alert">
+            {error === "locked"
+              ? "Too many wrong tries. Wait 15 minutes and try again."
+              : "That password didn't match."}
+          </p>
+        ) : null}
       </form>
     </main>
   );

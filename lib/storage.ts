@@ -10,6 +10,7 @@ import { del, list, put } from "@vercel/blob";
  *    for local development.
  * Keys are always hex-hash based, never user-supplied paths.
  */
+const isImmutable = (key: string) => key.startsWith("audio/") || key.startsWith("previews/");
 const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 const localRoot = () =>
   process.env.CACHE_DIR ||
@@ -26,9 +27,10 @@ export async function putObject(
       contentType,
       addRandomSuffix: false,
       allowOverwrite: true,
-      // Blob's default is a month at the CDN; records we rewrite (library,
-      // settings, progress, jobs) must not be served stale.
-      cacheControlMaxAge: 60,
+      // Records we rewrite (library, settings, progress, jobs) must not be served
+      // stale, so they get a short cache. Audio is named by a hash of its content
+      // and never changes, so it can be cached for a year.
+      cacheControlMaxAge: isImmutable(key) ? 31_536_000 : 60,
     });
     return;
   }
@@ -96,6 +98,19 @@ export async function hasObject(key: string): Promise<boolean> {
 }
 
 /** Keys under a prefix (e.g. "library/"), for listing saved books. */
+/**
+ * The direct CDN address of an object, or null when objects aren't served
+ * from a public URL (local development). Lets the browser stream audio from
+ * Blob instead of routing every byte through a function.
+ */
+export async function getPublicUrl(key: string): Promise<string | null> {
+  if (!useBlob()) return null;
+  return withRetry(async () => {
+    const { blobs } = await list({ prefix: key, limit: 5 });
+    return blobs.find((b) => b.pathname === key)?.url ?? null;
+  });
+}
+
 export async function listKeys(prefix: string): Promise<string[]> {
   if (useBlob()) {
     const keys: string[] = [];

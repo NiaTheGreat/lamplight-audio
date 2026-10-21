@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { getObject, hasObject, putObject } from "./storage";
+import { assertBudget, recordUsage } from "./usage";
 import { splitForTts } from "./text";
 
 const model = () => process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
@@ -34,6 +35,7 @@ const looksComplete = (audio: Buffer, text: string) =>
 export async function synthChunk(input: string, voice: string = defaultVoice()): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set.");
+  await assertBudget(input.length);
 
   const body: Record<string, unknown> = {
     model: model(),
@@ -56,7 +58,10 @@ export async function synthChunk(input: string, voice: string = defaultVoice()):
     });
     if (res.ok) {
       const audio = Buffer.from(await res.arrayBuffer());
-      if (looksComplete(audio, input)) return audio;
+      if (looksComplete(audio, input)) {
+        await recordUsage(input.length);
+        return audio;
+      }
       lastError = `OpenAI returned too little audio (${audio.length} bytes) for ${input.length} characters.`;
       continue;
     }

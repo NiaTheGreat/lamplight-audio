@@ -187,9 +187,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         : undefined;
       try {
         for (;;) {
-          const res = await fetch(`/api/audio/${b.id}/${index}`, {
-            headers: { Range: "bytes=0-0" },
-          });
+          const res = await fetch(`/api/audio/${b.id}/${index}?prepare=1`);
           if (cancelled()) return false;
           if (res.status === 202) {
             const p = (await res.json()) as { ready: number; total: number };
