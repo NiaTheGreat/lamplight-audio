@@ -1,0 +1,94 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useRef, useState } from "react";
+import { Icon } from "@/components/Icon";
+import { usePlayer } from "@/components/PlayerProvider";
+import type { BookSummary } from "@/lib/types";
+
+export default function AddFic() {
+  const router = useRouter();
+  const p = usePlayer();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [skipNotes, setSkipNotes] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function upload(file: File) {
+    setError("");
+    setBusy(true);
+    const form = new FormData();
+    form.append("file", file);
+    form.append("skipNotes", String(skipNotes));
+    try {
+      const res = await fetch("/api/books", { method: "POST", body: form });
+      const data = (await res.json()) as BookSummary & { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Couldn't read that EPUB.");
+      await p.refreshLibrary();
+      router.push(`/book/${data.id}/narrating`);
+    } catch (err) {
+      setBusy(false);
+      setError(err instanceof Error ? err.message : "Upload failed.");
+    }
+  }
+
+  return (
+    <main className="screen">
+      <div className="eyebrow">New on the shelf</div>
+      <h1 className="display">Add a fic</h1>
+
+      <div className="section">
+        <input
+          ref={fileRef}
+          className="hidden-input"
+          type="file"
+          accept=".epub,application/epub+zip"
+          aria-label="Choose an EPUB file"
+          tabIndex={-1}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void upload(file);
+          }}
+        />
+        <button className="dropzone" disabled={busy} onClick={() => fileRef.current?.click()}>
+          <Icon name="book" size={44} stroke={1.25} />
+          <span className="big">{busy ? "Reading your EPUB…" : "Choose an EPUB"}</span>
+          <span className="muted" style={{ maxWidth: 250, lineHeight: 1.45 }}>
+            On AO3, open the work and use Download, then EPUB. Then pick the file here.
+          </span>
+        </button>
+        {error ? <p className="error" role="alert">{error}</p> : null}
+      </div>
+
+      <div style={{ marginTop: 14 }} className="soft-row" aria-disabled="true">
+        <Icon name="link" size={22} />
+        <span style={{ flexGrow: 1, fontSize: 15 }}>Paste an AO3 link</span>
+        <span className="tag">Soon</span>
+      </div>
+
+      <div className="section">
+        <div className="eyebrow">While reading it aloud</div>
+        <div className="option">
+          <div className="grow">
+            <div className="label">Skip author&apos;s notes and summaries</div>
+            <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
+              Only the story is read. The first words of each chapter are its title.
+            </div>
+          </div>
+          <button
+            role="switch"
+            aria-checked={skipNotes}
+            aria-label="Skip author's notes and summaries"
+            className="switch"
+            onClick={() => setSkipNotes((v) => !v)}
+          />
+        </div>
+      </div>
+
+      <div style={{ marginTop: 22, display: "flex", gap: 12, color: "var(--cream-2)", fontSize: 13, lineHeight: 1.5 }}>
+        <Icon name="moon" size={18} />
+        <span>Narration is made once and kept, so listening again never costs anything.</span>
+      </div>
+    </main>
+  );
+}
