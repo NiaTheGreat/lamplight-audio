@@ -8,6 +8,7 @@ type Last = { id: string; chapter: number; time: number };
 
 const RECENT_KEY = "abg:recent";
 const LAST_KEY = "abg:last";
+const CPM_KEY = "abg:cpm";
 const RATE_KEY = "abg:rate";
 
 // Rough all-in narration cost: gpt-4o-mini-tts is ~$0.015/min and tts-1 is $15 per
@@ -51,6 +52,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [recent, setRecent] = useState<Recent[]>([]);
   const [rate, setRate] = useState(1);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [charsPerMin, setCharsPerMin] = useState(900);
 
   // Ask the server to narrate a chapter. Long chapters come back 202 with
   // progress; each retry resumes where the last one stopped.
@@ -62,19 +65,38 @@ export default function Home() {
       onProgress?: (ready: number, total: number) => void,
       cancelled: () => boolean = () => false,
     ) => {
-      for (;;) {
-        const res = await fetch(`/api/audio/${b.id}/${index}`, {
-          headers: { Range: "bytes=0-0" },
-        });
-        if (cancelled()) return false;
-        if (res.status === 202) {
-          const p = (await res.json()) as { ready: number; total: number };
-          onProgress?.(p.ready, p.total);
-          continue;
+      // The generate request is silent until it finishes, so ask separately
+      // how many chunks are cached so far.
+      const timer = onProgress
+        ? setInterval(async () => {
+            try {
+              const r = await fetch(`/api/audio/${b.id}/${index}?progress=1`);
+              if (r.ok && !cancelled()) {
+                const p = (await r.json()) as { ready: number; total: number };
+                onProgress(p.ready, p.total);
+              }
+            } catch {
+              /* progress is best-effort */
+            }
+          }, 2000)
+        : undefined;
+      try {
+        for (;;) {
+          const res = await fetch(`/api/audio/${b.id}/${index}`, {
+            headers: { Range: "bytes=0-0" },
+          });
+          if (cancelled()) return false;
+          if (res.status === 202) {
+            const p = (await res.json()) as { ready: number; total: number };
+            onProgress?.(p.ready, p.total);
+            continue;
+          }
+          if (!res.ok) throw new Error((await res.text()) || `Request failed (${res.status})`);
+          readyRef.current.add(`${b.id}:${index}`);
+          return true;
         }
-        if (!res.ok) throw new Error((await res.text()) || `Request failed (${res.status})`);
-        readyRef.current.add(`${b.id}:${index}`);
-        return true;
+      } finally {
+        clearInterval(timer);
       }
     },
     [],
@@ -99,6 +121,7 @@ export default function Home() {
       setBook(b);
       setChapter(index);
       setError("");
+      setProgress(0);
       setStatus(`Preparing chapter ${index + 1}… the first time can take a minute.`);
 
       // Unlock audio playback while we still have the user's tap.
@@ -111,7 +134,9 @@ export default function Home() {
           index,
           (ready, total) => {
             if (token === loadToken.current) {
-              setStatus(`Preparing chapter ${index + 1}… ${Math.round((ready / total) * 100)}%`);
+              const pct = Math.round((ready / total) * 100);
+              setProgress(pct);
+              setStatus(`Preparing chapter ${index + 1}… ${pct}%`);
             }
           },
           () => token !== loadToken.current,
@@ -120,6 +145,7 @@ export default function Home() {
       } catch (err) {
         if (token !== loadToken.current) return;
         setStatus("");
+        setProgress(null);
         setError(err instanceof Error ? err.message : "Couldn't prepare that chapter.");
         return;
       }
@@ -130,6 +156,7 @@ export default function Home() {
       if (startAt > 0) audio.currentTime = startAt;
       audio.play().catch(() => {});
       setStatus("");
+      setProgress(null);
       writeStore(LAST_KEY, { id: b.id, chapter: index, time: startAt } satisfies Last);
       prefetch(b, index + 1);
     },
@@ -157,6 +184,7 @@ export default function Home() {
   // Restore saved state on first load.
   useEffect(() => {
     setRecent(readStore<Recent[]>(RECENT_KEY, []));
+    setCharsPerMin(readStore<number>(CPM_KEY, 900));
     const savedRate = readStore<number>(RATE_KEY, 1);
     setRate(savedRate);
     rateRef.current = savedRate;
@@ -261,6 +289,18 @@ export default function Home() {
     prefetch(b, next + 1);
   }
 
+  // Learn how fast the narrator really talks, so the minutes in the chapter
+  // list match the audio.
+  function onLoadedMetadata() {
+    const audio = audioRef.current;
+    const b = bookRef.current;
+    const ch = b?.chapters[chapterRef.current];
+    if (!audio || !ch || !Number.isFinite(audio.duration) || audio.duration < 30) return;
+    const measured = Math.round(ch.chars / (audio.duration / 60));
+    setCharsPerMin(measured);
+    writeStore(CPM_KEY, measured);
+  }
+
   function onTimeUpdate() {
     const audio = audioRef.current;
     const b = bookRef.current;
@@ -305,6 +345,11 @@ export default function Home() {
         </label>
         <button type="submit">Convert &amp; play</button>
         {status ? <p className="status">{status}</p> : null}
+        {progress !== null ? (
+          <div className="progress" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+            <div style={{ width: `${Math.max(progress, 4)}%` }} />
+          </div>
+        ) : null}
         {error ? <p className="error">{error}</p> : null}
       </form>
 
@@ -329,7 +374,7 @@ export default function Home() {
           </p>
         ) : null}
 
-        <audio ref={audioRef} controls preload="none" onEnded={onEnded} onTimeUpdate={onTimeUpdate} />
+        <audio ref={audioRef} controls preload="none" onEnded={onEnded} onLoadedMetadata={onLoadedMetadata} onTimeUpdate={onTimeUpdate} />
 
         <div className="row">
           <button
@@ -373,7 +418,7 @@ export default function Home() {
               <li key={c.index} className={c.index === chapter ? "active" : undefined}>
                 <button onClick={() => void startChapter(book, c.index)}>
                   <span>{c.title}</span>
-                  <span className="muted">{Math.max(1, Math.round(c.chars / 900))} min</span>
+                  <span className="muted">{Math.max(1, Math.round(c.chars / charsPerMin))} min</span>
                 </button>
               </li>
             ))}

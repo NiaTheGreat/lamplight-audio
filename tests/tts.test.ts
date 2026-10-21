@@ -40,4 +40,15 @@ describe("synthesizeChapter", () => {
     expect(again.done).toBe(true);
     expect(calls).toBe(made);
   });
+
+  it("reports how many chunks are cached", async () => {
+    const { chapterProgress } = await import("@/lib/tts");
+    const other = Array.from({ length: 3 }, (_, i) => `${"other ".repeat(700)}${i}`).join("\n\n");
+    const before = await chapterProgress(other);
+    expect(before.ready).toBe(0);
+    expect(before.total).toBeGreaterThan(1);
+    const { synthesizeChapter } = await import("@/lib/tts");
+    await synthesizeChapter(other);
+    expect(await chapterProgress(other)).toEqual({ ready: before.total, total: before.total });
+  });
 });

@@ -1,6 +1,6 @@
 import { serveBytes } from "@/lib/http";
-import { getObject, putObject } from "@/lib/storage";
-import { audioKey, synthesizeChapter, type ChapterProgress } from "@/lib/tts";
+import { getObject, hasObject, putObject } from "@/lib/storage";
+import { audioKey, chapterProgress, synthesizeChapter, type ChapterProgress } from "@/lib/tts";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -29,6 +29,15 @@ export async function GET(
   if (!ch) return new Response("Chapter not found", { status: 404 });
 
   const key = audioKey(ch.text);
+
+  if (new URL(req.url).searchParams.get("progress") === "1") {
+    const done = await hasObject(key);
+    const p = await chapterProgress(ch.text);
+    return Response.json(done ? { ready: p.total, total: p.total } : p, {
+      headers: { "Cache-Control": "no-store" },
+    });
+  }
+
   let audio = await getObject(key);
 
   if (!audio) {

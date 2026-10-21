@@ -47,3 +47,17 @@ export async function getObject(key: string): Promise<Buffer | null> {
     return null;
   }
 }
+
+/** Cheap existence check, so progress polling doesn't download audio. */
+export async function hasObject(key: string): Promise<boolean> {
+  if (useBlob()) {
+    const { blobs } = await list({ prefix: key, limit: 5 });
+    return blobs.some((b) => b.pathname === key);
+  }
+  try {
+    await fs.access(path.join(localRoot(), key));
+    return true;
+  } catch {
+    return false;
+  }
+}

@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { getObject, putObject } from "./storage";
+import { getObject, hasObject, putObject } from "./storage";
 import { splitForTts } from "./text";
 
 const model = () => process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
@@ -108,4 +108,11 @@ export async function synthesizeChapter(
   if (ready < chunks.length) return { done: false, ready, total: chunks.length };
   // MP3 frames can simply be concatenated.
   return { done: true, audio: Buffer.concat(parts as Buffer[]) };
+}
+
+/** How many of a chapter's chunks are already cached (for the progress bar). */
+export async function chapterProgress(text: string): Promise<{ ready: number; total: number }> {
+  const keys = splitForTts(text).map(audioKey);
+  const found = await Promise.all(keys.map(hasObject));
+  return { ready: found.filter(Boolean).length, total: keys.length };
 }
