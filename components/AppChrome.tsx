@@ -30,15 +30,23 @@ export function AppChrome() {
         <div className="mini">
           <Link href={`/book/${p.book.id}`}>
             <div className="t">{p.book.chapters[p.chapter]?.title ?? p.book.title}</div>
-            <div className="s">{p.book.title}</div>
+            <div className="s">
+              {p.preparing ? `Reading aloud… ${p.preparing.pct}%` : p.book.title}
+            </div>
           </Link>
           <button
             className="go"
-            aria-label={p.playing ? "Pause" : "Play"}
+            aria-label={p.preparing ? "Getting it ready" : p.playing ? "Pause" : "Play"}
+            disabled={Boolean(p.preparing)}
             onClick={() => void p.togglePlay()}
           >
             <Icon name={p.playing ? "pause" : "play"} size={22} stroke={p.playing ? 2.6 : 1.5} />
           </button>
+          {p.preparing ? (
+            <div className="mini-bar" role="progressbar" aria-valuenow={p.preparing.pct} aria-valuemin={0} aria-valuemax={100}>
+              <i style={{ width: `${Math.max(p.preparing.pct, 3)}%` }} />
+            </div>
+          ) : null}
         </div>
       ) : null}
 
