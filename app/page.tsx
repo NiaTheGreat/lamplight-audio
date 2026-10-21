@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { BookSummary } from "@/lib/types";
 
-type Recent = { id: string; title: string };
+type Recent = { id: string; title: string; author?: string; chapterCount: number };
 type Last = { id: string; chapter: number; time: number };
 
-const RECENT_KEY = "abg:recent";
 const LAST_KEY = "abg:last";
 const CPM_KEY = "abg:cpm";
 const RATE_KEY = "abg:rate";
@@ -207,17 +206,20 @@ export default function Home() {
     audio.play().catch(() => {});
   }
 
-  const rememberBook = useCallback((b: BookSummary) => {
-    setRecent((prev) => {
-      const next = [{ id: b.id, title: b.title }, ...prev.filter((r) => r.id !== b.id)].slice(0, 8);
-      writeStore(RECENT_KEY, next);
-      return next;
-    });
+  // The library lives on the server (Blob in production), so it follows you
+  // across devices and survives clearing the browser.
+  const refreshLibrary = useCallback(async () => {
+    try {
+      const res = await fetch("/api/books");
+      if (res.ok) setRecent((await res.json()) as Recent[]);
+    } catch {
+      /* offline: keep what we have */
+    }
   }, []);
 
   // Restore saved state on first load.
   useEffect(() => {
-    setRecent(readStore<Recent[]>(RECENT_KEY, []));
+    void refreshLibrary();
     setCharsPerMin(readStore<number>(CPM_KEY, 900));
     const savedRate = readStore<number>(RATE_KEY, 1);
     setRate(savedRate);
@@ -240,7 +242,7 @@ export default function Home() {
         }
       })
       .catch(() => {});
-  }, []);
+  }, [refreshLibrary]);
 
   // Lock-screen / headphone controls.
   useEffect(() => {
@@ -279,7 +281,7 @@ export default function Home() {
       const res = await fetch("/api/books", { method: "POST", body: form });
       const data = (await res.json()) as BookSummary & { error?: string };
       if (!res.ok) throw new Error(data.error ?? "Couldn't read that EPUB.");
-      rememberBook(data);
+      void refreshLibrary();
       void startChapter(data, 0);
     } catch (err) {
       setStatus("");
@@ -296,7 +298,16 @@ export default function Home() {
       return;
     }
     const b = (await res.json()) as BookSummary;
-    void startChapter(b, 0);
+    // Pick up where you left off if this is the book you were last listening to.
+    const last = readStore<Last | null>(LAST_KEY, null);
+    const resume = last && last.id === b.id && b.chapters[last.chapter] ? last : null;
+    void startChapter(b, resume?.chapter ?? 0, resume?.time ?? 0);
+  }
+
+  async function removeBook(r: Recent) {
+    if (!window.confirm(`Remove "${r.title}" from your library? Narration already made is kept.`)) return;
+    await fetch(`/api/books/${r.id}`, { method: "DELETE" }).catch(() => {});
+    void refreshLibrary();
   }
 
   function onEnded() {
@@ -389,13 +400,19 @@ export default function Home() {
         {error ? <p className="error">{error}</p> : null}
       </form>
 
-      {!book && recent.length > 0 ? (
+      {recent.length > 0 ? (
         <section className="panel recent">
-          <h2>Recent</h2>
+          <h2>Your library</h2>
           {recent.map((r) => (
-            <button key={r.id} className="ghost" onClick={() => void openRecent(r)}>
-              {r.title}
-            </button>
+            <div className="row" key={r.id}>
+              <button className="ghost grow" onClick={() => void openRecent(r)}>
+                {r.title}
+                {r.author ? ` · ${r.author}` : ""} · {r.chapterCount} ch
+              </button>
+              <button className="ghost" aria-label={`Remove ${r.title}`} onClick={() => void removeBook(r)}>
+                ✕
+              </button>
+            </div>
           ))}
         </section>
       ) : null}

@@ -32,3 +32,12 @@ export function summarize(book: Book): BookSummary {
 }
 
 export const BOOK_ID_RE = /^[a-f0-9]{16}$/;
+
+/** One entry in the saved library of uploaded books. */
+export type LibraryEntry = {
+  id: string;
+  title: string;
+  author?: string;
+  chapterCount: number;
+  addedAt: number;
+};

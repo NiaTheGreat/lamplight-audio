@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { list, put } from "@vercel/blob";
+import { del, list, put } from "@vercel/blob";
 
 /**
  * Tiny key/value store for parsed books and generated audio.
@@ -60,4 +60,34 @@ export async function hasObject(key: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Keys under a prefix (e.g. "library/"), for listing saved books. */
+export async function listKeys(prefix: string): Promise<string[]> {
+  if (useBlob()) {
+    const keys: string[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await list({ prefix, cursor, limit: 1000 });
+      keys.push(...page.blobs.map((b) => b.pathname));
+      cursor = page.hasMore ? page.cursor : undefined;
+    } while (cursor);
+    return keys;
+  }
+  try {
+    const names = await fs.readdir(path.join(localRoot(), prefix));
+    return names.map((n) => `${prefix}${n}`);
+  } catch {
+    return [];
+  }
+}
+
+export async function deleteObject(key: string): Promise<void> {
+  if (useBlob()) {
+    const { blobs } = await list({ prefix: key, limit: 5 });
+    const hit = blobs.find((b) => b.pathname === key);
+    if (hit) await del(hit.url);
+    return;
+  }
+  await fs.rm(path.join(localRoot(), key), { force: true });
 }
