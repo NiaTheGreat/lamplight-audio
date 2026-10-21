@@ -3,7 +3,7 @@ import { getObject, hasObject, putObject } from "./storage";
 import { splitForTts } from "./text";
 
 const model = () => process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
-const voice = () => process.env.OPENAI_TTS_VOICE || "ballad";
+const defaultVoice = () => process.env.OPENAI_TTS_VOICE || "ballad";
 const supportsInstructions = () => model().startsWith("gpt-4o");
 const instructions = () =>
   process.env.TTS_INSTRUCTIONS ||
@@ -14,10 +14,12 @@ const instructions = () =>
 const endPad = () => process.env.TTS_END_PAD ?? "\n\n…";
 
 /** Cache key: same text + same voice settings => same audio, generated once. */
-export function audioKey(text: string): string {
+export { defaultVoice };
+
+export function audioKey(text: string, voice: string = defaultVoice()): string {
   const hash = createHash("sha256")
     .update(
-      [model(), voice(), supportsInstructions() ? instructions() : "", endPad(), text].join("\u0000"),
+      [model(), voice, supportsInstructions() ? instructions() : "", endPad(), text].join("\u0000"),
     )
     .digest("hex");
   return `audio/${hash}.mp3`;
@@ -29,13 +31,13 @@ const MIN_BYTES_PER_CHAR = 50;
 const looksComplete = (audio: Buffer, text: string) =>
   audio.length >= text.length * MIN_BYTES_PER_CHAR;
 
-async function synthChunk(input: string): Promise<Buffer> {
+export async function synthChunk(input: string, voice: string = defaultVoice()): Promise<Buffer> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set.");
 
   const body: Record<string, unknown> = {
     model: model(),
-    voice: voice(),
+    voice,
     input: input + endPad(),
     response_format: "mp3",
   };
@@ -101,9 +103,10 @@ export type ChapterProgress =
 export async function synthesizeChapter(
   text: string,
   deadlineMs = 200_000,
+  voice: string = defaultVoice(),
 ): Promise<ChapterProgress> {
   const chunks = splitForTts(text);
-  const keys = chunks.map(audioKey);
+  const keys = chunks.map((c) => audioKey(c, voice));
   const stop = Date.now() + deadlineMs;
   const parts = new Array<Buffer | null>(chunks.length).fill(null);
 
@@ -114,7 +117,7 @@ export async function synthesizeChapter(
       return;
     }
     if (Date.now() >= stop) return;
-    const audio = await synthChunk(chunk);
+    const audio = await synthChunk(chunk, voice);
     await putObject(keys[i], audio, "audio/mpeg");
     parts[i] = audio;
   });
@@ -126,8 +129,11 @@ export async function synthesizeChapter(
 }
 
 /** How many of a chapter's chunks are already cached (for the progress bar). */
-export async function chapterProgress(text: string): Promise<{ ready: number; total: number }> {
-  const keys = splitForTts(text).map(audioKey);
+export async function chapterProgress(
+  text: string,
+  voice: string = defaultVoice(),
+): Promise<{ ready: number; total: number }> {
+  const keys = splitForTts(text).map((c) => audioKey(c, voice));
   const found = await Promise.all(keys.map(hasObject));
   return { ready: found.filter(Boolean).length, total: keys.length };
 }

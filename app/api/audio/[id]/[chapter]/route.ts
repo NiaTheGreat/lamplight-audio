@@ -1,7 +1,7 @@
 import { serveBytes } from "@/lib/http";
 import { markNarrated } from "@/lib/library";
 import { getObject, hasObject, putObject } from "@/lib/storage";
-import { audioKey, chapterProgress, synthesizeChapter, type ChapterProgress } from "@/lib/tts";
+import { audioKey, chapterProgress, defaultVoice, synthesizeChapter, type ChapterProgress } from "@/lib/tts";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -29,11 +29,12 @@ export async function GET(
   const ch = book.chapters[Number(chapter)];
   if (!ch) return new Response("Chapter not found", { status: 404 });
 
-  const key = audioKey(ch.text);
+  const voice = book.voice ?? defaultVoice();
+  const key = audioKey(ch.text, voice);
 
   if (new URL(req.url).searchParams.get("progress") === "1") {
     const done = await hasObject(key);
-    const p = await chapterProgress(ch.text);
+    const p = await chapterProgress(ch.text, voice);
     return Response.json(done ? { ready: p.total, total: p.total } : p, {
       headers: { "Cache-Control": "no-store" },
     });
@@ -44,7 +45,7 @@ export async function GET(
   if (!audio) {
     let job = inflight.get(key);
     if (!job) {
-      job = synthesizeChapter(ch.text)
+      job = synthesizeChapter(ch.text, undefined, voice)
         .then(async (result) => {
           if (result.done) {
             await putObject(key, result.audio, "audio/mpeg");

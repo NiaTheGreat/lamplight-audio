@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { parseEpub } from "@/lib/epub";
+import { getSettings } from "@/lib/settings";
 import { getObject, listKeys, putObject } from "@/lib/storage";
-import { summarize, type LibraryEntry } from "@/lib/types";
+import { summarize, type Book, type LibraryEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -42,12 +43,19 @@ export async function POST(req: Request) {
 
   try {
     const book = await parseEpub(Buffer.from(await file.arrayBuffer()), { skipNotes });
+    // A book keeps the voice it was first added with, so it never changes mid-story.
+    const existing = await getObject(`books/${book.id}.json`);
+    const keepVoice = existing
+      ? (JSON.parse(existing.toString("utf8")) as Book).voice
+      : undefined;
+    book.voice = keepVoice ?? (await getSettings()).voice;
     await putObject(`books/${book.id}.json`, JSON.stringify(book), "application/json");
     const entry: LibraryEntry = {
       id: book.id,
       title: book.title,
       author: book.author,
       chapterCount: book.chapters.length,
+      voice: book.voice,
       addedAt: Date.now(),
     };
     await putObject(`library/${book.id}.json`, JSON.stringify(entry), "application/json");

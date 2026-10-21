@@ -1,6 +1,6 @@
 import { markNarrated } from "./library";
 import { getObject, hasObject, putObject } from "./storage";
-import { audioKey, synthesizeChapter } from "./tts";
+import { audioKey, defaultVoice, synthesizeChapter } from "./tts";
 import type { Book } from "./types";
 
 /**
@@ -93,12 +93,13 @@ export async function runJob(
       job = { ...fresh, leaseUntil: job.leaseUntil };
 
       const ch = book.chapters[job.chapter];
-      const key = audioKey(ch.text);
+      const voice = book.voice ?? defaultVoice();
+      const key = audioKey(ch.text, voice);
 
       if (!(await hasObject(key))) {
         const chunkBudget = deadline - Date.now() - reserve;
         if (chunkBudget <= 0) break;
-        const result = await synthesizeChapter(ch.text, chunkBudget);
+        const result = await synthesizeChapter(ch.text, chunkBudget, voice);
         if (!result.done) break;
         await putObject(key, result.audio, "audio/mpeg");
       }
