@@ -17,18 +17,32 @@ export default function Settings() {
 
   useEffect(() => () => previewRef.current?.pause(), []);
 
-  function hear(voice: string) {
+  async function hear(voice: string) {
     previewRef.current?.pause();
     setPreviewError("");
     setHearing(voice);
-    const audio = new Audio(`/api/voices/${voice}/preview`);
-    previewRef.current = audio;
-    audio.onended = () => setHearing((v) => (v === voice ? null : v));
-    audio.onerror = () => {
+    try {
+      // Fetch first so a failure shows the server's real message, and so the
+      // first-time "making a sample" wait is visible.
+      const res = await fetch(`/api/voices/${voice}/preview`);
+      if (!res.ok) throw new Error((await res.text()) || `Request failed (${res.status})`);
+      const url = URL.createObjectURL(await res.blob());
+      const audio = new Audio(url);
+      previewRef.current = audio;
+      const done = () => {
+        URL.revokeObjectURL(url);
+        setHearing((v) => (v === voice ? null : v));
+      };
+      audio.onended = done;
+      audio.onerror = () => {
+        done();
+        setPreviewError("The sample downloaded but wouldn't play.");
+      };
+      await audio.play();
+    } catch (err) {
       setHearing(null);
-      setPreviewError("Couldn't play that preview. Check your OpenAI key and credit.");
-    };
-    audio.play().catch(() => setHearing(null));
+      setPreviewError(err instanceof Error ? err.message : "Couldn't play that preview.");
+    }
   }
 
   const ordered = [settings.voice, ...VOICES.filter((v) => v !== settings.voice)];
@@ -54,7 +68,7 @@ export default function Settings() {
               </button>
               <button className="hear" aria-label={`Hear ${v}`} onClick={() => hear(v)}>
                 <Icon name="play" size={18} />
-                {hearing === v ? "…" : "Hear"}
+                {hearing === v ? "Making a sample…" : "Hear"}
               </button>
             </div>
           ))}

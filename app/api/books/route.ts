@@ -9,17 +9,31 @@ export const maxDuration = 60;
 
 /** The saved library, newest first. */
 export async function GET() {
-  const keys = await listKeys("library/");
-  const entries = await Promise.all(
-    keys.map(async (key) => {
-      try {
+  let keys: string[];
+  try {
+    keys = await listKeys("library/");
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Couldn't read the library.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+  let entries: (LibraryEntry | null)[];
+  try {
+    entries = await Promise.all(
+      keys.map(async (key) => {
         const raw = await getObject(key);
-        return raw ? (JSON.parse(raw.toString("utf8")) as LibraryEntry) : null;
-      } catch {
-        return null;
-      }
-    }),
-  );
+        if (!raw) return null;
+        try {
+          return JSON.parse(raw.toString("utf8")) as LibraryEntry;
+        } catch {
+          return null; // a corrupt entry is skipped; it is rebuilt when the book is opened
+        }
+      }),
+    );
+  } catch (err) {
+    // A storage hiccup must not look like a shorter shelf: report it so the page keeps what it has.
+    const message = err instanceof Error ? err.message : "Couldn't read the library.";
+    return NextResponse.json({ error: message }, { status: 503 });
+  }
   const books = entries.filter((e): e is LibraryEntry => e !== null);
   books.sort((a, b) => b.addedAt - a.addedAt);
   return NextResponse.json(books, { headers: { "Cache-Control": "no-store" } });

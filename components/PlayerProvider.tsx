@@ -76,6 +76,7 @@ type Ctx = {
   // Library
   library: LibraryEntry[];
   libraryLoaded: boolean;
+  libraryError: string;
   progress: Progress;
   // Background narration
   job: JobInfo | null;
@@ -148,6 +149,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [charsPerMin, setCharsPerMin] = useState(900);
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
+  const [libraryError, setLibraryError] = useState("");
   const [progress, setProgress] = useState<Progress>({ last: null, books: {} });
   const [job, setJob] = useState<JobInfo | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -227,6 +229,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (res.ok) {
         setLibrary((await res.json()) as LibraryEntry[]);
         setLibraryLoaded(true);
+        setLibraryError("");
+      } else {
+        setLibraryError(`Couldn't load your shelf (${res.status}). ${(await res.text()).slice(0, 200)}`);
       }
     } catch {
       /* offline: keep what we have */
@@ -544,6 +549,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const removeBook = useCallback(
     async (id: string) => {
+      // Unload it first, or the player's background refresh would put it back.
+      if (bookRef.current?.id === id) {
+        audioRef.current?.pause();
+        loadToken.current++;
+        bookRef.current = null;
+        loadedRef.current = "";
+        setBook(null);
+        setPlaying(false);
+        setPreparing(null);
+        setJob(null);
+      }
       await fetch(`/api/books/${id}`, { method: "DELETE" }).catch(() => {});
       await refreshLibrary();
     },
@@ -727,6 +743,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     charsPerMin,
     library,
     libraryLoaded,
+    libraryError,
     progress,
     job,
     settings,

@@ -26,6 +26,9 @@ export async function putObject(
       contentType,
       addRandomSuffix: false,
       allowOverwrite: true,
+      // Blob's default is a month at the CDN; records we rewrite (library,
+      // settings, progress, jobs) must not be served stale.
+      cacheControlMaxAge: 60,
     });
     return;
   }
@@ -37,14 +40,39 @@ export async function putObject(
   await fs.rename(tmp, file);
 }
 
+/** Retry a flaky network read a couple of times before giving up. */
+async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+  let lastError: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** i));
+    }
+  }
+  throw lastError;
+}
+
+/**
+ * Read an object. Returns null only when it genuinely isn't there. A read that
+ * keeps failing throws, so callers never mistake a hiccup for "missing" (which
+ * would make books vanish from the shelf, or re-narrate audio that exists).
+ */
 export async function getObject(key: string): Promise<Buffer | null> {
   if (useBlob()) {
-    const { blobs } = await list({ prefix: key, limit: 5 });
-    const hit = blobs.find((b) => b.pathname === key);
-    if (!hit) return null;
-    const res = await fetch(hit.url);
-    if (!res.ok) return null;
-    return Buffer.from(await res.arrayBuffer());
+    return withRetry(async () => {
+      const { blobs } = await list({ prefix: key, limit: 5 });
+      const hit = blobs.find((b) => b.pathname === key);
+      if (!hit) return null;
+      // The upload time in the URL makes every overwrite a fresh cache entry.
+      const res = await fetch(`${hit.url}?v=${new Date(hit.uploadedAt).getTime()}`, {
+        cache: "no-store",
+      });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`Storage read failed (${res.status}) for ${key}`);
+      return Buffer.from(await res.arrayBuffer());
+    });
   }
   try {
     return await fs.readFile(path.join(localRoot(), key));

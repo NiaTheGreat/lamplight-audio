@@ -53,6 +53,9 @@ export default function Library() {
 
       <section className="section" aria-label="The shelf">
         <div className="eyebrow">The shelf</div>
+        {p.libraryError && p.library.length === 0 ? (
+          <p className="error" role="alert">{p.libraryError}</p>
+        ) : null}
         {p.libraryLoaded && p.library.length === 0 ? (
           <p className="empty">Nothing here yet. Add a fic to start your shelf.</p>
         ) : null}
