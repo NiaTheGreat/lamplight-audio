@@ -21,7 +21,7 @@ Open http://localhost:3000. Locally, audio is cached in `./.cache`.
 ## Deploy (Vercel)
 
 1. Import this repo at vercel.com/new.
-2. Add environment variables: `OPENAI_API_KEY` and `APP_PASSWORD` (the app refuses to run in production without a password).
+2. Add environment variables: `OPENAI_API_KEY` and `APP_PASSWORD` (the app refuses to run in production without a password). Optional: `MONTHLY_CHAR_LIMIT` (default 3,000,000 characters, about $48) stops narration once reached.
 3. In the project's **Storage** tab, create a **Blob** store and connect it. That sets `BLOB_READ_WRITE_TOKEN` automatically and gives the app somewhere to keep parsed books and cached audio.
 4. Deploy, open the URL on your phone, and "Add to Home Screen".
 

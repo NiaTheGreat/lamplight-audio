@@ -59,6 +59,17 @@ describe("synthesizeChapter", () => {
     expect(calls).toBe(before + 1);
   });
 
+  it("stops before calling OpenAI once the monthly cap is reached", async () => {
+    process.env.MONTHLY_CHAR_LIMIT = "10";
+    const { synthesizeChapter } = await import("@/lib/tts");
+    const before = calls;
+    await expect(synthesizeChapter("A fresh chapter that was never narrated before, long enough.")).rejects.toThrow(
+      /Monthly narration limit/,
+    );
+    expect(calls).toBe(before);
+    delete process.env.MONTHLY_CHAR_LIMIT;
+  });
+
   it("reports how many chunks are cached", async () => {
     const { chapterProgress } = await import("@/lib/tts");
     const other = Array.from({ length: 3 }, (_, i) => `${"other ".repeat(700)}${i}`).join("\n\n");

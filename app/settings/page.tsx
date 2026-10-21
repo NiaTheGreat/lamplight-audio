@@ -13,9 +13,17 @@ export default function Settings() {
   const [showAll, setShowAll] = useState(false);
   const [hearing, setHearing] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState("");
+  const [usage, setUsage] = useState<{ chars: number; limit: number } | null>(null);
   const previewRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => () => previewRef.current?.pause(), []);
+
+  useEffect(() => {
+    fetch("/api/usage")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((u) => u && setUsage(u))
+      .catch(() => {});
+  }, []);
 
   async function hear(voice: string) {
     previewRef.current?.pause();
@@ -124,6 +132,24 @@ export default function Settings() {
           onChange={(e) => void updateSettings({ dim: Number(e.target.value) })}
         />
       </section>
+
+      {usage ? (
+        <section className="section" aria-label="Spending">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+            <span className="eyebrow">Narrated this month</span>
+            <span className="muted" style={{ fontVariantNumeric: "tabular-nums" }}>
+              {usage.chars.toLocaleString("en-US")} of {usage.limit.toLocaleString("en-US")} characters
+            </span>
+          </div>
+          <div className="hairline" style={{ marginTop: 10 }}>
+            <i style={{ width: `${Math.min(100, (usage.chars / usage.limit) * 100)}%` }} />
+          </div>
+          <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
+            About ${((usage.chars * 16) / 1_000_000).toFixed(2)} so far. Narration stops at the limit; raise
+            MONTHLY_CHAR_LIMIT in Vercel to continue.
+          </p>
+        </section>
+      ) : null}
 
       <section className="section" aria-label="Narrating ahead">
         <div className="option">

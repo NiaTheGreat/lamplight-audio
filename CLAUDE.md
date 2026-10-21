@@ -21,7 +21,8 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - `lib/narration.ts` + `app/api/worker/[id]` + `app/api/books/[id]/narrate` background narration of a whole book: a job record in storage, a worker that narrates ~250s then calls itself again.
 - `lib/library.ts` records which chapters are narrated for the library list.
 - `lib/http.ts` serves audio with HTTP Range support. iOS Safari needs this to play and seek.
-- `app/api/audio/[id]/[chapter]/route.ts` generates a chapter if it isn't cached, then serves it.
+- `app/api/audio/[id]/[chapter]/route.ts` has four modes: `?progress=1`, `?prepare=1` (narrate if needed, no bytes), `?download=1` (proxied named MP3), and plain (307 redirect to the audio's public Blob URL so the phone streams from the CDN; served from disk locally).
+- `lib/usage.ts` monthly character cap (`MONTHLY_CHAR_LIMIT`, default 3M) checked before every OpenAI call. `lib/throttle.ts` locks a login address out for 15 minutes after 5 wrong passwords.
 - `components/PlayerProvider.tsx` the one persistent `<audio>` element and all playback logic (chapter loading, auto-advance, sleep timer, resume, lock-screen controls, background-job polling). It lives in the root layout so audio keeps playing while screens change.
 - `components/AppChrome.tsx` tab bar, mini player, dim layer and bedside mode. `components/Icon.tsx` is the line-icon set.
 - Screens: `app/page.tsx` library, `app/add`, `app/book/[id]` player, `app/book/[id]/narrating`, `app/settings`. The look is called Lamplight (tokens in `app/globals.css`): warm near-black, cream text, candle amber, Fraunces + Hanken Grotesk. No purple, no pure white, no emoji icons.
@@ -37,6 +38,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 
 ## Known gaps
 
+- The audio redirect to Blob (and Range playback through it on iOS Safari) hasn't been tried on real Vercel/phone. The `?prepare=1` flow avoids a cross-origin fetch on purpose; the audio element itself follows the redirect.
 - The Lamplight screens were checked with screenshots only against a fake OpenAI server. Playing real audio, the sleep timer, bedside mode and auto-advance haven't been exercised in a real browser or on a phone.
 - Paste-an-AO3-link is a disabled placeholder (scraping is a standing decision to avoid).
 - Background narration (self-chaining worker) works locally against a mock but hasn't run on real Vercel. Check that the worker can call its own production URL (Deployment Protection off) and that a >250s book hops correctly.
