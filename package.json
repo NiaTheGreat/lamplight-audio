@@ -10,7 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@vercel/blob": "^2.8.2",
+    "aws4fetch": "^1.0.20",
     "cheerio": "^1.2.0",
     "jszip": "^3.10.2",
     "next": "^15.5.28",

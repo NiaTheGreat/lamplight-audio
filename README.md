@@ -22,12 +22,12 @@ Open http://localhost:3000. Locally, audio is cached in `./.cache`.
 
 1. Import this repo at vercel.com/new.
 2. Add environment variables: `OPENAI_API_KEY` and `APP_PASSWORD` (the app refuses to run in production without a password). Optional: `MONTHLY_CHAR_LIMIT` (default 3,000,000 characters, about $48) stops narration once reached.
-3. In the project's **Storage** tab, create a **Blob** store and connect it. That sets `BLOB_READ_WRITE_TOKEN` automatically and gives the app somewhere to keep parsed books and cached audio.
+3. Create a Cloudflare **R2** bucket for parsed books and cached audio: in the Cloudflare dashboard go to R2, create a bucket (private is fine), then **Manage R2 API Tokens** and create a token with **Object Read & Write** on that bucket. Add these variables in Vercel: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. (R2's free tier covers this app: 10 GB, millions of operations, no charge for data leaving. Vercel Blob's Hobby limits did not.)
 4. Deploy, open the URL on your phone, and "Add to Home Screen".
 
 Narrating a long first chapter can take a minute or more. If requests time out on your plan, enable Fluid Compute in the Vercel project settings.
 
-**Background narration:** "Narrate whole book in the background" works without keeping the page open. A worker route (`/api/worker/[id]`) narrates for up to ~250 seconds, saves its place in Blob (`jobs/<id>.json`), then calls itself to continue. If a hop is lost, the page shows "stalled" after 8 minutes with a Resume button. It needs the production URL to be reachable from the function itself, so turn off Vercel Deployment Protection for the production domain (preview URLs behind SSO won't chain).
+**Background narration:** "Narrate whole book in the background" works without keeping the page open. A worker route (`/api/worker/[id]`) narrates for up to ~250 seconds, saves its place in R2 (`jobs/<id>.json`), then calls itself to continue. If a hop is lost, the page shows "stalled" after 8 minutes with a Resume button. It needs the production URL to be reachable from the function itself, so turn off Vercel Deployment Protection for the production domain (preview URLs behind SSO won't chain).
 
 ## Cost
 
@@ -42,7 +42,7 @@ Set `OPENAI_TTS_MODEL` to switch. `tts-1` has no tone instructions; `gpt-4o-mini
 
 ## Notes
 
-- Blob objects get unguessable URLs but are technically public. The app itself is behind the password; don't upload anything you'd consider sensitive.
+- The R2 bucket is private. Audio is streamed through short-lived (one hour) signed links that the password-protected app hands out.
 - Chapter MP3s are made by joining several API responses, so some players show a slightly off total duration. Playback is fine.
 - Only EPUB is supported. AO3's "Download > EPUB" is the best input because notes and summaries live in separate sections.
 
