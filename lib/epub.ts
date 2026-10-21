@@ -16,6 +16,10 @@ export type ParseOptions = {
 const NOTE_HEADING =
   /^\s*(?:(?:work|chapter|author'?s?)\s+)?(?:end\s*)?(?:summary|notes?)\s*:?\s*$|^\s*a\/n\s*:?\s*$/i;
 
+// AO3 landmark headings ("Chapter Text", "Work Text") label the story body for
+// screen readers; they aren't story text and shouldn't be narrated or used as titles.
+const LANDMARK_HEADING = /^\s*(?:chapter|work)\s+text\s*:?\s*$/i;
+
 // Files that are never story text.
 const ALWAYS_SKIP_FILE =
   /(^|\/)(cover|nav|toc|titlepage|title[-_]?page|colophon|copyright)[^/]*$/i;
@@ -35,11 +39,14 @@ export function extractChapter(
   let title = "";
   $("h1, h2, h3").each((_, el) => {
     const t = $(el).text().replace(/\s+/g, " ").trim();
-    if (!title && t && !NOTE_HEADING.test(t)) title = t;
+    if (!title && t && !NOTE_HEADING.test(t) && !LANDMARK_HEADING.test(t)) title = t;
   });
   if (!title) title = $("title").first().text().replace(/\s+/g, " ").trim();
 
-  $("script, style, head, nav").remove();
+  $("script, style, head, nav, .landmark").remove();
+  $("h1, h2, h3, h4, h5, h6").each((_, el) => {
+    if (LANDMARK_HEADING.test($(el).text())) $(el).remove();
+  });
 
   if (skipNotes) {
     // AO3 structure: .meta groups hold chapter summary/notes/end notes.

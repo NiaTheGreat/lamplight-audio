@@ -46,7 +46,7 @@ async function buildEpub(): Promise<Buffer> {
   zip.file(
     "OEBPS/chapter_2.xhtml",
     xhtml(
-      `<h2>Chapter 2</h2><h3>Notes</h3><blockquote><p>GENERICNOTE skip me.</p></blockquote><p>The second chapter has plenty of story in it.</p>`,
+      `<h2>Chapter 2</h2><h3 class="landmark heading" id="work">Chapter Text</h3><h3>Notes</h3><blockquote><p>GENERICNOTE skip me.</p></blockquote><p>The second chapter has plenty of story in it.</p>`,
     ),
   );
   zip.file("OEBPS/afterword.xhtml", xhtml(`<p>AFTERWORD skip me, this is long enough to count.</p>`));
@@ -78,6 +78,11 @@ describe("parseEpub", () => {
     expect(book.chapters[0].title).toBe("Chapter 1: The Start");
     expect(book.chapters[0].text.startsWith("Chapter 1: The Start.")).toBe(true);
     expect(book.chapters[0].text).not.toContain("* * *");
+  });
+
+  it("does not narrate AO3 'Chapter Text' landmark headings", async () => {
+    const book = await parseEpub(await buildEpub());
+    expect(book.chapters[1].text).not.toMatch(/Chapter Text/i);
   });
 
   it("keeps notes when skipNotes is off", async () => {
