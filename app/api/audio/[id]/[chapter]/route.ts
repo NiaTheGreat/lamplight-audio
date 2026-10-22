@@ -1,6 +1,7 @@
 import { serveBytes } from "@/lib/http";
 import { markNarrated } from "@/lib/library";
 import { getObject, getPublicUrl, hasObject, putObject } from "@/lib/storage";
+import { spokenText } from "@/lib/pronunciation";
 import {
   audioKey,
   chapterProgress,
@@ -45,11 +46,12 @@ export async function GET(
   if (!ch) return new Response("Chapter not found", { status: 404 });
 
   const voice = book.voice ?? defaultVoice();
-  const key = audioKey(ch.text, voice);
+  const spoken = spokenText(book, ch.index, ch.text);
+  const key = audioKey(spoken, voice);
 
   if (query.get("progress") === "1") {
     const done = await hasObject(key);
-    const p = await chapterProgress(ch.text, voice);
+    const p = await chapterProgress(spoken, voice);
     return Response.json(done ? { ready: p.total, total: p.total } : p, {
       headers: { "Cache-Control": "no-store" },
     });
@@ -58,7 +60,7 @@ export async function GET(
   const generate = () => {
     let job = inflight.get(key);
     if (!job) {
-      job = synthesizeChapter(ch.text, undefined, voice)
+      job = synthesizeChapter(spoken, undefined, voice)
         .then(async (result) => {
           if (result.done) {
             await putObject(key, result.audio, "audio/mpeg");

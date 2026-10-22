@@ -11,6 +11,15 @@ export type Book = {
   /** Voice this book is narrated in; fixed when first added. */
   voice?: string;
   chapters: Chapter[];
+  /** A named list copied into the book at upload; later edits to the list don't reach the book. */
+  pronList?: { id: string; name: string; lines: { from: string; to: string }[] };
+  /** How to say certain words, applied before narration (see lib/pronunciation.ts). */
+  pronunciations?: { from: string; to: string }[];
+  /**
+   * Narrated chapters keep the lines they were narrated with when the list changes, so edits
+   * never silently make paid-for audio "unready". Re-narrating a chapter drops its entry here.
+   */
+  frozen?: Record<number, { from: string; to: string }[]>;
 };
 
 export type BookSummary = {

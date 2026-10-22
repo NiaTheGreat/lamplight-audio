@@ -1,3 +1,4 @@
+import { spokenText } from "./pronunciation";
 import { markNarrated } from "./library";
 import { getObject, hasObject, putObject } from "./storage";
 import { recordSpeed, flushSpeed } from "./speed";
@@ -214,14 +215,15 @@ export async function runJob(
     while (job.chapter <= last) {
       const ch = book.chapters[job.chapter];
       const voice = book.voice ?? defaultVoice();
-      const key = audioKey(ch.text, voice);
+      const spoken = spokenText(book, ch.index, ch.text);
+      const key = audioKey(spoken, voice);
 
       if (!(await hasObject(key))) {
         const chunkBudget = deadline - Date.now() - reserve;
         if (chunkBudget <= 0) break;
         const startedMs = Date.now();
         const charsBefore = charsSynthesized();
-        const result = await synthesizeChapter(ch.text, chunkBudget, voice, shouldStop);
+        const result = await synthesizeChapter(spoken, chunkBudget, voice, shouldStop);
         recordSpeed(voice, charsSynthesized() - charsBefore, Date.now() - startedMs);
         if (!result.done) break;
         await putObject(key, result.audio, "audio/mpeg");

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { parseEpub } from "@/lib/epub";
 import { getSettings, sanitizeVoice } from "@/lib/settings";
 import { deleteObject, getObject, listKeys, putObject } from "@/lib/storage";
+import { listForUpload } from "@/lib/pronlists";
 import { isUploadKey } from "@/lib/uploads";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
 
@@ -47,12 +48,14 @@ export async function POST(req: Request) {
   let skipNotes = true;
   let chosenVoice: string | undefined;
   let uploadKey: string | null = null;
+  let pronChoice: unknown;
 
   if ((req.headers.get("content-type") ?? "").includes("application/json")) {
     const body = (await req.json().catch(() => null)) as {
       uploadKey?: unknown;
       skipNotes?: unknown;
       voice?: unknown;
+      pronList?: unknown;
     } | null;
     if (!body || !isUploadKey(body.uploadKey)) {
       return NextResponse.json({ error: "Couldn't find that upload." }, { status: 400 });
@@ -60,6 +63,7 @@ export async function POST(req: Request) {
     uploadKey = body.uploadKey;
     skipNotes = body.skipNotes !== false;
     chosenVoice = sanitizeVoice(body.voice);
+    pronChoice = body.pronList;
     let stored: Buffer | null;
     try {
       stored = await getObject(uploadKey);
@@ -83,6 +87,7 @@ export async function POST(req: Request) {
     }
     skipNotes = form.get("skipNotes") !== "false";
     chosenVoice = sanitizeVoice(form.get("voice"));
+    pronChoice = form.get("pronList") ?? undefined;
     buf = Buffer.from(await file.arrayBuffer());
   }
 
@@ -90,10 +95,18 @@ export async function POST(req: Request) {
     const book = await parseEpub(buf, { skipNotes });
     // A book keeps the voice it was first added with, so it never changes mid-story.
     const existing = await getObject(`books/${book.id}.json`);
-    const keepVoice = existing
-      ? (JSON.parse(existing.toString("utf8")) as Book).voice
-      : undefined;
-    book.voice = keepVoice ?? chosenVoice ?? (await getSettings()).voice;
+    const previous = existing ? (JSON.parse(existing.toString("utf8")) as Book) : undefined;
+    book.voice = previous?.voice ?? chosenVoice ?? (await getSettings()).voice;
+    if (previous) {
+      // Adding the same EPUB again keeps what's been set up for it.
+      book.pronList = previous.pronList;
+      book.pronunciations = previous.pronunciations;
+      book.frozen = previous.frozen;
+    } else {
+      // The chosen (or automatic) list is copied in now; later edits to the list don't reach this fic.
+      const list = await listForUpload(pronChoice);
+      if (list) book.pronList = { id: list.id, name: list.name, lines: list.lines };
+    }
     await putObject(`books/${book.id}.json`, JSON.stringify(book), "application/json");
     const entry: LibraryEntry = {
       id: book.id,

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Icon, StateGlyph } from "@/components/Icon";
+import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 
@@ -57,6 +57,28 @@ export default function Player() {
   const unreadChars = book.chapters
     .filter((c) => !["ready", "playing"].includes(p.chapterState(c.index)))
     .reduce((sum, c) => sum + c.chars, 0);
+  async function reread(index: number, title: string, chars: number) {
+    if (!book) return;
+    if (p.job?.status === "running") {
+      window.alert("Narration is running for this book. Pause or cancel it first.");
+      return;
+    }
+    const price = formatUsd(costUsd(chars, book.voice));
+    if (!window.confirm(`Throw away the narration of "${title}" and read it again? It will be narrated again when you play it, about ${price}.`)) return;
+    const res = await fetch(`/api/books/${book.id}/reread`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chapter: index }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      window.alert(data.error ?? "Couldn't do that.");
+      return;
+    }
+    await p.refreshBook(book.id);
+    await p.refreshLibrary();
+  }
+
   const unfinished = p.readyCount < book.chapters.length;
 
   return (
@@ -157,12 +179,17 @@ export default function Player() {
           return (
             <div key={c.index} className={`chrow ${now ? "now" : ""} ${state}`} style={{ paddingRight: 0 }}>
               <button className="play-area" onClick={() => void p.playChapter(c.index)} aria-label={`Play ${c.title}`}>
-                <StateGlyph state={state} />
+                {state === "ready" ? <PlayDot /> : <StateGlyph state={state} />}
                 <span className="nm">{c.title}</span>
                 <span className="st">
                   {ready ? `${p.chapterMinutes(c.chars)} min` : state === "failed" ? "Failed" : state === "reading" ? "Reading aloud" : "Read on play"}
                 </span>
               </button>
+              {ready ? (
+                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => void reread(c.index, c.title, c.chars)}>
+                  <Icon name="retry" size={20} />
+                </button>
+              ) : null}
               {ready ? (
                 <a className="dl" href={`/api/audio/${book.id}/${c.index}?download=1`} download aria-label={`Download ${c.title}`}>
                   <Icon name="download" size={22} />

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Icon, StateGlyph } from "@/components/Icon";
+import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
 import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { estimateMs, formatEta, type SpeedStats } from "@/lib/eta";
@@ -126,6 +126,10 @@ export default function Narrating() {
         <p className="error" role="alert">Narration stopped: {p.job.error}</p>
       ) : null}
 
+      <Link href={`/book/${book.id}/pronunciation`} className="btn" style={{ marginTop: 18 }}>
+        How to say names and words
+      </Link>
+
       <section className="section" aria-label="Narrator">
         <div className="eyebrow">Narrator</div>
         {canChangeNarrator ? (
@@ -232,11 +236,28 @@ export default function Narrating() {
           return (
             <div
               key={c.index}
-              className={`chrow ${state} ${!running && !inRange(c.index) ? "outside" : ""}`}
+              className={`chrow ${state} ${!running && !inRange(c.index) && state !== "ready" ? "outside" : ""}`}
             >
-              <StateGlyph state={state} />
-              <span className="nm">{c.title}</span>
-              <span className="st">{label}</span>
+              {state === "ready" ? (
+                <button
+                  className="play-area"
+                  aria-label={`Play ${c.title}`}
+                  onClick={() => {
+                    router.push(`/book/${book.id}`);
+                    void p.openBook(book.id, { chapter: c.index, time: 0, range: null });
+                  }}
+                >
+                  <PlayDot />
+                  <span className="nm">{c.title}</span>
+                  <span className="st">{label}</span>
+                </button>
+              ) : (
+                <>
+                  <StateGlyph state={state} />
+                  <span className="nm">{c.title}</span>
+                  <span className="st">{label}</span>
+                </>
+              )}
             </div>
           );
         })}
