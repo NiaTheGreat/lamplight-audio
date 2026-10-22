@@ -138,6 +138,12 @@ type Ctx = {
     index: number,
     opts: { listId?: string; voice?: string; voiceForBook?: boolean },
   ) => Promise<string | null>;
+  /** Throw away several narrated chapters and narrate exactly those again in the background. Returns an error message, or null. */
+  rereadMany: (
+    bookId: string,
+    indices: number[],
+    opts: { listId?: string; voice?: string; voiceForBook?: boolean },
+  ) => Promise<string | null>;
   pauseBackground: () => Promise<void>;
   resumeBackground: () => Promise<void>;
   chapterState: (index: number) => ChapterState;
@@ -753,6 +759,37 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [refreshLibrary, startChapter],
   );
 
+  const rereadMany = useCallback(
+    async (
+      bookId: string,
+      indices: number[],
+      opts: { listId?: string; voice?: string; voiceForBook?: boolean },
+    ): Promise<string | null> => {
+      const json = { "Content-Type": "application/json" };
+      const re = await fetch(`/api/books/${bookId}/reread`, {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({ chapters: indices, ...opts }),
+      }).catch(() => null);
+      if (!re) return "Couldn't reach the server.";
+      if (!re.ok) return ((await re.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't do that.";
+      const run = await fetch(`/api/books/${bookId}/narrate`, {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({ chapters: indices }),
+      }).catch(() => null);
+      void refreshLibrary();
+      if (bookRef.current?.id === bookId) void refreshBook(bookId);
+      if (!run || !run.ok) {
+        const data = (await run?.json().catch(() => ({}))) as { error?: string } | undefined;
+        return `The chapters were cleared, but narrating didn't start: ${data?.error ?? "try \"Read it all\" or play them."}`;
+      }
+      if (bookRef.current?.id === bookId) setJob((await run.json()) as JobInfo);
+      return null;
+    },
+    [refreshBook, refreshLibrary],
+  );
+
   const pauseBackground = useCallback(() => actOnJob("pause"), [actOnJob]);
   const resumeBackground = useCallback(() => actOnJob("resume"), [actOnJob]);
 
@@ -956,6 +993,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     pauseBackground,
     resumeBackground,
     rereadAndNarrate,
+    rereadMany,
     chapterState,
     readyCount,
     chapterMinutes,

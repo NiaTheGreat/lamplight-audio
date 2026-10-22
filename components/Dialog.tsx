@@ -7,7 +7,8 @@ import { costUsd, formatUsd, narratorLabel } from "@/lib/narrators-shared";
 import type { PronLists } from "@/lib/pronlists";
 
 type ConfirmOptions = { title: string; body?: string; confirmLabel?: string; cancelLabel?: string };
-export type RereadRequest = { bookId: string; index: number; title: string; chars: number };
+export type RereadItem = { index: number; title: string; chars: number };
+export type RereadRequest = { bookId: string; items: RereadItem[] };
 
 type DialogApi = {
   /** An in-app replacement for window.confirm. */
@@ -90,7 +91,10 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
   const groups = useNarrators();
   const summary = p.library.find((b) => b.id === req.bookId);
   const bookVoice = summary?.voice;
-  const chapterVoice = (p.book?.id === req.bookId ? p.book.chapterVoices?.[req.index] : undefined) ?? bookVoice;
+  const many = req.items.length > 1;
+  // With several chapters the voice shown is the fic's; each chapter keeps its own unless you change it.
+  const chapterVoice = (!many && p.book?.id === req.bookId ? p.book.chapterVoices?.[req.items[0].index] : undefined) ?? bookVoice;
+  const totalChars = req.items.reduce((n, c) => n + c.chars, 0);
 
   const [lists, setLists] = useState<PronLists>({ lists: [] });
   const [listId, setListId] = useState("keep");
@@ -104,17 +108,16 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
     fetch("/api/pronunciation-lists").then((r) => (r.ok ? r.json() : { lists: [] })).then(setLists).catch(() => {});
   }, []);
 
-  const price = formatUsd(costUsd(req.chars, voice));
+  const price = formatUsd(costUsd(totalChars, voice));
   const changedVoice = voice !== (chapterVoice ?? "");
 
   async function narrate() {
     setBusy(true);
     setError("");
-    const message = await p.rereadAndNarrate(req.bookId, req.index, {
-      listId,
-      voice: changedVoice ? voice : undefined,
-      voiceForBook: changedVoice && forBook,
-    });
+    const opts = { listId, voice: changedVoice ? voice : undefined, voiceForBook: changedVoice && forBook };
+    const message = many
+      ? await p.rereadMany(req.bookId, req.items.map((c) => c.index), opts)
+      : await p.rereadAndNarrate(req.bookId, req.items[0].index, opts);
     if (message) {
       setError(message);
       setBusy(false);
@@ -126,10 +129,12 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
   return (
     <div className="modal-backdrop" onClick={() => !busy && close()}>
       <div className="modal" role="dialog" aria-modal="true" aria-labelledby="reread-title" onClick={(e) => e.stopPropagation()}>
-        <h2 id="reread-title" className="serif">Narrate this chapter again</h2>
-        <p className="lead-sm">{req.title}</p>
+        <h2 id="reread-title" className="serif">{many ? `Narrate ${req.items.length} chapters again` : "Narrate this chapter again"}</h2>
+        <p className="lead-sm">{many ? `${req.items[0].title} and ${req.items.length - 1} more` : req.items[0].title}</p>
         <p className="muted" style={{ marginTop: 10, lineHeight: 1.5 }}>
-          The current narration is thrown away. If you&apos;re listening to this chapter, it stops.
+          {many
+            ? "Their current narration is thrown away and they're narrated again in the background. Follow it in the Queue."
+            : "The current narration is thrown away. If you're listening to this chapter, it stops."}
         </p>
 
         <label className="label" htmlFor="rr-list" style={{ display: "block", marginTop: 18 }}>Pronunciations</label>
@@ -162,13 +167,13 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
         ) : null}
 
         <p className="muted" style={{ marginTop: 14, lineHeight: 1.5 }}>
-          Costs about {price} with {narratorLabel(voice)}. It&apos;s saved afterwards, so listening again is free.
+          {many ? "Together they cost" : "Costs"} about {price} with {narratorLabel(voice)}. It&apos;s saved afterwards, so listening again is free.
         </p>
         {error ? <p className="error" role="alert">{error}</p> : null}
 
         <div className="modal-actions">
           <button className="btn primary" disabled={busy} onClick={() => void narrate()}>
-            {busy ? "Starting…" : "Narrate"}
+            {busy ? "Starting…" : many ? `Narrate ${req.items.length} chapters` : "Narrate"}
           </button>
           <button className="btn" disabled={busy} onClick={close}>Cancel</button>
         </div>

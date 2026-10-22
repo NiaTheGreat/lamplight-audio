@@ -166,4 +166,29 @@ describe("background narration job", () => {
     expect((await getJob(id))?.status).toBe("paused");
     await deleteObject(`jobs/${id}.json`);
   });
+
+  it("narrates exactly the listed chapters and skips the gaps", async () => {
+    const { startJob, runJob, getJob, listQueue } = await import("@/lib/narration");
+    const { putObject, getObject, deleteObject } = await import("@/lib/storage");
+    const id = "1212343456567878";
+    const chapters = [0, 1, 2, 3, 4].map((i) => ({ index: i, title: `L${i}`, text: `L${i}. ${`List test words ${i} `.repeat(30)}` }));
+    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "Li", chapters }), "application/json");
+    await putObject(
+      `library/${id}.json`,
+      JSON.stringify({ id, title: "Li", chapterCount: 5, addedAt: 1, chars: chapters.map((c) => c.text.length) }),
+      "application/json",
+    );
+    const job = await startJob(id, 5, undefined, [4, 1, 1, 99, -2]);
+    expect(job.chapters).toEqual([1, 4]);
+    expect((await listQueue()).find((q) => q.id === id)?.remainingChars).toBe(chapters[1].text.length + chapters[4].text.length);
+
+    const before = calls;
+    const result = await runJob(id, { budgetMs: 60_000, reserveMs: 0 });
+    expect(result.finished).toBe(true);
+    expect(calls).toBe(before + 2); // chapters 1 and 4 only, not 2 and 3
+    expect((await getJob(id))?.status).toBe("done");
+    const entry = JSON.parse((await getObject(`library/${id}.json`))!.toString("utf8"));
+    expect(entry.narrated).toEqual([1, 4]);
+    await deleteObject(`jobs/${id}.json`);
+  });
 });

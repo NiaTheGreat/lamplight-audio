@@ -166,7 +166,7 @@ export default function Player() {
                 </span>
               </button>
               {ready ? (
-                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => dialog.reread({ bookId: book.id, index: c.index, title: c.title, chars: c.chars })}>
+                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => dialog.reread({ bookId: book.id, items: [{ index: c.index, title: c.title, chars: c.chars }] })}>
                   <Icon name="retry" size={20} />
                 </button>
               ) : null}
