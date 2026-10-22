@@ -12,6 +12,10 @@ export const VOICES = [
   "shimmer",
 ] as const;
 
+/** A voice name from the offered list, or undefined for anything else. */
+export const sanitizeVoice = (v: unknown): string | undefined =>
+  typeof v === "string" && (VOICES as readonly string[]).includes(v) ? v : undefined;
+
 export type Settings = {
   /** Voice given to newly added fics. */
   voice: string;

@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
+import { VOICES } from "@/lib/settings-shared";
 import type { BookSummary } from "@/lib/types";
 
 function describeFailure(status: number, serverMessage: string | undefined, body: string, file: File): string {
@@ -26,6 +27,12 @@ export default function AddFic() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [over, setOver] = useState(false);
+  // Starts at the voice chosen in Settings; changing it here only affects this book.
+  const [voice, setVoice] = useState(p.settings.voice);
+  const voiceTouched = useRef(false);
+  useEffect(() => {
+    if (!voiceTouched.current) setVoice(p.settings.voice);
+  }, [p.settings.voice]);
 
   function chooseFile(file: File | undefined) {
     if (!file) return;
@@ -44,6 +51,7 @@ export default function AddFic() {
     const form = new FormData();
     form.append("file", file);
     form.append("skipNotes", String(skipNotes));
+    form.append("voice", voice);
     return fetch("/api/books", { method: "POST", body: form });
   }
 
@@ -65,7 +73,7 @@ export default function AddFic() {
     return fetch("/api/books", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uploadKey: slot.key, skipNotes }),
+      body: JSON.stringify({ uploadKey: slot.key, skipNotes, voice }),
     });
   }
 
@@ -169,6 +177,32 @@ export default function AddFic() {
             className="switch"
             onClick={() => setSkipNotes((v) => !v)}
           />
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="option">
+          <div className="grow">
+            <label className="label" htmlFor="voice">Narrator voice</label>
+            <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
+              This fic keeps it from now on. Hear the voices in Settings.
+            </div>
+          </div>
+          <select
+            id="voice"
+            className="select"
+            value={voice}
+            onChange={(e) => {
+              voiceTouched.current = true;
+              setVoice(e.target.value);
+            }}
+          >
+            {VOICES.map((v) => (
+              <option key={v} value={v}>
+                {v.charAt(0).toUpperCase() + v.slice(1)}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
