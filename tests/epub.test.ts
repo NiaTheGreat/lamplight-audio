@@ -118,4 +118,66 @@ describe("parseEpub", () => {
   it("rejects things that aren't EPUBs", async () => {
     await expect(parseEpub(Buffer.from("not a zip"))).rejects.toThrow(/valid EPUB/);
   });
+
+  it("never uses a converter's file path as a chapter title", async () => {
+    const zip = new JSZip();
+    zip.file("META-INF/container.xml", `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`);
+    zip.file("content.opf", `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>`);
+    zip.file("c.xhtml", `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>/input/import-my-file/abc_story.pdf</title></head><body><p>There was once a story long enough to be read aloud.</p></body></html>`);
+    const book = await parseEpub(await zip.generateAsync({ type: "nodebuffer" }));
+    expect(book.chapters[0].title).toBe("Chapter 1");
+    expect(book.chapters[0].text).not.toContain(".pdf");
+  });
+
+  describe("EPUBs converted from a PDF (pieces cut by page, chapters are plain 'Part N:' lines)", () => {
+    const piece = (body: string) =>
+      `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>/input/import-my-file/x_story.pdf</title></head><body>${body}</body></html>`;
+
+    async function build(skipNotes: boolean) {
+      const pieces = [
+        `<p>Coming Home To You</p><p>by someone</p><p>Posted originally on the Archive of Our Own.</p>`,
+        // chapter one, with chapter two's heading stranded at the end of the piece
+        `<p><b>Part One: The Start</b></p><p>The first part has plenty of story text in it, enough to count.</p><p>More of the first part goes on here as well.</p><p>Part Two: The Middle</p>`,
+        `<p>See the end of the chapter for notes</p><p>The second part begins here and keeps going for a good while.</p>`,
+        `<p>Thanks for reading, see you next week!</p>`,
+        // a heading alone in its own piece
+        `<p>Part Three: The End</p>`,
+        `<p>The third part is the last one and has enough text to be read aloud.</p>`,
+        `<p>Please drop by the Archive and comment.</p>`,
+      ];
+      const zip = new JSZip();
+      zip.file("META-INF/container.xml", `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`);
+      const items = pieces.map((_, i) => `<item id="p${i}" href="p${i}.xhtml" media-type="application/xhtml+xml"/>`).join("");
+      const refs = pieces.map((_, i) => `<itemref idref="p${i}"/>`).join("");
+      zip.file("content.opf", `<package xmlns="http://www.idpf.org/2007/opf"><manifest>${items}</manifest><spine>${refs}</spine></package>`);
+      pieces.forEach((b, i) => zip.file(`p${i}.xhtml`, piece(b)));
+      return parseEpub(await zip.generateAsync({ type: "nodebuffer" }), { skipNotes });
+    }
+
+    it("regroups the pieces into the real chapters, titled by their headings", async () => {
+      const book = await build(true);
+      expect(book.chapters.map((c) => c.title)).toEqual([
+        "Part One: The Start",
+        "Part Two: The Middle",
+        "Part Three: The End",
+      ]);
+      expect(book.chapters[0].text.startsWith("Part One: The Start.")).toBe(true);
+      expect(book.chapters[1].text).toContain("The second part begins here");
+      expect(book.chapters[2].text).toContain("The third part is the last one");
+    });
+
+    it("drops the cover page, note pointers and stray note pieces", async () => {
+      const all = (await build(true)).chapters.map((c) => c.text).join("\n");
+      for (const banned of ["Coming Home", "by someone", "See the end", "Thanks for reading", "Please drop by"]) {
+        expect(all).not.toContain(banned);
+      }
+    });
+
+    it("keeps the front matter and notes when notes are kept", async () => {
+      const book = await build(false);
+      expect(book.chapters[0].title).toBe("Introduction");
+      const all = book.chapters.map((c) => c.text).join("\n");
+      expect(all).toContain("Thanks for reading");
+    });
+  });
 });
