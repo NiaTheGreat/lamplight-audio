@@ -57,15 +57,33 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   throw lastError;
 }
 
-/** One signed request to the bucket. 5xx/429 throw so withRetry tries again. */
+/**
+ * One signed request to the bucket. 5xx/429 throw so withRetry tries again.
+ *
+ * The request is signed first and then sent with a plain fetch and the body
+ * as raw bytes. Handing aws4fetch's own Request object to fetch can make some
+ * runtimes stream the body (chunked, no Content-Length), which R2 rejects
+ * with 411, so the size is also declared explicitly.
+ */
 async function r2Fetch(
   store: NonNullable<ReturnType<typeof r2>>,
   url: string,
-  init: RequestInit,
+  init: { method: string; headers?: Record<string, string>; body?: string | Uint8Array },
 ): Promise<Response> {
-  const res = await store.client.fetch(url, init);
+  const headers: Record<string, string> = { ...init.headers };
+  let body: Uint8Array | undefined;
+  if (init.body !== undefined) {
+    body = typeof init.body === "string" ? new TextEncoder().encode(init.body) : init.body;
+    headers["Content-Length"] = String(body.byteLength);
+  }
+  const signed = await store.client.sign(url, { method: init.method, headers });
+  const res = await fetch(signed.url, {
+    method: init.method,
+    headers: signed.headers,
+    body: body as BodyInit | undefined,
+  });
   if (res.status >= 500 || res.status === 429) {
-    throw new Error(`Storage error (${res.status}) for ${init.method ?? "GET"} ${url}`);
+    throw new Error(`Storage error (${res.status}) for ${init.method} ${url}`);
   }
   return res;
 }
@@ -86,7 +104,7 @@ export async function putObject(
           // Audio is named by a hash of its content and never changes.
           "Cache-Control": isImmutable(key) ? "public, max-age=31536000, immutable" : "no-store",
         },
-        body: typeof data === "string" ? data : new Uint8Array(data),
+        body: typeof data === "string" ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
       });
       if (!res.ok) throw new Error(`Storage write failed (${res.status}) for ${key}`);
     });
