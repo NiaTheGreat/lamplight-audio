@@ -130,7 +130,7 @@ type Ctx = {
   refreshLibrary: () => Promise<void>;
   refreshBook: (id: string) => Promise<void>;
   removeBook: (id: string) => Promise<void>;
-  startBackground: (range?: { from: number; to: number }) => Promise<void>;
+  startBackground: (range?: { from: number; to: number }, voice?: string) => Promise<void>;
   stopBackground: () => Promise<void>;
   /** Throw away a narrated chapter and narrate it again now (stopping it if it's playing). Returns an error message, or null. */
   rereadAndNarrate: (
@@ -692,14 +692,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // ---------- Background narration job ----------
 
-  const startBackground = useCallback(async (range?: { from: number; to: number }) => {
+  const startBackground = useCallback(async (range?: { from: number; to: number }, voice?: string) => {
     const b = bookRef.current;
     if (!b) return;
     setError("");
     const res = await fetch(`/api/books/${b.id}/narrate`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(range ?? {}),
+      body: JSON.stringify({ ...(range ?? {}), ...(voice ? { voice } : {}) }),
     });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };

@@ -28,6 +28,8 @@ export default function Narrating() {
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
   const [repairMsg, setRepairMsg] = useState("");
+  // "" = the fic's own voice. Only used for the batch started with the Read button.
+  const [batchVoice, setBatchVoice] = useState("");
   const [selecting, setSelecting] = useState(false);
   const [picked, setPicked] = useState<Set<number>>(new Set());
   // Once a job has started for the chosen chapters, leave selecting mode.
@@ -91,7 +93,8 @@ export default function Narrating() {
     .filter((c) => inRange(c.index) && notReady(c.index))
     .reduce((sum, c) => sum + c.chars, 0);
   const rangeToDo = book.chapters.filter((c) => inRange(c.index) && notReady(c.index)).length;
-  const cost = costUsd(rangeChars, book.voice).toFixed(2);
+  const batchNarrator = batchVoice || book.voice;
+  const cost = costUsd(rangeChars, batchNarrator).toFixed(2);
   async function repair() {
     if (!book) return;
     const todo = book.chapters.map((c) => c.index).filter((i) => !notReady(i));
@@ -111,8 +114,8 @@ export default function Narrating() {
     setRepairMsg(`Fixed ${rebuilt} chapter${rebuilt === 1 ? "" : "s"}${failed ? `; ${failed} failed, try again` : ""}. Nothing was spent.`);
   }
 
-  const eta = formatEta(estimateMs(rangeChars, speed[providerOf(book.voice)]));
-  const canChangeNarrator = p.readyCount === 0 && !running && !paused;
+  const eta = formatEta(estimateMs(rangeChars, speed[providerOf(batchNarrator)]));
+  const canChangeNarrator = !running && !paused;
   const done = p.readyCount >= total;
   const wholeBook = sel.from === 0 && sel.to === total - 1;
   const runFrom = p.job?.from ?? 0;
@@ -205,8 +208,10 @@ export default function Narrating() {
         {narratorError ? <p className="error" role="alert">{narratorError}</p> : null}
         <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
           {canChangeNarrator
-            ? "You can change the narrator until the first chapter is narrated. After that this fic keeps it."
-            : "This fic keeps its narrator, so a half-listened story never changes voice."}
+            ? p.readyCount > 0
+              ? "Changing it affects chapters narrated from now on. Chapters already narrated keep the voice they have."
+              : "You can change the narrator until you narrate something; after that, changing it only affects new chapters."
+            : "The narrator can be changed when no narration is running."}
           {!done && rangeToDo > 0
             ? ` For this range: about ${formatUsd(costUsd(rangeChars, "ballad"))} with OpenAI, ${formatUsd(costUsd(rangeChars, "deepinfra:kokoro:af_bella"))} with Kokoro.`
             : ""}
@@ -250,6 +255,19 @@ export default function Narrating() {
               </select>
             </label>
           </div>
+          <label className="label" htmlFor="batch-voice" style={{ display: "block", marginTop: 14 }}>Voice for these chapters</label>
+          <select id="batch-voice" className="select wide" value={batchVoice} onChange={(e) => setBatchVoice(e.target.value)}>
+            <option value="">{narratorLabel(book.voice)} (this fic&apos;s voice)</option>
+            {groups.map((g) => (
+              <optgroup key={g.provider} label={`${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`}>
+                {g.narrators.filter((n) => n.id !== book.voice).map((n) => (
+                  <option key={n.id} value={n.id} disabled={!g.configured}>
+                    {n.label}{g.configured ? "" : " (needs a key)"}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
           <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
             {rangeToDo === 0
               ? "Everything in this range is already read aloud."
@@ -394,7 +412,7 @@ export default function Narrating() {
           <button
             className="btn"
             disabled={rangeToDo === 0 && failedHere === null && !stalled}
-            onClick={() => void p.startBackground(failedHere !== null || stalled ? { from: runFrom, to: runTo } : sel)}
+            onClick={() => void p.startBackground(failedHere !== null || stalled ? { from: runFrom, to: runTo } : sel, failedHere !== null || stalled ? undefined : batchVoice || undefined)}
           >
             {failedHere !== null || stalled
               ? "Resume"

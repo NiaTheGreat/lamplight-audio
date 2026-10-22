@@ -184,11 +184,38 @@ describe("changing a narrator", () => {
     expect(JSON.parse((await getObject(`library/${ID}.json`))!.toString()).voice).toBe("deepinfra:kokoro:af_bella");
   });
 
-  it("refuses once any chapter is narrated, or for an unknown narrator", async () => {
-    const { changeNarrator, NarratorChangeError } = await import("@/lib/narrator");
+  it("switches a fic that already has narrated chapters, keeping those chapters in their old voice", async () => {
+    const { changeNarrator } = await import("@/lib/narrator");
+    const { voiceFor } = await import("@/lib/chaptervoice");
+    const { getObject } = await import("@/lib/storage");
+    await seed([1, 2]);
+    await changeNarrator(ID, "deepinfra:kokoro:af_bella");
+    const book = JSON.parse((await getObject(`books/${ID}.json`))!.toString());
+    expect(book.voice).toBe("deepinfra:kokoro:af_bella");
+    expect(voiceFor(book, 1)).toBe("ballad");
+    expect(voiceFor(book, 2)).toBe("ballad");
+    expect(voiceFor(book, 0)).toBe("deepinfra:kokoro:af_bella");
+    // Switching back leaves nothing pinned for chapters that match.
+    await changeNarrator(ID, "ballad");
+    const back = JSON.parse((await getObject(`books/${ID}.json`))!.toString());
+    expect(back.chapterVoices).toBeUndefined();
+  });
+
+  it("gives a range its own voice without touching the fic's voice or narrated chapters", async () => {
+    const { setChapterVoice } = await import("@/lib/narrator");
+    const { voiceFor } = await import("@/lib/chaptervoice");
+    const { getObject } = await import("@/lib/storage");
     await seed([1]);
-    await expect(changeNarrator(ID, "deepinfra:kokoro:af_bella")).rejects.toMatchObject({ status: 409 });
+    await setChapterVoice(ID, [0, 1, 2], "deepinfra:kokoro:af_bella");
+    const book = JSON.parse((await getObject(`books/${ID}.json`))!.toString());
+    expect(book.voice).toBe("ballad");
+    expect([0, 1, 2].map((i) => voiceFor(book, i))).toEqual(["deepinfra:kokoro:af_bella", "ballad", "deepinfra:kokoro:af_bella"]);
+  });
+
+  it("refuses an unknown narrator", async () => {
+    const { changeNarrator, setChapterVoice, NarratorChangeError } = await import("@/lib/narrator");
     await seed([]);
     await expect(changeNarrator(ID, "nonsense")).rejects.toBeInstanceOf(NarratorChangeError);
+    await expect(setChapterVoice(ID, [0], "nonsense")).rejects.toBeInstanceOf(NarratorChangeError);
   });
 });
