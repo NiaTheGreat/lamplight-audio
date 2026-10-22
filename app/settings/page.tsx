@@ -3,17 +3,20 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
-import { SLEEP_OPTIONS, SPEEDS, VOICES } from "@/lib/settings-shared";
+import { useNarrators } from "@/components/useNarrators";
+import { formatUsd } from "@/lib/narrators-shared";
+import { SLEEP_OPTIONS, SPEEDS } from "@/lib/settings-shared";
 
 const sleepLabel = (m: number) => (m === 0 ? "Off" : m === -1 ? "Ch. end" : String(m));
 
 export default function Settings() {
   const p = usePlayer();
   const { settings, updateSettings } = p;
-  const [showAll, setShowAll] = useState(false);
+  const groups = useNarrators();
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [hearing, setHearing] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState("");
-  const [usage, setUsage] = useState<{ chars: number; limit: number } | null>(null);
+  const [usage, setUsage] = useState<{ chars: number; usd: number; limitUsd: number } | null>(null);
   const previewRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => () => previewRef.current?.pause(), []);
@@ -32,7 +35,7 @@ export default function Settings() {
     try {
       // Fetch first so a failure shows the server's real message, and so the
       // first-time "making a sample" wait is visible.
-      const res = await fetch(`/api/voices/${voice}/preview`);
+      const res = await fetch(`/api/voices/${encodeURIComponent(voice)}/preview`);
       if (!res.ok) throw new Error((await res.text()) || `Request failed (${res.status})`);
       const url = URL.createObjectURL(await res.blob());
       const audio = new Audio(url);
@@ -53,41 +56,60 @@ export default function Settings() {
     }
   }
 
-  const ordered = [settings.voice, ...VOICES.filter((v) => v !== settings.voice)];
-  const shown = showAll ? ordered : ordered.slice(0, 4);
-
   return (
     <main className="screen">
       <h1 className="display" style={{ marginTop: 0 }}>Settings</h1>
 
-      <section className="section" aria-label="Voice">
-        <div className="eyebrow">Voice for new fics</div>
-        <div>
-          {shown.map((v) => (
-            <div key={v} className={`voice ${v === settings.voice ? "chosen" : ""}`}>
-              <button
-                className="pick"
-                role="radio"
-                aria-checked={v === settings.voice}
-                onClick={() => void updateSettings({ voice: v })}
-              >
-                <span className="slot">{v === settings.voice ? <Icon name="check" size={20} stroke={1.75} /> : null}</span>
-                <span style={{ textTransform: "capitalize" }}>{v}</span>
-              </button>
-              <button className="hear" aria-label={`Hear ${v}`} onClick={() => hear(v)}>
-                <Icon name="play" size={18} />
-                {hearing === v ? "Making a sample…" : "Hear"}
-              </button>
+      <section className="section" aria-label="Narrator">
+        <div className="eyebrow">Narrator for new fics</div>
+        {groups.map((g) => {
+          // The chosen narrator first, then the rest; collapsed to four until expanded.
+          const ordered = [...g.narrators].sort(
+            (a, b) => Number(b.id === settings.voice) - Number(a.id === settings.voice),
+          );
+          const open = showAll[g.provider];
+          const shown = open ? ordered : ordered.slice(0, 4);
+          return (
+            <div key={g.provider} style={{ marginTop: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+                <span className="serif" style={{ fontSize: 17 }}>{g.label}</span>
+                <span className="faint">about {formatUsd(g.pricePerMillion)} per million characters</span>
+              </div>
+              {!g.configured ? (
+                <p className="faint" style={{ marginTop: 4, lineHeight: 1.5 }}>
+                  Not set up yet. Add {g.keyName} in Vercel to use these voices.
+                </p>
+              ) : null}
+              {shown.map((n) => (
+                <div key={n.id} className={`voice ${n.id === settings.voice ? "chosen" : ""}`}>
+                  <button
+                    className="pick"
+                    role="radio"
+                    aria-checked={n.id === settings.voice}
+                    disabled={!g.configured}
+                    onClick={() => void updateSettings({ voice: n.id })}
+                  >
+                    <span className="slot">{n.id === settings.voice ? <Icon name="check" size={20} stroke={1.75} /> : null}</span>
+                    <span>{n.label}</span>
+                  </button>
+                  <button className="hear" aria-label={`Hear ${n.label}`} disabled={!g.configured} onClick={() => hear(n.id)}>
+                    <Icon name="play" size={18} />
+                    {hearing === n.id ? "Making a sample…" : "Hear"}
+                  </button>
+                </div>
+              ))}
+              {g.narrators.length > 4 ? (
+                <button className="link-btn" onClick={() => setShowAll((v) => ({ ...v, [g.provider]: !open }))}>
+                  {open ? "Show fewer voices" : `Show all ${g.narrators.length} voices`}
+                  <Icon name="chevronDown" size={20} />
+                </button>
+              ) : null}
             </div>
-          ))}
-          <button className="link-btn" onClick={() => setShowAll((v) => !v)}>
-            {showAll ? "Show fewer voices" : "Show all voices"}
-            <Icon name="chevronDown" size={20} />
-          </button>
-        </div>
+          );
+        })}
         {previewError ? <p className="error" role="alert">{previewError}</p> : null}
-        <p className="faint" style={{ marginTop: 4, lineHeight: 1.5 }}>
-          Each fic keeps the voice it was added with, so a half-listened story never changes narrator.
+        <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
+          Each fic keeps the narrator it was added with, so a half-listened story never changes narrator.
         </p>
       </section>
 
@@ -136,17 +158,17 @@ export default function Settings() {
       {usage ? (
         <section className="section" aria-label="Spending">
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-            <span className="eyebrow">Narrated this month</span>
+            <span className="eyebrow">Spent on narration this month</span>
             <span className="muted" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {usage.chars.toLocaleString("en-US")} of {usage.limit.toLocaleString("en-US")} characters
+              {formatUsd(usage.usd)} of {formatUsd(usage.limitUsd)}
             </span>
           </div>
           <div className="hairline" style={{ marginTop: 10 }}>
-            <i style={{ width: `${Math.min(100, (usage.chars / usage.limit) * 100)}%` }} />
+            <i style={{ width: `${Math.min(100, (usage.usd / usage.limitUsd) * 100)}%` }} />
           </div>
           <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
-            About ${((usage.chars * 16) / 1_000_000).toFixed(2)} so far. Narration stops at the limit; raise
-            MONTHLY_CHAR_LIMIT in Vercel to continue.
+            An estimate from each narrator&apos;s price per character. Narration stops at the limit; raise
+            MONTHLY_BUDGET_USD in Vercel to continue.
           </p>
         </section>
       ) : null}

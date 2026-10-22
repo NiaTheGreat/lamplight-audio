@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { parseNarrator, providerOf, type Provider, PROVIDER_KEY_ENV } from "./narrators-shared";
 import { getObject, hasObject, putObject } from "./storage";
 import { assertBudget, recordUsage } from "./usage";
 import { splitForTts } from "./text";
@@ -14,60 +15,106 @@ const instructions = () =>
 // gives it something harmless to end on. Override with TTS_END_PAD (empty = off).
 const endPad = () => process.env.TTS_END_PAD ?? "\n\n…";
 
-/** Cache key: same text + same voice settings => same audio, generated once. */
+const KOKORO_MODEL = "hexgrad/Kokoro-82M";
+const deepinfraBase = () => process.env.DEEPINFRA_BASE_URL || "https://api.deepinfra.com/v1/openai";
+
+/** How long one speech request may take before it is abandoned and retried. */
+const REQUEST_TIMEOUT_MS = 120_000;
+
 export { defaultVoice };
 
-export function audioKey(text: string, voice: string = defaultVoice()): string {
-  const hash = createHash("sha256")
-    .update(
-      [model(), voice, supportsInstructions() ? instructions() : "", endPad(), text].join("\u0000"),
-    )
-    .digest("hex");
-  return `audio/${hash}.mp3`;
+/**
+ * Cache key: same text + same narrator settings => same audio, generated once.
+ *
+ * A plain voice name is the original OpenAI narrator and hashes exactly as it
+ * always has (audio already paid for lives under these keys; tests/cachekeys pins
+ * them). Every other narrator gets its own versioned layout, so switching
+ * narrators never reuses, overwrites or orphans another narrator's audio.
+ */
+export function audioKey(text: string, narrator: string = defaultVoice()): string {
+  const parsed = parseNarrator(narrator);
+  const layout =
+    parsed?.provider === "deepinfra"
+      ? ["narrator-v1", "deepinfra", KOKORO_MODEL, parsed.voice, text]
+      : [model(), narrator, supportsInstructions() ? instructions() : "", endPad(), text];
+  return `audio/${createHash("sha256").update(layout.join("\u0000")).digest("hex")}.mp3`;
 }
 
 // Narrated speech is never smaller than this per character (a 1500-char chunk is
 // 80+ seconds of audio). Anything smaller is an empty or cut-off file.
-const MIN_BYTES_PER_CHAR = 50;
-const looksComplete = (audio: Buffer, text: string) =>
-  audio.length >= text.length * MIN_BYTES_PER_CHAR;
+const MIN_BYTES_PER_CHAR: Record<Provider, number> = { openai: 50, deepinfra: 30 };
+const looksComplete = (audio: Buffer, text: string, narrator: string) =>
+  audio.length >= text.length * MIN_BYTES_PER_CHAR[providerOf(narrator)];
 
-export async function synthChunk(input: string, voice: string = defaultVoice()): Promise<Buffer> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not set.");
-  await assertBudget(input.length);
+const PROVIDER_NAME: Record<Provider, string> = { openai: "OpenAI", deepinfra: "DeepInfra" };
 
+/** The request for one chunk, per provider. Everything else (retries, checks, usage) is shared. */
+function buildRequest(input: string, narrator: string): { url: string; apiKey: string; body: Record<string, unknown>; provider: Provider } {
+  const parsed = parseNarrator(narrator) ?? { provider: "openai" as const, voice: narrator };
+  const keyName = PROVIDER_KEY_ENV[parsed.provider];
+  const apiKey = process.env[keyName];
+  if (!apiKey) throw new Error(`${keyName} is not set.`);
+
+  if (parsed.provider === "deepinfra") {
+    return {
+      provider: "deepinfra",
+      url: `${deepinfraBase()}/audio/speech`,
+      apiKey,
+      // DeepInfra defaults to WAV; chapters are joined by concatenating MP3 frames.
+      body: { model: KOKORO_MODEL, voice: parsed.voice, input, response_format: "mp3" },
+    };
+  }
   const body: Record<string, unknown> = {
     model: model(),
-    voice,
+    voice: parsed.voice,
     input: input + endPad(),
     response_format: "mp3",
   };
   if (supportsInstructions()) body.instructions = instructions();
+  return {
+    provider: "openai",
+    url: `${process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"}/audio/speech`,
+    apiKey,
+    body,
+  };
+}
+
+export async function synthChunk(input: string, narrator: string = defaultVoice()): Promise<Buffer> {
+  const req = buildRequest(input, narrator);
+  const name = PROVIDER_NAME[req.provider];
+  await assertBudget(input.length, narrator);
 
   let lastError = "";
   for (let attempt = 0; attempt < 4; attempt++) {
-    const base = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-    const res = await fetch(`${base}/audio/speech`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    let res: Response;
+    try {
+      res = await fetch(req.url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${req.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(req.body),
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (err) {
+      // A timeout or dropped connection: wait and try again.
+      lastError = `${name} TTS request failed: ${err instanceof Error ? err.message : "network error"}`;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
+      continue;
+    }
     if (res.ok) {
       const audio = Buffer.from(await res.arrayBuffer());
-      if (looksComplete(audio, input)) {
-        await recordUsage(input.length);
+      if (looksComplete(audio, input, narrator)) {
+        await recordUsage(input.length, narrator);
         return audio;
       }
-      lastError = `OpenAI returned too little audio (${audio.length} bytes) for ${input.length} characters.`;
+      lastError = `${name} returned too little audio (${audio.length} bytes) for ${input.length} characters.`;
       continue;
     }
 
     const detail = (await res.text()).slice(0, 300);
-    lastError = `OpenAI TTS error ${res.status}: ${detail}`;
+    lastError = `${name} TTS error ${res.status}: ${detail}`;
     // Only retry rate limits and server errors. An empty balance is a 429 too,
     // but waiting won't fix it.
     if (res.status !== 429 && res.status < 500) break;
@@ -117,7 +164,7 @@ export async function synthesizeChapter(
 
   await mapLimit(chunks, 3, async (chunk, i) => {
     const cached = await getObject(keys[i]);
-    if (cached && looksComplete(cached, chunk)) {
+    if (cached && looksComplete(cached, chunk, voice)) {
       parts[i] = cached;
       return;
     }

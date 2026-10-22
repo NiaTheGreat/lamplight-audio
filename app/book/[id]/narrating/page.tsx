@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon, StateGlyph } from "@/components/Icon";
-import { STALE_MS, USD_PER_MILLION_CHARS, usePlayer } from "@/components/PlayerProvider";
+import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
+import { useNarrators } from "@/components/useNarrators";
+import { costUsd, formatUsd, narratorLabel, PRICE_PER_MILLION_CHARS, providerOf } from "@/lib/narrators-shared";
 import { Ticks } from "@/components/Ticks";
 
 const LABELS = {
@@ -21,6 +23,8 @@ export default function Narrating() {
   const p = usePlayer();
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
+  const groups = useNarrators();
+  const [narratorError, setNarratorError] = useState("");
   // Which chapters to read in the background (0-based, inclusive).
   const [range, setRange] = useState<{ from: number; to: number } | null>(null);
   const rangeTouched = useRef(false);
@@ -67,7 +71,8 @@ export default function Narrating() {
     .filter((c) => inRange(c.index) && notReady(c.index))
     .reduce((sum, c) => sum + c.chars, 0);
   const rangeToDo = book.chapters.filter((c) => inRange(c.index) && notReady(c.index)).length;
-  const cost = ((rangeChars * USD_PER_MILLION_CHARS) / 1_000_000).toFixed(2);
+  const cost = costUsd(rangeChars, book.voice).toFixed(2);
+  const canChangeNarrator = p.readyCount === 0 && !running;
   const done = p.readyCount >= total;
   const wholeBook = sel.from === 0 && sel.to === total - 1;
   const runFrom = p.job?.from ?? 0;
@@ -110,6 +115,57 @@ export default function Narrating() {
       {p.job?.status === "error" ? (
         <p className="error" role="alert">Narration stopped: {p.job.error}</p>
       ) : null}
+
+      <section className="section" aria-label="Narrator">
+        <div className="eyebrow">Narrator</div>
+        {canChangeNarrator ? (
+          <select
+            className="select wide"
+            aria-label="Narrator"
+            value={book.voice ?? ""}
+            onChange={async (e) => {
+              setNarratorError("");
+              const res = await fetch(`/api/books/${book.id}/narrator`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ narrator: e.target.value }),
+              });
+              if (!res.ok) {
+                const data = (await res.json().catch(() => ({}))) as { error?: string };
+                setNarratorError(data.error ?? "Couldn't change the narrator.");
+                return;
+              }
+              await p.refreshBook(book.id);
+              await p.refreshLibrary();
+            }}
+          >
+            {groups.map((g) => (
+              <optgroup key={g.provider} label={`${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`}>
+                {g.narrators.map((n) => (
+                  <option key={n.id} value={n.id} disabled={!g.configured && n.id !== book.voice}>
+                    {n.label}
+                    {g.configured ? "" : " (needs a key)"}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        ) : (
+          <div style={{ fontSize: 17 }} className="serif">
+            {narratorLabel(book.voice)}
+            <span className="faint"> · about {formatUsd(PRICE_PER_MILLION_CHARS[providerOf(book.voice)])} per million characters</span>
+          </div>
+        )}
+        {narratorError ? <p className="error" role="alert">{narratorError}</p> : null}
+        <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
+          {canChangeNarrator
+            ? "You can change the narrator until the first chapter is narrated. After that this fic keeps it."
+            : "This fic keeps its narrator, so a half-listened story never changes voice."}
+          {!done && rangeToDo > 0
+            ? ` For this range: about ${formatUsd(costUsd(rangeChars, "ballad"))} with OpenAI, ${formatUsd(costUsd(rangeChars, "deepinfra:kokoro:af_bella"))} with Kokoro.`
+            : ""}
+        </p>
+      </section>
 
       {!running && !done ? (
         <section className="section" aria-label="Which chapters to read">

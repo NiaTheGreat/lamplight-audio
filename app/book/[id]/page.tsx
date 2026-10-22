@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon, StateGlyph } from "@/components/Icon";
-import { USD_PER_MILLION_CHARS, usePlayer } from "@/components/PlayerProvider";
+import { usePlayer } from "@/components/PlayerProvider";
+import { costUsd, formatUsd } from "@/lib/narrators-shared";
 
 function clock(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
@@ -135,7 +136,7 @@ export default function Player() {
             {p.readyCount === 0
               ? "Nothing is narrated yet."
               : `${p.readyCount} of ${book.chapters.length} chapters are narrated.`}{" "}
-            About ${((unreadChars * USD_PER_MILLION_CHARS) / 1_000_000).toFixed(2)} for the rest.
+            About {formatUsd(costUsd(unreadChars, book.voice))} for the rest.
           </span>
           <Link className="btn" href={`/book/${book.id}/narrating`}>Choose chapters</Link>
         </div>

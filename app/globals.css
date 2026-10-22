@@ -1239,6 +1239,11 @@ input[type="range"]::-moz-range-thumb {
   color: var(--amber);
 }
 
+.voice .pick:disabled,
+.voice .hear:disabled {
+  opacity: 0.4;
+}
+
 .voice .hear {
   min-width: 48px;
   height: 48px;
