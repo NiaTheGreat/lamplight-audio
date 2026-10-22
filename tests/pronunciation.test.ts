@@ -111,3 +111,25 @@ describe("named lists", () => {
     expect((await getPronunciations(bookId)).list?.name).toBe("HP");
   });
 });
+
+describe("re-reading one chapter", () => {
+  it("removes that chapter's audio and un-narrates only it", async () => {
+    const { putObject, hasObject, getObject } = await import("@/lib/storage");
+    const { rereadChapter } = await import("@/lib/reread");
+    const { audioKey } = await import("@/lib/tts");
+    const { splitForTts } = await import("@/lib/text");
+    const id = "cccc111122223333";
+    const chapters = [0, 1].map((i) => ({ index: i, title: `C${i}`, text: `Chapter ${i} words here.` }));
+    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "T", voice: "ballad", chapters }), "application/json");
+    await putObject(`library/${id}.json`, JSON.stringify({ id, title: "T", chapterCount: 2, addedAt: 1, narrated: [0, 1] }), "application/json");
+    const keys = chapters.map((c) => [audioKey(c.text, "ballad"), ...splitForTts(c.text).map((t) => audioKey(t, "ballad"))]);
+    for (const k of keys.flat()) await putObject(k, Buffer.alloc(10), "audio/mpeg");
+
+    await rereadChapter(id, 0);
+    expect(await hasObject(keys[0][0])).toBe(false);
+    expect(await hasObject(keys[1][0])).toBe(true);
+    const entry = JSON.parse((await getObject(`library/${id}.json`))!.toString("utf8"));
+    expect(entry.narrated).toEqual([1]);
+    await expect(rereadChapter(id, 0)).rejects.toThrow(/isn't narrated/);
+  });
+});

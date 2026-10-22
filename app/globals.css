@@ -1456,3 +1456,10 @@ input[type="range"]::-moz-range-thumb {
   width: 100%;
   border-radius: 8px;
 }
+
+.chrow button.dl {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin-right: 0;
+}

@@ -69,7 +69,10 @@ export default function PronunciationPage() {
     setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
     setDirty(true);
   };
-  const staleChars = stale.reduce((n, c) => n + c.chars, 0);
+  // Chapters ticked for re-reading; every affected chapter starts ticked.
+  const [skip, setSkip] = useState<Set<number>>(new Set());
+  const picked = stale.filter((c) => !skip.has(c.index));
+  const staleChars = picked.reduce((n, c) => n + c.chars, 0);
 
   return (
     <main className="screen no-tabs" style={{ paddingBottom: 140 }}>
@@ -137,19 +140,38 @@ export default function PronunciationPage() {
         <section className="section" aria-label="Chapters still using older pronunciations">
           <div className="eyebrow">Already narrated</div>
           <p className="faint" style={{ lineHeight: 1.5, marginTop: 8 }}>
-            {stale.length} narrated chapter{stale.length === 1 ? "" : "s"} still use the older pronunciations. Re-reading
-            {stale.length === 1 ? " it" : " them"} with the new ones costs about {formatUsd(costUsd(staleChars, voice))}.
+            These narrated chapters were read with older pronunciations. Tick the ones to read again; each costs money,
+            so skip the long ones if you like.
           </p>
+          <div className="rows">
+            {stale.map((c) => (
+              <label key={c.index} className="chrow" style={{ minHeight: 52 }}>
+                <input
+                  type="checkbox"
+                  checked={!skip.has(c.index)}
+                  onChange={(e) => {
+                    const next = new Set(skip);
+                    if (e.target.checked) next.delete(c.index);
+                    else next.add(c.index);
+                    setSkip(next);
+                  }}
+                />
+                <span className="nm">{c.title}</span>
+                <span className="st">{formatUsd(costUsd(c.chars, voice))}</span>
+              </label>
+            ))}
+          </div>
           <button
             className="btn"
-            disabled={busy}
+            style={{ marginTop: 12 }}
+            disabled={busy || picked.length === 0}
             onClick={() => {
-              if (window.confirm(`Re-read ${stale.length} chapter${stale.length === 1 ? "" : "s"}? They'll be narrated again when you play them, about ${formatUsd(costUsd(staleChars, voice))}.`)) {
-                void call("POST", {}, "Those chapters will be read again with the new pronunciations when you play them.");
+              if (window.confirm(`Re-read ${picked.length} chapter${picked.length === 1 ? "" : "s"}? They'll be narrated again when you play them, about ${formatUsd(costUsd(staleChars, voice))}.`)) {
+                void call("POST", { chapters: picked.map((c) => c.index) }, "Those chapters will be read again with the new pronunciations when you play them.");
               }
             }}
           >
-            Re-read with new pronunciations
+            Re-read {picked.length} chapter{picked.length === 1 ? "" : "s"} · about {formatUsd(costUsd(staleChars, voice))}
           </button>
         </section>
       ) : null}
