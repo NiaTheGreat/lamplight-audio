@@ -14,6 +14,9 @@ export type Job = {
   /** Next chapter index to narrate. */
   chapter: number;
   total: number;
+  /** The chapters this job covers, inclusive. Older jobs without these cover the whole book. */
+  from?: number;
+  to?: number;
   startedAt: number;
   updatedAt: number;
   /** Another worker is running until this time; others must not start. */
@@ -33,12 +36,29 @@ async function saveJob(bookId: string, job: Job): Promise<void> {
   await putObject(jobKey(bookId), JSON.stringify(job), "application/json");
 }
 
-/** Start (or restart) a job. Chapters already narrated are skipped quickly. */
-export async function startJob(bookId: string, total: number): Promise<Job> {
+/** Keep a requested range inside the book, with from <= to. Missing ends mean the first/last chapter. */
+export function clampRange(total: number, from?: unknown, to?: unknown): { from: number; to: number } {
+  const last = Math.max(0, total - 1);
+  const num = (v: unknown, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v) ? Math.min(last, Math.max(0, Math.floor(v))) : fallback;
+  const a = num(from, 0);
+  const b = num(to, last);
+  return { from: Math.min(a, b), to: Math.max(a, b) };
+}
+
+/** Start (or restart) a job over a range of chapters. Chapters already narrated are skipped quickly. */
+export async function startJob(
+  bookId: string,
+  total: number,
+  range?: { from?: unknown; to?: unknown },
+): Promise<Job> {
   const now = Date.now();
+  const { from, to } = clampRange(total, range?.from, range?.to);
   const job: Job = {
     status: "running",
-    chapter: 0,
+    chapter: from,
+    from,
+    to,
     total,
     startedAt: now,
     updatedAt: now,
@@ -86,7 +106,8 @@ export async function runJob(
   await saveJob(bookId, job);
 
   try {
-    while (job.chapter < book.chapters.length) {
+    const last = Math.min(job.to ?? book.chapters.length - 1, book.chapters.length - 1);
+    while (job.chapter <= last) {
       // Stop if the user cancelled while we were working.
       const fresh = await getJob(bookId);
       if (!fresh || fresh.status !== "running") return { finished: true };
@@ -108,7 +129,7 @@ export async function runJob(
       await saveJob(bookId, job);
     }
 
-    const finished = job.chapter >= book.chapters.length;
+    const finished = job.chapter > last;
     if (finished) job.status = "done";
     job.leaseUntil = 0;
     await saveJob(bookId, job);

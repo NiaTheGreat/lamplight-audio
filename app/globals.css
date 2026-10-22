@@ -486,6 +486,33 @@ p {
   background: var(--amber);
 }
 
+.tickset {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.tickset i {
+  width: 3px;
+  background: rgba(154, 138, 114, 0.45);
+}
+
+.tickset i.on {
+  background: var(--amber);
+}
+
+.tickset.big {
+  height: 14px;
+  width: 100%;
+  gap: 6px;
+}
+
+.tickset.big i {
+  width: auto;
+  flex: 1;
+}
+
 .ticks.big {
   height: 14px;
   width: 100%;
@@ -597,6 +624,28 @@ p {
 .option .label {
   font-size: 16px;
   font-weight: 500;
+}
+
+.rangepick {
+  display: grid;
+  gap: 12px;
+}
+
+.rangepick label {
+  display: grid;
+  gap: 4px;
+}
+
+.select.wide {
+  width: 100%;
+  min-width: 0;
+  border-radius: 8px;
+  padding: 0 12px;
+  text-overflow: ellipsis;
+}
+
+.chrow.outside {
+  opacity: 0.45;
 }
 
 .select {

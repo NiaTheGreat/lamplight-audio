@@ -80,7 +80,7 @@ export default function Library() {
                       {b.author ? <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{b.author}</div> : null}
                     </div>
                     <div className="meta">
-                      <Ticks done={narrated} total={b.chapterCount} />
+                      <Ticks done={narrated} total={b.chapterCount} ready={b.narrated ?? []} />
                       <span>
                         {narrated === 0
                           ? "Not narrated yet"

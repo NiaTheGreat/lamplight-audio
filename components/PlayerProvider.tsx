@@ -17,6 +17,8 @@ export type JobInfo = {
   status: "running" | "done" | "cancelled" | "error";
   chapter: number;
   total: number;
+  from?: number;
+  to?: number;
   updatedAt: number;
   error?: string;
 };
@@ -102,7 +104,7 @@ type Ctx = {
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   refreshLibrary: () => Promise<void>;
   removeBook: (id: string) => Promise<void>;
-  startBackground: () => Promise<void>;
+  startBackground: (range?: { from: number; to: number }) => Promise<void>;
   stopBackground: () => Promise<void>;
   chapterState: (index: number) => ChapterState;
   readyCount: number;
@@ -566,11 +568,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // ---------- Background narration job ----------
 
-  const startBackground = useCallback(async () => {
+  const startBackground = useCallback(async (range?: { from: number; to: number }) => {
     const b = bookRef.current;
     if (!b) return;
     setError("");
-    const res = await fetch(`/api/books/${b.id}/narrate`, { method: "POST" });
+    const res = await fetch(`/api/books/${b.id}/narrate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(range ?? {}),
+    });
     if (!res.ok) {
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       setError(data.error ?? "Couldn't start background narration.");

@@ -1,6 +1,27 @@
 /** One tick per chapter: filled for narrated chapters. Long books fall back to a plain bar. */
-export function Ticks({ done, total, big = false }: { done: number; total: number; big?: boolean }) {
+export function Ticks({
+  done,
+  total,
+  big = false,
+  ready,
+}: {
+  done: number;
+  total: number;
+  big?: boolean;
+  /** Which chapters (0-based) are narrated. When given, each tick shows its own chapter. */
+  ready?: number[];
+}) {
   const label = `${done} of ${total} chapters narrated`;
+  if (ready && total > 0 && total <= 40) {
+    const on = new Set(ready);
+    return (
+      <div className={`tickset ${big ? "big" : ""}`} role="img" aria-label={label}>
+        {Array.from({ length: total }, (_, i) => (
+          <i key={i} className={on.has(i) ? "on" : undefined} />
+        ))}
+      </div>
+    );
+  }
   if (big) {
     // Full-width strip; the tick pattern is tuned for about 22 chapters, so scale it.
     return (
