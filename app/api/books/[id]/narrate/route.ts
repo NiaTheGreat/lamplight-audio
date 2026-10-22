@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { tokenFor } from "@/lib/auth";
-import { cancelJob, getJob, pauseJob, resumeJob, startJob } from "@/lib/narration";
+import { setChapterVoice, NarratorChangeError } from "@/lib/narrator";
+import { cancelJob, clampRange, getJob, pauseJob, resumeJob, startJob } from "@/lib/narration";
 import { getObject } from "@/lib/storage";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
@@ -30,7 +31,20 @@ export async function POST(req: Request, ctx: Ctx) {
   const book = JSON.parse(raw.toString("utf8")) as Book;
 
   // Optional { from, to } picks which chapters (0-based, inclusive), or { chapters: [..] } exact ones; none means the whole book.
-  const range = (await req.json().catch(() => null)) as { from?: unknown; to?: unknown; chapters?: unknown } | null;
+  const range = (await req.json().catch(() => null)) as { from?: unknown; to?: unknown; chapters?: unknown; voice?: unknown } | null;
+  // Optional { voice }: narrate these chapters in that voice (the fic's own voice is unchanged).
+  if (typeof range?.voice === "string" && range.voice) {
+    const { from, to } = clampRange(book.chapters.length, range.from, range.to);
+    const indices = Array.isArray(range.chapters)
+      ? range.chapters.filter((c): c is number => Number.isInteger(c))
+      : Array.from({ length: to - from + 1 }, (_, k) => from + k);
+    try {
+      await setChapterVoice(id, indices, range.voice);
+    } catch (err) {
+      if (err instanceof NarratorChangeError) return NextResponse.json({ error: err.message }, { status: err.status });
+      throw err;
+    }
+  }
   const job = await startJob(id, book.chapters.length, range ?? undefined, range?.chapters);
 
   return kickWorker(req, id, job);
