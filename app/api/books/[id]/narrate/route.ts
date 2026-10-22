@@ -29,9 +29,9 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!raw) return NextResponse.json({ error: "Book not found." }, { status: 404 });
   const book = JSON.parse(raw.toString("utf8")) as Book;
 
-  // Optional { from, to } picks which chapters (0-based, inclusive); none means the whole book.
-  const range = (await req.json().catch(() => null)) as { from?: unknown; to?: unknown } | null;
-  const job = await startJob(id, book.chapters.length, range ?? undefined);
+  // Optional { from, to } picks which chapters (0-based, inclusive), or { chapters: [..] } exact ones; none means the whole book.
+  const range = (await req.json().catch(() => null)) as { from?: unknown; to?: unknown; chapters?: unknown } | null;
+  const job = await startJob(id, book.chapters.length, range ?? undefined, range?.chapters);
 
   return kickWorker(req, id, job);
 }

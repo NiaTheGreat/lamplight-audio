@@ -198,3 +198,26 @@ describe("re-reading with another voice or list", () => {
     await expect(rereadChapter(id, 2, { voice: "not-a-voice" })).rejects.toThrow(/Unknown narrator/);
   });
 });
+
+describe("re-reading several chapters at once", () => {
+  const id = "ffff111122223333";
+  it("applies one voice and list change to all the chosen chapters and leaves the rest", async () => {
+    const { putObject, getObject } = await import("@/lib/storage");
+    const { rereadChapters } = await import("@/lib/reread");
+    const { voiceFor } = await import("@/lib/chaptervoice");
+    const chapters = [0, 1, 2, 3].map((i) => ({ index: i, title: `M${i}`, text: `Regina chapter ${i} words.` }));
+    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "T", voice: "ballad", chapters }), "application/json");
+    await putObject(`library/${id}.json`, JSON.stringify({ id, title: "T", chapterCount: 4, addedAt: 1, narrated: [0, 1, 2, 3] }), "application/json");
+
+    const r = await rereadChapters(id, [2, 0, 2], { voice: "deepinfra:kokoro:af_bella" });
+    expect(r.chapters).toEqual([0, 2]);
+    const book = JSON.parse((await getObject(`books/${id}.json`))!.toString("utf8"));
+    expect([0, 1, 2, 3].map((i) => voiceFor(book, i))).toEqual([
+      "deepinfra:kokoro:af_bella", "ballad", "deepinfra:kokoro:af_bella", "ballad",
+    ]);
+    expect(JSON.parse((await getObject(`library/${id}.json`))!.toString("utf8")).narrated).toEqual([1, 3]);
+    await expect(rereadChapters(id, [0], {})).rejects.toThrow(/isn't narrated/); // not narrated any more
+    await expect(rereadChapters(id, [], {})).rejects.toThrow(/Which chapters/);
+    await expect(rereadChapters(id, [1, 0], {})).rejects.toThrow(/aren't all narrated/);
+  });
+});

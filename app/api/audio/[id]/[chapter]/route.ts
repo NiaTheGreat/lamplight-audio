@@ -119,7 +119,9 @@ export async function GET(
     if (url) {
       return new Response(null, {
         status: 307,
-        headers: { Location: url, "Cache-Control": "private, max-age=3600" },
+        // Never cached: each play gets a fresh signed address, so a chapter that was rebuilt or
+        // narrated again is fetched again instead of replaying a copy the browser kept.
+        headers: { Location: url, "Cache-Control": "no-store" },
       });
     }
   }

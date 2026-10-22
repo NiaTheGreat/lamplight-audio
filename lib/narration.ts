@@ -21,6 +21,8 @@ export type Job = {
   /** The chapters this job covers, inclusive. Older jobs without these cover the whole book. */
   from?: number;
   to?: number;
+  /** Exactly these chapters (ascending), for a job that isn't one contiguous range, e.g. several chapters re-read. */
+  chapters?: number[];
   startedAt: number;
   updatedAt: number;
   /** Another worker is running until this time; others must not start. */
@@ -107,9 +109,8 @@ export async function listQueue(): Promise<QueueItem[]> {
     }
     const entry = JSON.parse(raw.toString("utf8")) as LibraryEntry;
     const done = new Set(entry.narrated ?? []);
-    const last = Math.min(job.to ?? entry.chapterCount - 1, entry.chapterCount - 1);
     let remainingChars = 0;
-    for (let i = Math.max(job.chapter, 0); i <= last; i++) if (!done.has(i)) remainingChars += entry.chars?.[i] ?? 0;
+    for (const i of remainingChapters(job, entry.chapterCount)) if (!done.has(i)) remainingChars += entry.chars?.[i] ?? 0;
     items.push({ id, title: entry.title, author: entry.author, voice: entry.voice, job, remainingChars });
   }
   for (const id of stale) await setQueued(id, false);
@@ -126,19 +127,32 @@ export function clampRange(total: number, from?: unknown, to?: unknown): { from:
   return { from: Math.min(a, b), to: Math.max(a, b) };
 }
 
-/** Start (or restart) a job over a range of chapters. Chapters already narrated are skipped quickly. */
+/** The chapters a job still has to do, in order (those before its pointer are done). */
+export function remainingChapters(job: Pick<Job, "chapter" | "to" | "chapters">, count: number): number[] {
+  if (job.chapters) return job.chapters.filter((c) => c >= job.chapter && c < count);
+  const out: number[] = [];
+  for (let i = Math.max(job.chapter, 0); i <= Math.min(job.to ?? count - 1, count - 1); i++) out.push(i);
+  return out;
+}
+
+/** Start (or restart) a job over a range of chapters, or over an explicit list of them. Chapters already narrated are skipped quickly. */
 export async function startJob(
   bookId: string,
   total: number,
   range?: { from?: unknown; to?: unknown },
+  chapters?: unknown,
 ): Promise<Job> {
   const now = Date.now();
-  const { from, to } = clampRange(total, range?.from, range?.to);
+  const list = Array.isArray(chapters)
+    ? [...new Set(chapters.filter((c): c is number => Number.isInteger(c) && c >= 0 && c < total))].sort((a, b) => a - b)
+    : [];
+  const { from, to } = list.length ? { from: list[0], to: list[list.length - 1] } : clampRange(total, range?.from, range?.to);
   const job: Job = {
     status: "running",
     chapter: from,
     from,
     to,
+    ...(list.length ? { chapters: list } : {}),
     total,
     startedAt: now,
     updatedAt: now,
@@ -235,8 +249,10 @@ export async function runJob(
   };
 
   try {
-    const last = Math.min(job.to ?? book.chapters.length - 1, book.chapters.length - 1);
-    while (job.chapter <= last) {
+    for (;;) {
+      const next = remainingChapters(job, book.chapters.length)[0];
+      if (next === undefined) break;
+      job.chapter = next; // skips the gaps in a job that covers a list of chapters
       const ch = book.chapters[job.chapter];
       const voice = voiceFor(book, ch.index);
       const spoken = spokenText(book, ch.index, ch.text);
@@ -265,7 +281,7 @@ export async function runJob(
       await saveJob(bookId, job);
     }
 
-    const after = await leave(bookId, job, job.chapter > last);
+    const after = await leave(bookId, job, remainingChapters(job, book.chapters.length).length === 0);
     await flushSpeed();
     return { finished: after.status !== "running" };
   } catch (err) {

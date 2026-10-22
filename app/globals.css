@@ -1482,3 +1482,7 @@ input[type="range"]::-moz-range-thumb {
     margin: 0 auto;
   }
 }
+
+.pron-row:has(.btn) {
+  grid-template-columns: 1fr 1fr auto 44px;
+}

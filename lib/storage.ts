@@ -11,7 +11,11 @@ import { AwsClient } from "aws4fetch";
  *    must be configured there.
  * Keys are always hex-hash based, never user-supplied paths.
  */
-const isImmutable = (key: string) => key.startsWith("audio/") || key.startsWith("previews/");
+// Voice previews never change. Chapter audio can (a chapter is rebuilt or narrated again under the
+// same name, which is a hash of its text, not of its bytes), so it is only cached briefly.
+const isImmutable = (key: string) => key.startsWith("previews/");
+const cacheControl = (key: string) =>
+  isImmutable(key) ? "public, max-age=31536000, immutable" : key.startsWith("audio/") ? "private, max-age=600" : "no-store";
 
 const r2 = () => {
   const accountId = process.env.R2_ACCOUNT_ID;
@@ -101,8 +105,7 @@ export async function putObject(
         method: "PUT",
         headers: {
           "Content-Type": contentType,
-          // Audio is named by a hash of its content and never changes.
-          "Cache-Control": isImmutable(key) ? "public, max-age=31536000, immutable" : "no-store",
+          "Cache-Control": cacheControl(key),
         },
         body: typeof data === "string" ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
       });

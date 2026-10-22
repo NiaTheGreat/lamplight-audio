@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { HearButton } from "@/components/HearButton";
 import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
@@ -128,6 +129,7 @@ export default function PronunciationPage() {
               <div key={i} className="pron-row">
                 <input className="select" aria-label="Written as" placeholder="Written" value={l.from} onChange={(e) => edit(i, { from: e.target.value })} />
                 <input className="select" aria-label="Said as" placeholder="Said like" value={l.to} onChange={(e) => edit(i, { to: e.target.value })} />
+                <HearButton text={l.to} voice={voice} />
                 <button className="icon-btn" aria-label="Remove line" onClick={() => { setLines(lines.filter((_, j) => j !== i)); setDirty(true); }}>
                   <Icon name="trash" size={18} />
                 </button>

@@ -2,12 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { HearButton } from "@/components/HearButton";
+import { usePlayer } from "@/components/PlayerProvider";
+import { useNarrators } from "@/components/useNarrators";
 import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
 import type { PronLists } from "@/lib/pronlists";
 
 export default function PronunciationLists() {
   const dialog = useDialog();
+  const p = usePlayer();
+  const groups = useNarrators();
+  const [chosenVoice, setChosenVoice] = useState("");
+  const testVoice = chosenVoice || p.settings.voice;
   const [data, setData] = useState<PronLists | null>(null);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -66,6 +73,17 @@ export default function PronunciationLists() {
       {error ? <p className="error" role="alert">{error}</p> : null}
       {message ? <p className="faint" role="status">{message}</p> : null}
 
+      <label className="label" htmlFor="test-voice" style={{ display: "block", marginTop: 18 }}>Voice for the Hear buttons</label>
+      <select id="test-voice" className="select wide" value={testVoice} onChange={(e) => setChosenVoice(e.target.value)}>
+        {groups.map((g) => (
+          <optgroup key={g.provider} label={g.label}>
+            {g.narrators.map((n) => (
+              <option key={n.id} value={n.id} disabled={!g.configured}>{n.label}</option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+
       {data.lists.map((l, i) => (
         <section key={l.id} className="section" aria-label={l.name}>
           <div className="pron-row" style={{ gridTemplateColumns: "1fr 44px" }}>
@@ -97,6 +115,7 @@ export default function PronunciationLists() {
                   onChange={(e) => update(i, { lines: l.lines.map((x, j) => (j === k ? { ...x, from: e.target.value } : x)) })} />
                 <input className="select" aria-label="Said as" placeholder="Said like" value={line.to}
                   onChange={(e) => update(i, { lines: l.lines.map((x, j) => (j === k ? { ...x, to: e.target.value } : x)) })} />
+                <HearButton text={line.to} voice={testVoice} />
                 <button className="icon-btn" aria-label="Remove line" onClick={() => update(i, { lines: l.lines.filter((_, j) => j !== k) })}>
                   <Icon name="trash" size={18} />
                 </button>

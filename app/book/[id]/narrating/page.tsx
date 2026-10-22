@@ -28,6 +28,16 @@ export default function Narrating() {
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
   const [repairMsg, setRepairMsg] = useState("");
+  const [selecting, setSelecting] = useState(false);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  // Once a job has started for the chosen chapters, leave selecting mode.
+  const jobActive = p.job?.status === "running" || p.job?.status === "paused";
+  useEffect(() => {
+    if (jobActive) {
+      setSelecting(false);
+      setPicked(new Set());
+    }
+  }, [jobActive]);
   const [speed, setSpeed] = useState<SpeedStats>({});
   useEffect(() => {
     fetch("/api/speed").then((r) => (r.ok ? r.json() : {})).then(setSpeed).catch(() => {});
@@ -257,6 +267,21 @@ export default function Narrating() {
         </div>
       ) : null}
 
+      {p.readyCount > 0 && !running && !paused ? (
+        <div style={{ marginTop: 16, display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {selecting ? (
+            <>
+              <button className="btn" onClick={() => setPicked(new Set(book.chapters.filter((c) => !notReady(c.index)).map((c) => c.index)))}>
+                Select all narrated
+              </button>
+              <button className="btn" onClick={() => { setSelecting(false); setPicked(new Set()); }}>Done selecting</button>
+            </>
+          ) : (
+            <button className="btn" onClick={() => setSelecting(true)}>Select chapters to re-read</button>
+          )}
+        </div>
+      ) : null}
+
       <div className="rows" style={{ marginTop: 20 }}>
         {book.chapters.map((c) => {
           const state = p.chapterState(c.index);
@@ -269,7 +294,23 @@ export default function Narrating() {
               key={c.index}
               className={`chrow ${state} ${!running && !inRange(c.index) && state !== "ready" ? "outside" : ""}`}
             >
-              {state === "ready" ? (
+              {selecting && state === "ready" ? (
+                <label className="play-area" style={{ cursor: "pointer" }}>
+                  <input
+                    type="checkbox"
+                    checked={picked.has(c.index)}
+                    onChange={(e) => {
+                      const next = new Set(picked);
+                      if (e.target.checked) next.add(c.index);
+                      else next.delete(c.index);
+                      setPicked(next);
+                    }}
+                    aria-label={`Select ${c.title}`}
+                  />
+                  <span className="nm">{c.title}</span>
+                  <span className="st">{label}</span>
+                </label>
+              ) : state === "ready" ? (
                 <button
                   className="play-area"
                   aria-label={`Play ${c.title}`}
@@ -289,8 +330,8 @@ export default function Narrating() {
                   <span className="st">{label}</span>
                 </>
               )}
-              {state === "ready" ? (
-                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => dialog.reread({ bookId: book.id, index: c.index, title: c.title, chars: c.chars })}>
+              {state === "ready" && !selecting ? (
+                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => dialog.reread({ bookId: book.id, items: [{ index: c.index, title: c.title, chars: c.chars }] })}>
                   <Icon name="retry" size={20} />
                 </button>
               ) : null}
@@ -299,6 +340,25 @@ export default function Narrating() {
         })}
       </div>
 
+      {selecting ? (
+        <div className="sticky-actions">
+          <button
+            className="btn primary"
+            disabled={picked.size === 0}
+            onClick={() =>
+              dialog.reread({
+                bookId: book.id,
+                items: book.chapters.filter((c) => picked.has(c.index)).map((c) => ({ index: c.index, title: c.title, chars: c.chars })),
+              })
+            }
+          >
+            {picked.size === 0
+              ? "Pick chapters to re-read"
+              : `Re-read ${picked.size} chapter${picked.size === 1 ? "" : "s"} · about ${formatUsd(costUsd(book.chapters.filter((c) => picked.has(c.index)).reduce((n, c) => n + c.chars, 0), book.voice))}`}
+          </button>
+          <button className="btn" onClick={() => { setSelecting(false); setPicked(new Set()); }}>Cancel</button>
+        </div>
+      ) : (
       <div className="sticky-actions">
         <button
           className="btn primary"
@@ -346,6 +406,7 @@ export default function Narrating() {
           </button>
         ) : null}
       </div>
+      )}
     </main>
   );
 }
