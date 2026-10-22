@@ -2,13 +2,33 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Icon } from "@/components/Icon";
-import { usePlayer } from "@/components/PlayerProvider";
+import { USD_PER_MILLION_CHARS, usePlayer } from "@/components/PlayerProvider";
 import { bindingFor, Ticks } from "@/components/Ticks";
 
 export default function Library() {
   const router = useRouter();
   const p = usePlayer();
+
+  // Books added before chapter lengths were recorded: opening them once fills the lengths in,
+  // so ask for each (one at a time) and then reload the shelf.
+  const missing = p.library.filter((b) => !b.chars).map((b) => b.id).join(",");
+  useEffect(() => {
+    if (!missing) return;
+    let alive = true;
+    (async () => {
+      for (const id of missing.split(",")) {
+        if (!alive) return;
+        await fetch(`/api/books/${id}`).catch(() => {});
+      }
+      if (alive) await p.refreshLibrary();
+    })();
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missing]);
 
   const last = p.progress.last;
   const lastEntry = last ? p.library.find((b) => b.id === last.id) : undefined;
@@ -63,6 +83,9 @@ export default function Library() {
           {p.library.map((b) => {
             const narrated = b.narrated?.length ?? 0;
             const started = Boolean(p.progress.books[b.id]);
+            const done = new Set(b.narrated ?? []);
+            const remainingChars = (b.chars ?? []).reduce((sum, n, i) => (done.has(i) ? sum : sum + n), 0);
+            const cost = b.chars && remainingChars > 0 ? `$${((remainingChars * USD_PER_MILLION_CHARS) / 1_000_000).toFixed(2)} to finish` : "";
             return (
               <div key={b.id} style={{ position: "relative" }}>
                 <Link
@@ -80,13 +103,14 @@ export default function Library() {
                       {b.author ? <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>{b.author}</div> : null}
                     </div>
                     <div className="meta">
-                      <Ticks done={narrated} total={b.chapterCount} />
+                      <Ticks done={narrated} total={b.chapterCount} ready={b.narrated ?? []} />
                       <span>
                         {narrated === 0
                           ? "Not narrated yet"
                           : narrated >= b.chapterCount
                             ? `All ${b.chapterCount} chapters ready`
                             : `${narrated} of ${b.chapterCount} ready`}
+                        {cost ? ` · about ${cost}` : ""}
                       </span>
                     </div>
                   </div>

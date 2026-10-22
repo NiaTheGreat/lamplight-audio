@@ -49,4 +49,6 @@ export type LibraryEntry = {
   addedAt: number;
   /** Chapter indexes whose narration is finished and cached. */
   narrated?: number[];
+  /** Characters in each chapter, so the shelf can estimate what's left to narrate. */
+  chars?: number[];
 };

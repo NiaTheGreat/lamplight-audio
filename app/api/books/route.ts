@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseEpub } from "@/lib/epub";
-import { getSettings } from "@/lib/settings";
+import { getSettings, sanitizeVoice } from "@/lib/settings";
 import { deleteObject, getObject, listKeys, putObject } from "@/lib/storage";
 import { isUploadKey } from "@/lib/uploads";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
@@ -45,15 +45,21 @@ export async function GET() {
 export async function POST(req: Request) {
   let buf: Buffer;
   let skipNotes = true;
+  let chosenVoice: string | undefined;
   let uploadKey: string | null = null;
 
   if ((req.headers.get("content-type") ?? "").includes("application/json")) {
-    const body = (await req.json().catch(() => null)) as { uploadKey?: unknown; skipNotes?: unknown } | null;
+    const body = (await req.json().catch(() => null)) as {
+      uploadKey?: unknown;
+      skipNotes?: unknown;
+      voice?: unknown;
+    } | null;
     if (!body || !isUploadKey(body.uploadKey)) {
       return NextResponse.json({ error: "Couldn't find that upload." }, { status: 400 });
     }
     uploadKey = body.uploadKey;
     skipNotes = body.skipNotes !== false;
+    chosenVoice = sanitizeVoice(body.voice);
     let stored: Buffer | null;
     try {
       stored = await getObject(uploadKey);
@@ -76,6 +82,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Choose an EPUB file first." }, { status: 400 });
     }
     skipNotes = form.get("skipNotes") !== "false";
+    chosenVoice = sanitizeVoice(form.get("voice"));
     buf = Buffer.from(await file.arrayBuffer());
   }
 
@@ -86,7 +93,7 @@ export async function POST(req: Request) {
     const keepVoice = existing
       ? (JSON.parse(existing.toString("utf8")) as Book).voice
       : undefined;
-    book.voice = keepVoice ?? (await getSettings()).voice;
+    book.voice = keepVoice ?? chosenVoice ?? (await getSettings()).voice;
     await putObject(`books/${book.id}.json`, JSON.stringify(book), "application/json");
     const entry: LibraryEntry = {
       id: book.id,
@@ -95,6 +102,7 @@ export async function POST(req: Request) {
       chapterCount: book.chapters.length,
       voice: book.voice,
       addedAt: Date.now(),
+      chars: book.chapters.map((c) => c.text.length),
     };
     await putObject(`library/${book.id}.json`, JSON.stringify(entry), "application/json");
     return NextResponse.json(summarize(book));

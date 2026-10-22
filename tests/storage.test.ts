@@ -32,6 +32,10 @@ describe("settings and progress", () => {
       sleep: 0,
       dim: 100,
     });
+    const { sanitizeVoice } = await import("@/lib/settings");
+    expect(sanitizeVoice("sage")).toBe("sage");
+    expect(sanitizeVoice("../etc")).toBeUndefined();
+    expect(sanitizeVoice(42)).toBeUndefined();
     const { savePosition, getProgress } = await import("@/lib/progress");
     await savePosition("abcdef0123456789", 2, 91.7);
     const p = await getProgress();

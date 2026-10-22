@@ -74,6 +74,34 @@ describe("background narration job", () => {
     expect(calls).toBe(before);
   });
 
+  it("narrates only the chapters in the chosen range", async () => {
+    const { startJob, runJob, getJob, clampRange } = await import("@/lib/narration");
+    const { putObject, getObject, deleteObject } = await import("@/lib/storage");
+    expect(clampRange(10, 22, 3)).toEqual({ from: 3, to: 9 }); // from beyond the end is pulled in, then ordered
+    expect(clampRange(10, undefined, undefined)).toEqual({ from: 0, to: 9 });
+    expect(clampRange(10, -4, 2)).toEqual({ from: 0, to: 2 });
+
+    // A fresh book whose chapters have never been narrated.
+    const id = "fedcba9876543210";
+    const chapters = [0, 1, 2, 3].map((i) => ({
+      index: i,
+      title: `Part ${i + 1}`,
+      text: `Part ${i + 1}. ${`Range test words ${i} `.repeat(30)}`,
+    }));
+    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "R", chapters }), "application/json");
+    await putObject(`library/${id}.json`, JSON.stringify({ id, title: "R", chapterCount: 4, addedAt: 1 }), "application/json");
+
+    const before = calls;
+    await startJob(id, 4, { from: 1, to: 2 });
+    const result = await runJob(id, { budgetMs: 60_000, reserveMs: 0 });
+    expect(result.finished).toBe(true);
+    expect((await getJob(id))?.chapter).toBe(3);
+    expect(calls).toBe(before + 2); // chapters 2 and 3 of the book only
+    const entry = JSON.parse((await getObject(`library/${id}.json`))!.toString("utf8"));
+    expect(entry.narrated).toEqual([1, 2]);
+    await deleteObject(`jobs/${id}.json`);
+  });
+
   it("stops when cancelled", async () => {
     const { startJob, cancelJob, runJob, getJob } = await import("@/lib/narration");
     await startJob(ID, 3);

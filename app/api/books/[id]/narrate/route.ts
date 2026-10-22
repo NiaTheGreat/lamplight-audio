@@ -20,7 +20,7 @@ export async function GET(_req: Request, ctx: Ctx) {
   return NextResponse.json(await getJob(id), { headers: { "Cache-Control": "no-store" } });
 }
 
-/** Start (or resume) narrating the whole book in the background. */
+/** Start (or resume) narrating chapters of the book in the background. */
 export async function POST(req: Request, ctx: Ctx) {
   const id = await validId(ctx);
   if (!id) return NextResponse.json({ error: "Bad book id." }, { status: 400 });
@@ -29,7 +29,9 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!raw) return NextResponse.json({ error: "Book not found." }, { status: 404 });
   const book = JSON.parse(raw.toString("utf8")) as Book;
 
-  const job = await startJob(id, book.chapters.length);
+  // Optional { from, to } picks which chapters (0-based, inclusive); none means the whole book.
+  const range = (await req.json().catch(() => null)) as { from?: unknown; to?: unknown } | null;
+  const job = await startJob(id, book.chapters.length, range ?? undefined);
 
   const password = process.env.APP_PASSWORD;
   const token = password ? await tokenFor(password) : "";

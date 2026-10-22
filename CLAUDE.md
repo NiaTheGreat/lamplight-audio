@@ -18,7 +18,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - `lib/epub.ts` EPUB parsing and note stripping. The riskiest code, since it is written against how AO3 structures EPUBs.
 - `lib/text.ts` splits chapters into chunks under OpenAI's 4096-character limit.
 - `lib/tts.ts` calls OpenAI, retries on 429/5xx, caches each chunk, and joins the MP3 pieces.
-- `lib/narration.ts` + `app/api/worker/[id]` + `app/api/books/[id]/narrate` background narration of a whole book: a job record in storage, a worker that narrates ~250s then calls itself again.
+- `lib/narration.ts` + `app/api/worker/[id]` + `app/api/books/[id]/narrate` background narration of a whole book: a job record in storage (with an optional `from`/`to` chapter range, so you can skip chapters you've already read), a worker that narrates ~250s then calls itself again.
 - `app/api/uploads` + `lib/uploads.ts`: EPUBs over ~4 MB are PUT by the browser straight to R2 via a signed URL (Vercel caps request bodies at ~4.5 MB), then `POST /api/books` with `{uploadKey}` reads, parses and deletes the temporary file. Needs a CORS rule on the bucket (see README).
 - `lib/library.ts` records which chapters are narrated for the library list.
 - `lib/http.ts` serves audio with HTTP Range support. iOS Safari needs this to play and seek.
