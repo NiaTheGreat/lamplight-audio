@@ -125,3 +125,12 @@ export function StateGlyph({
     </svg>
   );
 }
+
+/** A small amber play button that marks a chapter as ready to play right now. */
+export function PlayDot() {
+  return (
+    <span className="playdot" aria-hidden="true">
+      <Icon name="play" size={14} />
+    </span>
+  );
+}

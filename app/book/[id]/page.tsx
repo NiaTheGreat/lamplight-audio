@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Icon, StateGlyph } from "@/components/Icon";
+import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 
@@ -157,7 +157,7 @@ export default function Player() {
           return (
             <div key={c.index} className={`chrow ${now ? "now" : ""} ${state}`} style={{ paddingRight: 0 }}>
               <button className="play-area" onClick={() => void p.playChapter(c.index)} aria-label={`Play ${c.title}`}>
-                <StateGlyph state={state} />
+                {state === "ready" ? <PlayDot /> : <StateGlyph state={state} />}
                 <span className="nm">{c.title}</span>
                 <span className="st">
                   {ready ? `${p.chapterMinutes(c.chars)} min` : state === "failed" ? "Failed" : state === "reading" ? "Reading aloud" : "Read on play"}
