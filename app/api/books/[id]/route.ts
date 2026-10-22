@@ -20,8 +20,14 @@ export async function GET(
   let hasEntry = false;
   if (entryRaw) {
     try {
-      summary.narrated = (JSON.parse(entryRaw.toString("utf8")) as LibraryEntry).narrated ?? [];
+      const entry = JSON.parse(entryRaw.toString("utf8")) as LibraryEntry;
+      summary.narrated = entry.narrated ?? [];
       hasEntry = true;
+      // Entries made before chapter lengths were recorded get them now, so the shelf can show a cost.
+      if (!entry.chars) {
+        entry.chars = summary.chapters.map((c) => c.chars);
+        await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json").catch(() => {});
+      }
     } catch {
       /* a bad entry is rebuilt below */
     }
@@ -36,6 +42,7 @@ export async function GET(
       voice: summary.voice,
       addedAt: Date.now(),
       narrated: [],
+      chars: summary.chapters.map((c) => c.chars),
     };
     await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json").catch(() => {});
   }

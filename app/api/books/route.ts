@@ -102,6 +102,7 @@ export async function POST(req: Request) {
       chapterCount: book.chapters.length,
       voice: book.voice,
       addedAt: Date.now(),
+      chars: book.chapters.map((c) => c.text.length),
     };
     await putObject(`library/${book.id}.json`, JSON.stringify(entry), "application/json");
     return NextResponse.json(summarize(book));

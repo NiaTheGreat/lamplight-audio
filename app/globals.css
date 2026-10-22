@@ -435,6 +435,7 @@ p {
 
 .spine .meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   font-size: 11px;
