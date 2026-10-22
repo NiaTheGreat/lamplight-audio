@@ -745,8 +745,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       void refreshLibrary();
       const fresh = await fetch(`/api/books/${bookId}`).catch(() => null);
       if (!fresh || !fresh.ok) return "Re-read, but couldn't reload the book. Open it to narrate.";
-      // Starting the chapter replaces whatever is playing, so the old narration stops here.
-      await startChapter((await fresh.json()) as BookSummary, index, 0, true);
+      // Starting the chapter replaces whatever is playing, so the old narration stops here. Not
+      // awaited: narrating takes minutes, and the form closes now; progress shows in the player.
+      void startChapter((await fresh.json()) as BookSummary, index, 0, true);
       return null;
     },
     [refreshLibrary, startChapter],
