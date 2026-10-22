@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cleanMp3 } from "./mp3";
+import { joinMp3 } from "./mp3";
 import { parseNarrator, providerOf, type Provider, PROVIDER_KEY_ENV } from "./narrators-shared";
 import { getObject, hasObject, putObject } from "./storage";
 import { assertBudget, flushUsage, recordUsage } from "./usage";
@@ -22,7 +22,7 @@ const deepinfraBase = () => process.env.DEEPINFRA_BASE_URL || "https://api.deepi
 /** How long one speech request may take before it is abandoned and retried. */
 const REQUEST_TIMEOUT_MS = 120_000;
 
-export { defaultVoice };
+export { defaultVoice, joinMp3 };
 
 /**
  * Cache key: same text + same narrator settings => same audio, generated once.
@@ -156,9 +156,6 @@ export type ChapterProgress =
 let synthesizedChars = 0;
 /** Characters sent to a provider by this process so far (for measuring narration speed). */
 export const charsSynthesized = () => synthesizedChars;
-
-/** Concatenate MP3 pieces after stripping each one's tags and length header (see lib/mp3.ts). */
-export const joinMp3 = (pieces: Buffer[]): Buffer => Buffer.concat(pieces.map(cleanMp3));
 
 export async function synthesizeChapter(
   text: string,

@@ -32,19 +32,112 @@ const isInfoFrame = (b: Buffer, at: number, f: Frame) => {
   return tag === "Xing" || tag === "Info" || b.toString("latin1", at + 36, at + 40) === "VBRI";
 };
 
-export function cleanMp3(input: Buffer): Buffer {
-  let start = 0;
-  let end = input.length;
+type Walked = {
+  /** Audio frames only: no tags, no length headers, no junk. */
+  audio: Buffer;
+  lengths: number[];
+  bitrateIdx: Set<number>;
+  /** The first audio frame's header, as a template for a length header. */
+  first?: { b1: number; b2: number; b3: number; version: number };
+};
 
-  while (input.toString("latin1", start, start + 3) === "ID3" && start + 10 <= end) {
-    const size = ((input[start + 6] & 0x7f) << 21) | ((input[start + 7] & 0x7f) << 14) | ((input[start + 8] & 0x7f) << 7) | (input[start + 9] & 0x7f);
-    start += 10 + size + (input[start + 5] & 0x10 ? 10 : 0);
+const SIDE_INFO = (version: number, mono: boolean) => (version === 3 ? (mono ? 17 : 32) : mono ? 9 : 17);
+
+/**
+ * Read an MP3 frame by frame, keeping only audio frames. Some encoders (Kokoro via DeepInfra) put a
+ * Xing/Info frame at the start of every sentence's stream, hundreds of them in one chapter, and
+ * a few put ID3 tags in; players take the first for the whole file's length and seek table.
+ */
+function walk(input: Buffer): Walked {
+  const kept: Buffer[] = [];
+  const lengths: number[] = [];
+  const bitrateIdx = new Set<number>();
+  let first: Walked["first"];
+  let at = 0;
+  while (input.toString("latin1", at, at + 3) === "ID3" && at + 10 <= input.length) {
+    const size = ((input[at + 6] & 0x7f) << 21) | ((input[at + 7] & 0x7f) << 14) | ((input[at + 8] & 0x7f) << 7) | (input[at + 9] & 0x7f);
+    at += 10 + size + (input[at + 5] & 0x10 ? 10 : 0);
   }
-  const first = frameAt(input, start);
-  if (first && isInfoFrame(input, start, first)) start += first.length;
+  // A frame counts only if the next one follows right after it (or it ends the data).
+  const valid = (pos: number) => {
+    const f = frameAt(input, pos);
+    if (!f || pos + f.length > input.length) return null;
+    const next = pos + f.length;
+    const trailer = input.length - next === 128 && input.toString("latin1", next, next + 3) === "TAG";
+    return next === input.length || trailer || frameAt(input, next) ? f : null;
+  };
+  while (at + 4 <= input.length) {
+    const f = valid(at);
+    if (!f) {
+      at++; // junk (an ID3v1 tag, a damaged byte): skip to the next real frame
+      continue;
+    }
+    if (!isInfoFrame(input, at, f)) {
+      kept.push(input.subarray(at, at + f.length));
+      lengths.push(f.length);
+      bitrateIdx.add((input[at + 2] >> 4) & 15);
+      first ??= { b1: input[at + 1], b2: input[at + 2], b3: input[at + 3], version: (input[at + 1] >> 3) & 3 };
+    }
+    at += f.length;
+  }
+  return { audio: Buffer.concat(kept), lengths, bitrateIdx, first };
+}
 
-  if (end - start >= 128 && input.toString("latin1", end - 128, end - 125) === "TAG") end -= 128;
-  return start >= end ? input : input.subarray(start, end);
+/** Audio frames only. Data with no MP3 frames in it is returned as it came. */
+export function cleanMp3(input: Buffer): Buffer {
+  const w = walk(input);
+  return w.lengths.length === 0 ? input : w.audio;
+}
+
+/**
+ * A Xing frame saying exactly how many frames and bytes follow, with a seek table, so a player
+ * knows the true length of a variable-bitrate file and can jump to any point in it.
+ */
+function xingFrame(first: NonNullable<Walked["first"]>, lengths: number[], audioBytes: number): Buffer {
+  const { b1, b2, b3, version } = first;
+  const mono = ((b3 >> 6) & 3) === 3;
+  const tagAt = 4 + SIDE_INFO(version, mono);
+  const needed = tagAt + 4 + 4 + 4 + 4 + 100;
+  const table = version === 3 ? BITRATES_V1 : BITRATES_V2;
+  const rate = RATES[version][(b2 >> 2) & 3];
+  let idx = 1;
+  while (idx < 14 && Math.floor(((version === 3 ? 144 : 72) * table[idx] * 1000) / rate) < needed) idx++;
+  const length = Math.floor(((version === 3 ? 144 : 72) * table[idx] * 1000) / rate);
+
+  const frame = Buffer.alloc(length);
+  frame[0] = 0xff;
+  frame[1] = b1 | 1; // no CRC
+  frame[2] = (idx << 4) | (b2 & 0x0c); // this bitrate, same sample rate, no padding
+  frame[3] = b3 & 0xc0; // same channel mode
+  frame.write("Xing", tagAt, "latin1");
+  frame.writeUInt32BE(0x7, tagAt + 4); // frames, bytes and seek table present
+  frame.writeUInt32BE(lengths.length, tagAt + 8);
+  const total = length + audioBytes;
+  frame.writeUInt32BE(total, tagAt + 12);
+
+  // Seek table: how far into the file (of 256) each percent of the audio is.
+  const before: number[] = [0];
+  for (const l of lengths) before.push(before[before.length - 1] + l);
+  for (let i = 0; i < 100; i++) {
+    const frameIdx = Math.floor((i / 100) * lengths.length);
+    frame[tagAt + 16 + i] = Math.min(255, Math.floor(((length + before[frameIdx]) / total) * 256));
+  }
+  return frame;
+}
+
+/**
+ * Join MP3 pieces into one file. Every piece is stripped to bare audio frames. If the result is
+ * variable bitrate (as Kokoro's is), a correct length header is put in front; constant-bitrate
+ * audio (OpenAI's) is just concatenated as before.
+ */
+export function joinMp3(pieces: Buffer[]): Buffer {
+  const walked = pieces.map(walk).filter((w) => w.lengths.length > 0);
+  if (walked.length === 0) return Buffer.concat(pieces);
+  const audio = Buffer.concat(walked.map((w) => w.audio));
+  const bitrates = new Set(walked.flatMap((w) => [...w.bitrateIdx]));
+  if (bitrates.size <= 1) return audio;
+  const lengths = walked.flatMap((w) => w.lengths);
+  return Buffer.concat([xingFrame(walked[0].first!, lengths, audio.length), audio]);
 }
 
 export type Mp3Report = {

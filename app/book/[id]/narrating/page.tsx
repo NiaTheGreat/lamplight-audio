@@ -84,14 +84,21 @@ export default function Narrating() {
   const cost = costUsd(rangeChars, book.voice).toFixed(2);
   async function repair() {
     if (!book) return;
-    setRepairMsg("Fixing…");
-    const res = await fetch(`/api/books/${book.id}/repair`, { method: "POST" });
-    const data = (await res.json().catch(() => ({}))) as { rebuilt?: number; skipped?: number; error?: string };
-    setRepairMsg(
-      res.ok
-        ? `Fixed ${data.rebuilt} chapter${data.rebuilt === 1 ? "" : "s"}${data.skipped ? `; ${data.skipped} couldn't be fixed` : ""}. Nothing was spent.`
-        : (data.error ?? "Couldn't fix them."),
-    );
+    const todo = book.chapters.map((c) => c.index).filter((i) => !notReady(i));
+    let rebuilt = 0;
+    let failed = 0;
+    for (const [n, index] of todo.entries()) {
+      setRepairMsg(`Fixing chapter ${n + 1} of ${todo.length}…`);
+      const res = await fetch(`/api/books/${book.id}/repair`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapter: index }),
+      }).catch(() => null);
+      const data = res?.ok ? ((await res.json().catch(() => ({}))) as { rebuilt?: number }) : null;
+      if (data) rebuilt += data.rebuilt ?? 0;
+      else failed++;
+    }
+    setRepairMsg(`Fixed ${rebuilt} chapter${rebuilt === 1 ? "" : "s"}${failed ? `; ${failed} failed, try again` : ""}. Nothing was spent.`);
   }
 
   const eta = formatEta(estimateMs(rangeChars, speed[providerOf(book.voice)]));
