@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { tokenFor } from "@/lib/auth";
 import { setChapterVoice, NarratorChangeError } from "@/lib/narrator";
-import { cancelJob, clampRange, getJob, pauseJob, resumeJob, startJob } from "@/lib/narration";
+import { cancelJob, clampRange, getJob, isJobActive, pauseJob, resumeJob, startJob } from "@/lib/narration";
 import { getObject } from "@/lib/storage";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
@@ -31,7 +31,15 @@ export async function POST(req: Request, ctx: Ctx) {
   const book = JSON.parse(raw.toString("utf8")) as Book;
 
   // Optional { from, to } picks which chapters (0-based, inclusive), or { chapters: [..] } exact ones; none means the whole book.
-  const range = (await req.json().catch(() => null)) as { from?: unknown; to?: unknown; chapters?: unknown; voice?: unknown } | null;
+  const range = (await req.json().catch(() => null)) as { from?: unknown; to?: unknown; chapters?: unknown; voice?: unknown; onlyIfIdle?: unknown } | null;
+  // { onlyIfIdle: true }: used when pressing play, which must never replace a job that's already
+  // running or paused for this book. The caller then narrates directly instead.
+  if (range?.onlyIfIdle === true) {
+    const current = await getJob(id);
+    if (current && (isJobActive(current) || current.status === "paused")) {
+      return NextResponse.json({ error: "Another narration is already running for this book." }, { status: 409 });
+    }
+  }
   // Optional { voice }: narrate these chapters in that voice (the fic's own voice is unchanged).
   if (typeof range?.voice === "string" && range.voice) {
     const { from, to } = clampRange(book.chapters.length, range.from, range.to);
