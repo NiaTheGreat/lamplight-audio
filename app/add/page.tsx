@@ -6,6 +6,18 @@ import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import type { BookSummary } from "@/lib/types";
 
+function describeFailure(status: number, serverMessage: string | undefined, body: string, file: File): string {
+  if (serverMessage) return serverMessage;
+  const mb = (file.size / 1_000_000).toFixed(1);
+  if (status === 413) {
+    return `That file is ${mb} MB, which is too big for the server to accept (the limit is about 4.5 MB).`;
+  }
+  if (status === 401) return "You've been signed out. Reload the page and log in again.";
+  if (status === 504 || status === 408) return "The upload took too long and timed out. Try again, or try a smaller file.";
+  const snippet = body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  return `Upload failed (${status}${snippet ? `: ${snippet}` : ""}). The file was ${mb} MB.`;
+}
+
 export default function AddFic() {
   const router = useRouter();
   const p = usePlayer();
@@ -32,8 +44,16 @@ export default function AddFic() {
     form.append("skipNotes", String(skipNotes));
     try {
       const res = await fetch("/api/books", { method: "POST", body: form });
-      const data = (await res.json()) as BookSummary & { error?: string };
-      if (!res.ok) throw new Error(data.error ?? "Couldn't read that EPUB.");
+      // The host can answer with plain text or HTML (too large, timed out, signed out),
+      // so read the text first instead of assuming JSON.
+      const text = await res.text();
+      let data: (BookSummary & { error?: string }) | null = null;
+      try {
+        data = JSON.parse(text) as BookSummary & { error?: string };
+      } catch {
+        /* not JSON */
+      }
+      if (!res.ok || !data) throw new Error(describeFailure(res.status, data?.error, text, file));
       await p.refreshLibrary();
       router.push(`/book/${data.id}/narrating`);
     } catch (err) {
