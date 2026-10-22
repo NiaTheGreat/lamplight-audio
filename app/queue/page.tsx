@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useDialog } from "@/components/Dialog";
 import { STALE_MS } from "@/components/PlayerProvider";
 import { estimateMs, formatEta, type SpeedStats } from "@/lib/eta";
 import { formatUsd, costUsd, providerOf } from "@/lib/narrators-shared";
-import type { QueueItem } from "@/lib/narration";
+import type { LiveItem, QueueItem } from "@/lib/narration";
 
-type Queue = { items: QueueItem[]; speed: SpeedStats };
+type Queue = { items: QueueItem[]; live: LiveItem[]; speed: SpeedStats };
 
 export default function QueuePage() {
+  const dialog = useDialog();
   const [queue, setQueue] = useState<Queue | null>(null);
   const [error, setError] = useState("");
 
@@ -26,7 +28,7 @@ export default function QueuePage() {
   }, []);
 
   // Look every 15 s while something is running; otherwise just once on opening.
-  const anyRunning = queue?.items.some((i) => i.job.status === "running") ?? false;
+  const anyRunning = (queue?.items.some((i) => i.job.status === "running") || (queue?.live.length ?? 0) > 0) ?? false;
   useEffect(() => {
     void load();
   }, [load]);
@@ -37,7 +39,7 @@ export default function QueuePage() {
   }, [anyRunning, load]);
 
   async function act(id: string, action: "pause" | "resume" | "cancel") {
-    if (action === "cancel" && !window.confirm("Cancel this job? Chapters already narrated are kept.")) return;
+    if (action === "cancel" && !(await dialog.confirm({ title: "Cancel this job?", body: "Chapters already narrated are kept.", confirmLabel: "Cancel job", cancelLabel: "Keep going" }))) return;
     const res = await fetch(`/api/books/${id}/narrate`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -53,11 +55,22 @@ export default function QueuePage() {
       <h1 className="display">Queue</h1>
 
       {error ? <p className="error" role="alert">{error}</p> : null}
-      {queue && queue.items.length === 0 ? (
-        <p className="empty">Nothing is being narrated. Start &ldquo;Read it all&rdquo; on a fic and it shows up here.</p>
+      {queue && queue.items.length === 0 && queue.live.length === 0 ? (
+        <p className="empty">Nothing is being narrated right now. Anything being read aloud shows up here, whether you pressed play or started &ldquo;Read it all&rdquo;.</p>
       ) : null}
 
       <div className="queue">
+        {queue?.live.map((l) => (
+          <div key={`${l.id}:${l.chapter}`} className="continue">
+            <Link href={`/book/${l.id}`} style={{ textDecoration: "none" }}>
+              <div className="name">{l.title}</div>
+              {l.author ? <div className="muted" style={{ marginTop: 4 }}>{l.author}</div> : null}
+              <div className="faint" style={{ marginTop: 10, fontSize: 13 }}>
+                Reading chapter {l.chapter + 1} aloud now · started by pressing play
+              </div>
+            </Link>
+          </div>
+        ))}
         {queue?.items.map(({ id, title, author, voice, job, remainingChars }) => {
           const stalled = job.status === "running" && Date.now() - job.updatedAt > STALE_MS;
           const from = job.from ?? 0;

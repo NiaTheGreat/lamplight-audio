@@ -145,6 +145,56 @@ describe("a crashed worker's job", () => {
     await putObject(`jobs/${id}.json`, JSON.stringify(job), "application/json");
     await expect(rereadChapter(id, 0)).rejects.toThrow(/running/); // just saved progress: busy
     await putObject(`jobs/${id}.json`, JSON.stringify({ ...job, updatedAt: Date.now() - 9 * 60_000 }), "application/json");
-    await expect(rereadChapter(id, 0)).resolves.toEqual({ chapter: 0 }); // quiet for 9 minutes: dead
+    await expect(rereadChapter(id, 0)).resolves.toMatchObject({ chapter: 0 }); // quiet for 9 minutes: dead
+  });
+});
+
+describe("re-reading with another voice or list", () => {
+  const id = "eeee111122223333";
+  async function seed() {
+    const { putObject } = await import("@/lib/storage");
+    const chapters = [0, 1, 2].map((i) => ({ index: i, title: `C${i}`, text: `Sirius chapter ${i} words.` }));
+    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "T", voice: "ballad", chapters }), "application/json");
+    await putObject(`library/${id}.json`, JSON.stringify({ id, title: "T", chapterCount: 3, addedAt: 1, narrated: [0, 1, 2] }), "application/json");
+  }
+  const read = async (key: string) => JSON.parse((await (await import("@/lib/storage")).getObject(key))!.toString("utf8"));
+
+  it("a voice for one chapter leaves the fic's voice and other chapters alone", async () => {
+    const { rereadChapter } = await import("@/lib/reread");
+    const { voiceFor } = await import("@/lib/chaptervoice");
+    await seed();
+    await rereadChapter(id, 1, { voice: "deepinfra:kokoro:af_bella" });
+    const book = await read(`books/${id}.json`);
+    expect(book.voice).toBe("ballad");
+    expect(voiceFor(book, 1)).toBe("deepinfra:kokoro:af_bella");
+    expect(voiceFor(book, 0)).toBe("ballad");
+    expect((await read(`library/${id}.json`)).narrated).toEqual([0, 2]);
+  });
+
+  it("a voice for the whole fic pins the chapters already narrated to their voice", async () => {
+    const { rereadChapter } = await import("@/lib/reread");
+    const { voiceFor } = await import("@/lib/chaptervoice");
+    await seed();
+    await rereadChapter(id, 1, { voice: "deepinfra:kokoro:af_bella", voiceForBook: true });
+    const book = await read(`books/${id}.json`);
+    expect(book.voice).toBe("deepinfra:kokoro:af_bella");
+    expect(voiceFor(book, 0)).toBe("ballad");
+    expect(voiceFor(book, 2)).toBe("ballad");
+    expect(voiceFor(book, 1)).toBe("deepinfra:kokoro:af_bella");
+    expect((await read(`library/${id}.json`)).voice).toBe("deepinfra:kokoro:af_bella");
+  });
+
+  it("another list applies to the chapter but not to the others narrated", async () => {
+    const { rereadChapter } = await import("@/lib/reread");
+    const { saveLists } = await import("@/lib/pronlists");
+    const { spokenText } = await import("@/lib/pronunciation");
+    await seed();
+    const { lists } = await saveLists({ lists: [{ name: "L", lines: [{ from: "Sirius", to: "SEER-ee-us" }] }] });
+    await rereadChapter(id, 0, { listId: lists[0].id });
+    const book = await read(`books/${id}.json`);
+    expect(spokenText(book, 0, book.chapters[0].text)).toContain("SEER-ee-us");
+    expect(spokenText(book, 1, book.chapters[1].text)).toContain("Sirius");
+    await expect(rereadChapter(id, 1, { listId: "nope" })).rejects.toThrow(/no longer exists/);
+    await expect(rereadChapter(id, 2, { voice: "not-a-voice" })).rejects.toThrow(/Unknown narrator/);
   });
 });

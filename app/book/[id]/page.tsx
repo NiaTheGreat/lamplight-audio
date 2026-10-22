@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useDialog } from "@/components/Dialog";
 import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
 import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
@@ -18,6 +19,7 @@ function clock(seconds: number): string {
 export default function Player() {
   const { id } = useParams<{ id: string }>();
   const p = usePlayer();
+  const dialog = useDialog();
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
 
@@ -57,28 +59,6 @@ export default function Player() {
   const unreadChars = book.chapters
     .filter((c) => !["ready", "playing"].includes(p.chapterState(c.index)))
     .reduce((sum, c) => sum + c.chars, 0);
-  async function reread(index: number, title: string, chars: number) {
-    if (!book) return;
-    if (p.job?.status === "running" && Date.now() - p.job.updatedAt < STALE_MS) {
-      window.alert("Narration is running for this book. Pause or cancel it first.");
-      return;
-    }
-    const price = formatUsd(costUsd(chars, book.voice));
-    if (!window.confirm(`Throw away the narration of "${title}" and read it again? It will be narrated again when you play it, about ${price}.`)) return;
-    const res = await fetch(`/api/books/${book.id}/reread`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chapter: index }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      window.alert(data.error ?? "Couldn't do that.");
-      return;
-    }
-    await p.refreshBook(book.id);
-    await p.refreshLibrary();
-  }
-
   const unfinished = p.readyCount < book.chapters.length;
 
   return (
@@ -186,7 +166,7 @@ export default function Player() {
                 </span>
               </button>
               {ready ? (
-                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => void reread(c.index, c.title, c.chars)}>
+                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => dialog.reread({ bookId: book.id, index: c.index, title: c.title, chars: c.chars })}>
                   <Icon name="retry" size={20} />
                 </button>
               ) : null}

@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
 import type { PronLists } from "@/lib/pronlists";
 
 export default function PronunciationLists() {
+  const dialog = useDialog();
   const [data, setData] = useState<PronLists | null>(null);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -71,8 +73,8 @@ export default function PronunciationLists() {
             <button
               className="icon-btn"
               aria-label={`Delete ${l.name}`}
-              onClick={() => {
-                if (window.confirm(`Delete "${l.name}"? Fics that already copied it keep their copy.`)) {
+              onClick={async () => {
+                if (await dialog.confirm({ title: `Delete "${l.name}"?`, body: "Fics that already copied it keep their copy.", confirmLabel: "Delete" })) {
                   set({ lists: data.lists.filter((_, j) => j !== i), auto: data.auto === l.id ? undefined : data.auto });
                 }
               }}

@@ -1,8 +1,10 @@
+import { listLive } from "./live";
+import { voiceFor } from "./chaptervoice";
 import { spokenText } from "./pronunciation";
 import { markNarrated } from "./library";
 import { getObject, hasObject, putObject } from "./storage";
 import { recordSpeed, flushSpeed } from "./speed";
-import { audioKey, charsSynthesized, defaultVoice, synthesizeChapter } from "./tts";
+import { audioKey, charsSynthesized, synthesizeChapter } from "./tts";
 import type { Book, LibraryEntry } from "./types";
 
 /**
@@ -77,6 +79,20 @@ export type QueueItem = {
   /** Characters still to narrate in this job's range. */
   remainingChars: number;
 };
+
+export type LiveItem = { id: string; title: string; author?: string; voice?: string; chapter: number; startedAt: number };
+
+/** Chapters being narrated because someone pressed play. */
+export async function listLiveItems(): Promise<LiveItem[]> {
+  const out: LiveItem[] = [];
+  for (const l of await listLive()) {
+    const raw = await getObject(`library/${l.bookId}.json`);
+    if (!raw) continue;
+    const entry = JSON.parse(raw.toString("utf8")) as LibraryEntry;
+    out.push({ id: l.bookId, title: entry.title, author: entry.author, voice: entry.voice, chapter: l.chapter, startedAt: l.startedAt });
+  }
+  return out;
+}
 
 /** Everything in the queue, with what's left of each job. */
 export async function listQueue(): Promise<QueueItem[]> {
@@ -222,7 +238,7 @@ export async function runJob(
     const last = Math.min(job.to ?? book.chapters.length - 1, book.chapters.length - 1);
     while (job.chapter <= last) {
       const ch = book.chapters[job.chapter];
-      const voice = book.voice ?? defaultVoice();
+      const voice = voiceFor(book, ch.index);
       const spoken = spokenText(book, ch.index, ch.text);
       const key = audioKey(spoken, voice);
 

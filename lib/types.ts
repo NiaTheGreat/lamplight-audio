@@ -11,6 +11,11 @@ export type Book = {
   /** Voice this book is narrated in; fixed when first added. */
   voice?: string;
   chapters: Chapter[];
+  /**
+   * Narrators for individual chapters that differ from `voice`: a chapter re-read in another
+   * voice, or chapters narrated before the whole fic switched voice. See lib/chaptervoice.ts.
+   */
+  chapterVoices?: Record<number, string>;
   /** A named list copied into the book at upload; later edits to the list don't reach the book. */
   pronList?: { id: string; name: string; lines: { from: string; to: string }[] };
   /** How to say certain words, applied before narration (see lib/pronunciation.ts). */
@@ -27,6 +32,8 @@ export type BookSummary = {
   title: string;
   author?: string;
   voice?: string;
+  /** Chapters narrated in a voice other than `voice`. */
+  chapterVoices?: Record<number, string>;
   /** Chapter indexes with finished narration (from the library entry). */
   narrated?: number[];
   chapters: { index: number; title: string; chars: number }[];
@@ -38,6 +45,7 @@ export function summarize(book: Book): BookSummary {
     title: book.title,
     author: book.author,
     voice: book.voice,
+    chapterVoices: book.chapterVoices,
     chapters: book.chapters.map((c) => ({
       index: c.index,
       title: c.title,

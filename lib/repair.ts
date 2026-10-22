@@ -3,7 +3,8 @@ import { PronunciationError } from "./pronunciation-store";
 import { spokenText } from "./pronunciation";
 import { getObject, putObject } from "./storage";
 import { splitForTts } from "./text";
-import { audioKey, defaultVoice, joinMp3 } from "./tts";
+import { voiceFor } from "./chaptervoice";
+import { audioKey, joinMp3 } from "./tts";
 import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
 
 /**
@@ -21,13 +22,13 @@ export async function repairBook(bookId: string): Promise<{ rebuilt: number; ski
   const book = JSON.parse(raw.toString("utf8")) as Book;
   const entryRaw = await getObject(`library/${bookId}.json`);
   const entry = entryRaw ? (JSON.parse(entryRaw.toString("utf8")) as LibraryEntry) : null;
-  const voice = book.voice ?? defaultVoice();
 
   let rebuilt = 0;
   let skipped = 0;
   for (const index of entry?.narrated ?? []) {
     const ch = book.chapters[index];
     if (!ch) continue;
+    const voice = voiceFor(book, index);
     const spoken = spokenText(book, index, ch.text);
     const pieces: Buffer[] = [];
     for (const chunk of splitForTts(spoken)) {
