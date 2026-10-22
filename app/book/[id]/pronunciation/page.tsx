@@ -139,6 +139,9 @@ export default function PronunciationPage() {
           <button className="btn" style={{ marginTop: 12 }} onClick={() => { setLines([...lines, { from: "", to: "" }]); setDirty(true); }}>
             <Icon name="add" size={18} />Add a line
           </button>
+          <p className="faint" style={{ marginTop: 10, lineHeight: 1.5 }}>
+            Kokoro works best with one lowercase word and no hyphens or capitals, like <em>rejeena</em> for Regina. Use the Hear button to try it.
+          </p>
         </section>
       ) : null}
 

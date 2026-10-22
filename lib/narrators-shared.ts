@@ -122,6 +122,13 @@ const prettyVoice = (voice: string) => {
   return name.charAt(0).toUpperCase() + name.slice(1);
 };
 
+/** What a Kokoro voice name says about it: "af_bella" is an American ("a") female ("f") voice, "bm_george" a British male one. */
+export function kokoroTraits(voice: string): string {
+  const accent = voice.startsWith("b") ? "British" : "American";
+  const gender = voice.charAt(1) === "m" ? "male" : "female";
+  return `${accent}, ${gender}`;
+}
+
 /** "Ballad" for an OpenAI voice, "Bella (Kokoro)" for the others. */
 export function narratorLabel(id: string | undefined): string {
   const parsed = parseNarrator(id);
@@ -148,6 +155,6 @@ export const NARRATOR_GROUPS: NarratorGroup[] = [
     provider: "deepinfra",
     label: PROVIDER_LABEL.deepinfra,
     pricePerMillion: PRICE_PER_MILLION_CHARS.deepinfra,
-    narrators: KOKORO_VOICES.map((v) => ({ id: kokoroId(v), label: prettyVoice(v) })),
+    narrators: KOKORO_VOICES.map((v) => ({ id: kokoroId(v), label: `${prettyVoice(v)} · ${kokoroTraits(v)}` })),
   },
 ];

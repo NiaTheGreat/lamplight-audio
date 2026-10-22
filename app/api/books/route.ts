@@ -108,6 +108,8 @@ export async function POST(req: Request) {
       if (list) book.pronList = { id: list.id, name: list.name, lines: list.lines };
     }
     await putObject(`books/${book.id}.json`, JSON.stringify(book), "application/json");
+    // A re-upload can change a chapter's text (e.g. the notes setting), so forget where its audio was.
+    await deleteObject(`keys/${book.id}.json`).catch(() => {});
     const entry: LibraryEntry = {
       id: book.id,
       title: book.title,
