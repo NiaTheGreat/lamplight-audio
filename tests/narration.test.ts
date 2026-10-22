@@ -192,3 +192,27 @@ describe("background narration job", () => {
     await deleteObject(`jobs/${id}.json`);
   });
 });
+
+describe("pressing play through the job queue", () => {
+  it("won't replace a job that is already running for the book", async () => {
+    const { POST } = await import("@/app/api/books/[id]/narrate/route");
+    const { startJob, getJob } = await import("@/lib/narration");
+    const { deleteObject } = await import("@/lib/storage");
+    await seedBook();
+    await deleteObject(`jobs/${ID}.json`);
+    const post = (body: unknown) =>
+      POST(new Request(`http://x/api/books/${ID}/narrate`, { method: "POST", body: JSON.stringify(body) }), {
+        params: Promise.resolve({ id: ID }),
+      });
+
+    await startJob(ID, 3, { from: 0, to: 2 }); // a "Read it all" is running
+    const busy = await post({ chapters: [2], onlyIfIdle: true });
+    expect(busy.status).toBe(409);
+    expect((await getJob(ID))?.chapters).toBeUndefined(); // untouched
+
+    await deleteObject(`jobs/${ID}.json`);
+    await post({ chapters: [2], onlyIfIdle: true }); // idle: starts a one-chapter job (the worker kick fails here)
+    expect((await getJob(ID))?.chapters).toEqual([2]);
+    await deleteObject(`jobs/${ID}.json`);
+  });
+});
