@@ -1,4 +1,4 @@
-import { getJob } from "./narration";
+import { getJob, isJobActive } from "./narration";
 import { getObject, putObject } from "./storage";
 import { sanitizeNarrator } from "./narrators-shared";
 import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
@@ -32,7 +32,7 @@ export async function changeNarrator(bookId: string, narratorId: unknown): Promi
     throw new NarratorChangeError("Some chapters are already narrated, so this book keeps its narrator.", 409);
   }
   const job = await getJob(bookId);
-  if (job?.status === "running") {
+  if (isJobActive(job)) {
     throw new NarratorChangeError("Narration is running for this book. Stop it first.", 409);
   }
 

@@ -31,6 +31,9 @@ export function AppChrome() {
 
   return (
     <>
+      {showMini || !inBook ? (
+      <div className="dock">
+       <div className="dock-in">
       {showMini && p.book ? (
         <div className="mini">
           <Link href={`/book/${p.book.id}`}>
@@ -64,6 +67,9 @@ export function AppChrome() {
             </Link>
           ))}
         </nav>
+      ) : null}
+       </div>
+      </div>
       ) : null}
 
       {p.bedside && p.book ? <Bedside formatRemaining={formatRemaining} /> : null}

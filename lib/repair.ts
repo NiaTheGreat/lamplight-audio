@@ -1,4 +1,4 @@
-import { getJob } from "./narration";
+import { getJob, isJobActive } from "./narration";
 import { PronunciationError } from "./pronunciation-store";
 import { spokenText } from "./pronunciation";
 import { getObject, putObject } from "./storage";
@@ -13,7 +13,7 @@ import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
  */
 export async function repairBook(bookId: string): Promise<{ rebuilt: number; skipped: number }> {
   if (!BOOK_ID_RE.test(bookId)) throw new PronunciationError("Bad book id.", 400);
-  if ((await getJob(bookId))?.status === "running") {
+  if (isJobActive(await getJob(bookId))) {
     throw new PronunciationError("Narration is running for this book. Pause or cancel it first.", 409);
   }
   const raw = await getObject(`books/${bookId}.json`);

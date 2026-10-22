@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
-import { usePlayer } from "@/components/PlayerProvider";
+import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 
 function clock(seconds: number): string {
@@ -59,7 +59,7 @@ export default function Player() {
     .reduce((sum, c) => sum + c.chars, 0);
   async function reread(index: number, title: string, chars: number) {
     if (!book) return;
-    if (p.job?.status === "running") {
+    if (p.job?.status === "running" && Date.now() - p.job.updatedAt < STALE_MS) {
       window.alert("Narration is running for this book. Pause or cancel it first.");
       return;
     }
