@@ -20,6 +20,19 @@ const NOTE_HEADING =
 // screen readers; they aren't story text and shouldn't be narrated or used as titles.
 const LANDMARK_HEADING = /^\s*(?:chapter|work)\s+text\s*:?\s*$/i;
 
+const FILE_NAME_TITLE = /^[/\\]|\.(?:pdf|docx?|txt|html?|epub|mobi)$/i;
+
+// "Part Twelve: The One With the Kiss", "Chapter 3", "Book II - ..." on a line of its own.
+const CHAPTER_HEADING =
+  /^(?:part|chapter|book)\s+(?:[0-9a-z]+(?:-[a-z]+)?)\b\s*(?:[:.\-\u2013\u2014].{0,100})?$/i;
+const NOTE_POINTER = /^see the end (?:of the (?:chapter|work) )?for (?:more )?notes\.?$/i;
+
+const isChapterHeading = (line: string) =>
+  line.length <= 120 &&
+  line.split(/\s+/).length <= 16 &&
+  CHAPTER_HEADING.test(line) &&
+  !NOTE_HEADING.test(line);
+
 // Files that are never story text.
 const ALWAYS_SKIP_FILE =
   /(^|\/)(cover|nav|toc|titlepage|title[-_]?page|colophon|copyright)[^/]*$/i;
@@ -42,6 +55,8 @@ export function extractChapter(
     if (!title && t && !NOTE_HEADING.test(t) && !LANDMARK_HEADING.test(t)) title = t;
   });
   if (!title) title = $("title").first().text().replace(/\s+/g, " ").trim();
+  // Converters sometimes put the source file name in <title>; that is not a chapter name.
+  if (FILE_NAME_TITLE.test(title)) title = "";
 
   // Calibre-split AO3 EPUBs lose the preface.xhtml/afterword.xhtml file names,
   // but the wrapper ids survive.
@@ -98,6 +113,83 @@ function normalize(raw: string): string {
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+type RawFile = { title: string; text: string };
+
+/**
+ * Some EPUBs are converted from PDFs: the file is cut into pieces by page size, not by
+ * chapter, the pieces have no headings, and chapter titles are just paragraphs such as
+ * "Part Twelve: The One With the Kiss" (sometimes alone in a piece, sometimes stranded at
+ * the end of the previous one). This joins the pieces and splits them again at those lines.
+ */
+export function looksReflowed(files: RawFile[]): boolean {
+  const untitled = files.filter((f) => !f.title).length;
+  const headings = files.reduce(
+    (n, f) => n + f.text.split(/\n{2,}/).filter((p) => isChapterHeading(p.trim())).length,
+    0,
+  );
+  return files.length >= 4 && untitled >= files.length / 2 && headings >= 3;
+}
+
+export function regroupByHeadings(
+  files: RawFile[],
+  opts: { skipNotes: boolean; announceTitles: boolean },
+): Chapter[] {
+  const paraOf = (f: RawFile) => f.text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const startsWithHeading = files.map((f) => isChapterHeading(paraOf(f)[0] ?? ""));
+  const headingFiles = files.map((f) => paraOf(f).some(isChapterHeading));
+
+  const front: string[] = [];
+  let seenHeading = false;
+  let current: { title: string; paras: string[] } | null = null;
+  let lastWasHeading = false; // the previous piece ended on a heading, so this one is its body
+  const chapters: { title: string; paras: string[] }[] = [];
+
+  files.forEach((file, i) => {
+    const paras = paraOf(file);
+    if (paras.length === 0) return;
+    const chars = paras.join("").length;
+    const laterHeadings = headingFiles.slice(i + 1).some(Boolean);
+    // A small stray piece between chapters (or after the last one) is the author's note.
+    if (
+      opts.skipNotes &&
+      seenHeading &&
+      !lastWasHeading &&
+      !startsWithHeading[i] &&
+      chars < 1500 &&
+      (startsWithHeading[i + 1] || !laterHeadings)
+    ) {
+      return;
+    }
+    lastWasHeading = isChapterHeading(paras[paras.length - 1]);
+    for (const para of paras) {
+      if (opts.skipNotes && NOTE_POINTER.test(para)) continue;
+      if (isChapterHeading(para)) {
+        seenHeading = true;
+        current = { title: para, paras: [] };
+        chapters.push(current);
+      } else if (current) {
+        current.paras.push(para);
+      } else {
+        front.push(para);
+      }
+    }
+  });
+
+  const out: Chapter[] = [];
+  const add = (title: string, paras: string[]) => {
+    const text = paras.join("\n\n");
+    if (text.replace(/\s/g, "").length < 20) return;
+    const spoken = opts.announceTitles
+      ? `${/[.!?:]$/.test(title) ? title : `${title}.`}\n\n${text}`
+      : text;
+    out.push({ index: out.length, title, text: spoken });
+  };
+  // Whatever comes before the first heading is the cover, summary and work info.
+  if (!opts.skipNotes) add("Introduction", front);
+  for (const c of chapters) add(c.title, c.paras);
+  return out;
+}
+
 export async function parseEpub(buf: Buffer, opts: ParseOptions = {}): Promise<Book> {
   const skipNotes = opts.skipNotes ?? true;
   const announceTitles = opts.announceTitles ?? true;
@@ -136,7 +228,7 @@ export async function parseEpub(buf: Buffer, opts: ParseOptions = {}): Promise<B
     }
   });
 
-  const chapters: Chapter[] = [];
+  const raw: RawFile[] = [];
   const itemrefs = opf("spine > itemref").toArray();
 
   for (const el of itemrefs) {
@@ -159,15 +251,24 @@ export async function parseEpub(buf: Buffer, opts: ParseOptions = {}): Promise<B
     if (!zip.file(full)) continue;
 
     const { title, text } = extractChapter(await read(full), skipNotes);
-    if (text.replace(/\s/g, "").length < 20) continue;
+    if (text.trim()) raw.push({ title, text });
+  }
 
-    const index = chapters.length;
-    const heading = title || `Chapter ${index + 1}`;
-    const spoken =
-      announceTitles && !text.toLowerCase().startsWith(heading.toLowerCase())
-        ? `${/[.!?:]$/.test(heading) ? heading : `${heading}.`}\n\n${text}`
-        : text;
-    chapters.push({ index, title: heading, text: spoken });
+  let chapters: Chapter[];
+  if (looksReflowed(raw)) {
+    chapters = regroupByHeadings(raw, { skipNotes, announceTitles });
+  } else {
+    chapters = [];
+    for (const { title, text } of raw) {
+      if (text.replace(/\s/g, "").length < 20) continue;
+      const index = chapters.length;
+      const heading = title || `Chapter ${index + 1}`;
+      const spoken =
+        announceTitles && !text.toLowerCase().startsWith(heading.toLowerCase())
+          ? `${/[.!?:]$/.test(heading) ? heading : `${heading}.`}\n\n${text}`
+          : text;
+      chapters.push({ index, title: heading, text: spoken });
+    }
   }
 
   if (chapters.length === 0) {
