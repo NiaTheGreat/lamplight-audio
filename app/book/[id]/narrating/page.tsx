@@ -126,6 +126,10 @@ export default function Narrating() {
         <p className="error" role="alert">Narration stopped: {p.job.error}</p>
       ) : null}
 
+      <Link href={`/book/${book.id}/pronunciation`} className="btn" style={{ marginTop: 18 }}>
+        How to say names and words
+      </Link>
+
       <section className="section" aria-label="Narrator">
         <div className="eyebrow">Narrator</div>
         {canChangeNarrator ? (

@@ -1438,3 +1438,21 @@ input[type="range"]::-moz-range-thumb {
 .chrow.failed .nm {
   color: var(--cream-3);
 }
+
+.pron-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.pron-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.pron-row .select {
+  min-width: 0;
+  width: 100%;
+  border-radius: 8px;
+}

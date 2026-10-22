@@ -1,0 +1,134 @@
+"use client";
+
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { Icon } from "@/components/Icon";
+import { usePlayer } from "@/components/PlayerProvider";
+import { costUsd, formatUsd } from "@/lib/narrators-shared";
+import type { Pron } from "@/lib/pronunciation";
+import type { StaleChapter } from "@/lib/pronunciation-store";
+
+type Data = { lines: Pron[]; stale: StaleChapter[] };
+
+export default function PronunciationPage() {
+  const { id } = useParams<{ id: string }>();
+  const p = usePlayer();
+  const voice = p.library.find((b) => b.id === id)?.voice;
+  const [lines, setLines] = useState<Pron[]>([]);
+  const [stale, setStale] = useState<StaleChapter[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const apply = useCallback((d: Data) => {
+    setLines(d.lines);
+    setStale(d.stale);
+    setDirty(false);
+  }, []);
+
+  useEffect(() => {
+    fetch(`/api/books/${id}/pronunciation`)
+      .then(async (r) => {
+        const d = (await r.json()) as Data & { error?: string };
+        if (!r.ok) throw new Error(d.error ?? "Couldn't load the list.");
+        apply(d);
+        setLoaded(true);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Couldn't load the list."));
+  }, [id, apply]);
+
+  async function call(method: "PUT" | "POST", body: unknown, done: string) {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const r = await fetch(`/api/books/${id}/pronunciation`, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const d = (await r.json()) as Data & { error?: string };
+      if (!r.ok) throw new Error(d.error ?? "That didn't work.");
+      apply(d);
+      setMessage(done);
+      await p.refreshLibrary();
+      await p.refreshBook(id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "That didn't work.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const edit = (i: number, patch: Partial<Pron>) => {
+    setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+    setDirty(true);
+  };
+  const staleChars = stale.reduce((n, c) => n + c.chars, 0);
+
+  return (
+    <main className="screen no-tabs" style={{ paddingBottom: 140 }}>
+      <div className="topbar">
+        <Link href={`/book/${id}/narrating`} className="icon-btn" aria-label="Back"><Icon name="back" /></Link>
+      </div>
+      <div className="eyebrow" style={{ marginTop: 6 }}>This fic</div>
+      <h1 className="title" style={{ marginTop: 6 }}>How to say things</h1>
+      <p className="lead" style={{ marginTop: 14 }}>
+        Add a name or word and how it should sound. Spell it the way you&apos;d want it read, like &ldquo;Sirius&rdquo; → &ldquo;SEER-ee-us&rdquo;.
+        New chapters use these; chapters already narrated keep the voice they have, so nothing is spent.
+      </p>
+
+      {error ? <p className="error" role="alert">{error}</p> : null}
+      {message ? <p className="faint" role="status">{message}</p> : null}
+
+      {loaded ? (
+        <section className="section" aria-label="Pronunciation lines">
+          <div className="pron-rows">
+            {lines.map((l, i) => (
+              <div key={i} className="pron-row">
+                <input className="select" aria-label="Written as" placeholder="Written" value={l.from} onChange={(e) => edit(i, { from: e.target.value })} />
+                <input className="select" aria-label="Said as" placeholder="Said like" value={l.to} onChange={(e) => edit(i, { to: e.target.value })} />
+                <button className="icon-btn" aria-label="Remove line" onClick={() => { setLines(lines.filter((_, j) => j !== i)); setDirty(true); }}>
+                  <Icon name="trash" size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <button className="btn" style={{ marginTop: 12 }} onClick={() => { setLines([...lines, { from: "", to: "" }]); setDirty(true); }}>
+            <Icon name="add" size={18} />Add a line
+          </button>
+        </section>
+      ) : null}
+
+      {stale.length > 0 ? (
+        <section className="section" aria-label="Chapters still using older pronunciations">
+          <div className="eyebrow">Already narrated</div>
+          <p className="faint" style={{ lineHeight: 1.5, marginTop: 8 }}>
+            {stale.length} narrated chapter{stale.length === 1 ? "" : "s"} still use the older pronunciations. Re-reading
+            {stale.length === 1 ? " it" : " them"} with the new ones costs about {formatUsd(costUsd(staleChars, voice))}.
+          </p>
+          <button
+            className="btn"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm(`Re-read ${stale.length} chapter${stale.length === 1 ? "" : "s"}? They'll be narrated again when you play them, about ${formatUsd(costUsd(staleChars, voice))}.`)) {
+                void call("POST", {}, "Those chapters will be read again with the new pronunciations when you play them.");
+              }
+            }}
+          >
+            Re-read with new pronunciations
+          </button>
+        </section>
+      ) : null}
+
+      <div className="sticky-actions">
+        <button className="btn primary" disabled={busy || !dirty} onClick={() => void call("PUT", { lines }, "Saved.")}>
+          Save
+        </button>
+      </div>
+    </main>
+  );
+}
