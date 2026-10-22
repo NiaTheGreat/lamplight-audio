@@ -2,6 +2,7 @@ import { serveBytes } from "@/lib/http";
 import { sanitizeNarrator } from "@/lib/narrators-shared";
 import { getObject, putObject } from "@/lib/storage";
 import { audioKey, synthChunk } from "@/lib/tts";
+import { flushUsage } from "@/lib/usage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -20,6 +21,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ voice: s
     try {
       audio = await synthChunk(SAMPLE, voice);
       await putObject(key, audio, "audio/mpeg");
+      await flushUsage();
     } catch (err) {
       return new Response(err instanceof Error ? err.message : "Preview failed.", { status: 502 });
     }

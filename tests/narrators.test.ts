@@ -154,9 +154,10 @@ describe("dollar budget", () => {
   });
 
   it("defaults to $30 and counts old character-only months as OpenAI", async () => {
-    const { getUsage } = await import("@/lib/usage");
+    const { getUsage, flushUsage } = await import("@/lib/usage");
     const { putObject } = await import("@/lib/storage");
     expect((await getUsage()).limitUsd).toBe(30);
+    await flushUsage(); // settle anything counted by the tests above before replacing the stored month
     await putObject(`usage/${new Date().toISOString().slice(0, 7)}.json`, JSON.stringify({ chars: 500_000 }), "application/json");
     expect((await getUsage()).usd).toBeCloseTo(8, 5); // 500k characters at $16 per million
   });

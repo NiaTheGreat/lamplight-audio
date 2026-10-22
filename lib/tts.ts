@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { parseNarrator, providerOf, type Provider, PROVIDER_KEY_ENV } from "./narrators-shared";
 import { getObject, hasObject, putObject } from "./storage";
-import { assertBudget, recordUsage } from "./usage";
+import { assertBudget, flushUsage, recordUsage } from "./usage";
 import { splitForTts } from "./text";
 
 const model = () => process.env.OPENAI_TTS_MODEL || "gpt-4o-mini-tts";
@@ -162,17 +162,22 @@ export async function synthesizeChapter(
   const stop = Date.now() + deadlineMs;
   const parts = new Array<Buffer | null>(chunks.length).fill(null);
 
-  await mapLimit(chunks, 3, async (chunk, i) => {
-    const cached = await getObject(keys[i]);
-    if (cached && looksComplete(cached, chunk, voice)) {
-      parts[i] = cached;
-      return;
-    }
-    if (Date.now() >= stop) return;
-    const audio = await synthChunk(chunk, voice);
-    await putObject(keys[i], audio, "audio/mpeg");
-    parts[i] = audio;
-  });
+  try {
+    await mapLimit(chunks, 3, async (chunk, i) => {
+      const cached = await getObject(keys[i]);
+      if (cached && looksComplete(cached, chunk, voice)) {
+        parts[i] = cached;
+        return;
+      }
+      if (Date.now() >= stop) return;
+      const audio = await synthChunk(chunk, voice);
+      await putObject(keys[i], audio, "audio/mpeg");
+      parts[i] = audio;
+    });
+  } finally {
+    // One storage write per chapter for the spending counter, not one per chunk.
+    await flushUsage();
+  }
 
   const ready = parts.filter(Boolean).length;
   if (ready < chunks.length) return { done: false, ready, total: chunks.length };

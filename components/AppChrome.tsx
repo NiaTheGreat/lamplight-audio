@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { formatUsd, narratorLabel } from "@/lib/narrators-shared";
 import { Icon } from "./Icon";
 import { usePlayer } from "./PlayerProvider";
 
@@ -63,6 +65,8 @@ export function AppChrome() {
 
       {p.bedside && p.book ? <Bedside formatRemaining={formatRemaining} /> : null}
 
+      {p.pendingNarration ? <NarrationConfirm /> : null}
+
       <div className="dim" aria-hidden="true" style={{ opacity: (p.dim / 100) * 0.75 }} />
     </>
   );
@@ -110,6 +114,50 @@ function Bedside({ formatRemaining }: { formatRemaining: (ms: number) => string 
         <button onClick={() => p.setSleepMinutes(-1)}>Stop at chapter end</button>
       </div>
       <p className="note">Screen at its dimmest. Audio keeps playing when the phone locks.</p>
+    </div>
+  );
+}
+
+/** "Read this chapter aloud? About $0.12." Shown before any chapter that isn't narrated yet is started. */
+function NarrationConfirm() {
+  const p = usePlayer();
+  const pending = p.pendingNarration!;
+  const yes = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    yes.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") p.cancelNarration();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const cost = pending.costUsd < 0.005 ? "less than a cent" : `about ${formatUsd(pending.costUsd)}`;
+  return (
+    <div className="modal-backdrop" onClick={p.cancelNarration}>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="confirm-title" className="serif">Read this chapter aloud?</h2>
+        <p className="lead-sm">{pending.title}</p>
+        <p className="muted" style={{ marginTop: 10, lineHeight: 1.5 }}>
+          It costs {cost} with {narratorLabel(pending.narrator)}, and it&apos;s saved afterwards, so listening again is free.
+        </p>
+        <div className="modal-actions">
+          <button ref={yes} className="btn primary" onClick={p.confirmNarration}>
+            Read it aloud
+          </button>
+          <button className="btn" onClick={p.cancelNarration}>
+            Not now
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, StateGlyph } from "@/components/Icon";
 import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
+import { startingPoint } from "@/lib/listening";
 import { costUsd, formatUsd, narratorLabel, PRICE_PER_MILLION_CHARS, providerOf } from "@/lib/narrators-shared";
 import { Ticks } from "@/components/Ticks";
 
@@ -236,8 +237,19 @@ export default function Narrating() {
         <button
           className="btn primary"
           onClick={() => {
+            // Start where the chosen range starts (not chapter 1), and keep narrating inside it.
+            const start = startingPoint({
+              rangeTouched: rangeTouched.current,
+              rangeFrom: sel.from,
+              saved: p.progress.books[book.id],
+              chapterCount: total,
+            });
             router.push(`/book/${book.id}`);
-            void p.openBook(book.id);
+            void p.openBook(book.id, {
+              chapter: start.chapter,
+              time: start.time,
+              range: rangeTouched.current && !wholeBook ? sel : null,
+            });
           }}
         >
           <Icon name="play" size={20} />Start listening

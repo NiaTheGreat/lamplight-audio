@@ -10,6 +10,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { afterChapter, inRange, needsConfirm, shouldPrefetch, type ListenRange } from "@/lib/listening";
+import { costUsd } from "@/lib/narrators-shared";
 import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
 
@@ -32,6 +34,8 @@ export type Sleep = { kind: "off" } | { kind: "chapter" } | { kind: "minutes"; e
 
 const CPM_KEY = "abg:cpm";
 const AUTONEXT_KEY = "abg:autonext";
+const CONFIRM_KEY = "abg:confirm";
+const RANGE_KEY = "abg:range";
 const POSITION_KEY = "abg:last";
 const DIM_LEVELS = [0, 25, 50, 80];
 
@@ -56,6 +60,26 @@ function writeStore(key: string, value: unknown) {
     /* storage unavailable; fine */
   }
 }
+
+/** A chapter the listener asked to start that would be narrated (and so cost money), waiting for a yes. */
+export type PendingNarration = {
+  bookId: string;
+  index: number;
+  startAt: number;
+  fresh: boolean;
+  title: string;
+  chars: number;
+  costUsd: number;
+  narrator: string | undefined;
+};
+
+export type OpenOptions = {
+  /** Start here instead of the saved spot. */
+  chapter?: number;
+  time?: number;
+  /** The chapters chosen to be read; narration and auto-advance stay inside it. */
+  range?: { from: number; to: number } | null;
+};
 
 type Ctx = {
   // Playback
@@ -84,7 +108,12 @@ type Ctx = {
   bedside: boolean;
   // Actions
   selectBook: (id: string) => Promise<BookSummary | null>;
-  openBook: (id: string) => Promise<void>;
+  openBook: (id: string, opts?: OpenOptions) => Promise<void>;
+  confirmNarrate: boolean;
+  setConfirmNarrate: (on: boolean) => void;
+  pendingNarration: PendingNarration | null;
+  confirmNarration: () => void;
+  cancelNarration: () => void;
   playChapter: (index: number) => Promise<void>;
   togglePlay: () => Promise<void>;
   seek: (seconds: number) => void;
@@ -128,6 +157,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const rateRef = useRef(1);
   const rateTouched = useRef(false);
   const autoNextRef = useRef(true);
+  const confirmRef = useRef(true);
+  const listenRangeRef = useRef<ListenRange>(null);
+  const pendingRef = useRef<PendingNarration | null>(null);
   const loadToken = useRef(0);
   const lastSaved = useRef(0);
   const readyRef = useRef(new Set<string>());
@@ -145,6 +177,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [rate, setRate] = useState(1);
   const [sleep, setSleepState] = useState<Sleep>({ kind: "off" });
   const [autoNext, setAutoNextState] = useState(true);
+  const [confirmNarrate, setConfirmNarrateState] = useState(true);
+  const [pendingNarration, setPendingState] = useState<PendingNarration | null>(null);
   const [charsPerMin, setCharsPerMin] = useState(900);
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
@@ -205,9 +239,32 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [],
   );
 
+  const isReadyIdx = (b: BookSummary, i: number) =>
+    readyRef.current.has(`${b.id}:${i}`) || Boolean(b.narrated?.includes(i));
+
+  const setPending = (p: PendingNarration | null) => {
+    pendingRef.current = p;
+    setPendingState(p);
+  };
+
+  const setListenRange = (bookId: string, range: ListenRange) => {
+    listenRangeRef.current = range;
+    writeStore(`${RANGE_KEY}:${bookId}`, range);
+  };
+
   const prefetch = useCallback(
     (b: BookSummary, index: number) => {
-      if (index >= b.chapters.length || !autoNextRef.current) return;
+      // Only narrate ahead inside the chapters the listener chose.
+      if (
+        !shouldPrefetch({
+          index,
+          count: b.chapters.length,
+          autoNext: autoNextRef.current,
+          range: listenRangeRef.current,
+        })
+      ) {
+        return;
+      }
       if (readyRef.current.has(`${b.id}:${index}`)) return;
       if (b.narrated?.includes(index)) {
         readyRef.current.add(`${b.id}:${index}`);
@@ -274,6 +331,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setCharsPerMin(readStore<number>(CPM_KEY, 900));
     const savedAuto = readStore<boolean>(AUTONEXT_KEY, true);
     autoNextRef.current = savedAuto;
+    const savedConfirm = readStore<boolean>(CONFIRM_KEY, true);
+    confirmRef.current = savedConfirm;
+    setConfirmNarrateState(savedConfirm);
     setAutoNextState(savedAuto);
 
     void refreshLibrary();
@@ -394,6 +454,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const saved = progress.books[id];
         const index = saved && b.chapters[saved.chapter] ? saved.chapter : 0;
         bookRef.current = b;
+        listenRangeRef.current = readStore<ListenRange>(`${RANGE_KEY}:${id}`, null);
         chapterRef.current = index;
         resumeAtRef.current = saved && b.chapters[saved.chapter] ? saved.time : 0;
         loadedRef.current = "";
@@ -415,27 +476,73 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [progress],
   );
 
+  /**
+   * Start a chapter because the listener asked to. If it isn't narrated yet, ask first
+   * (it costs money), unless they turned the prompt off.
+   */
+  const requestStart = useCallback(
+    async (b: BookSummary, index: number, startAt: number, fresh: boolean) => {
+      const ch = b.chapters[index];
+      if (ch && needsConfirm({ isReady: isReadyIdx(b, index), confirmSetting: confirmRef.current })) {
+        setPending({
+          bookId: b.id,
+          index,
+          startAt,
+          fresh,
+          title: ch.title,
+          chars: ch.chars,
+          costUsd: costUsd(ch.chars, b.voice),
+          narrator: b.voice,
+        });
+        return;
+      }
+      await startChapter(b, index, startAt, fresh);
+    },
+    [startChapter],
+  );
+
+  const confirmNarration = useCallback(() => {
+    const p = pendingRef.current;
+    const b = bookRef.current;
+    setPending(null);
+    if (p && b && b.id === p.bookId) void startChapter(b, p.index, p.startAt, p.fresh);
+  }, [startChapter]);
+
+  const cancelNarration = useCallback(() => setPending(null), []);
+
   const openBook = useCallback(
-    async (id: string) => {
+    async (id: string, opts?: OpenOptions) => {
       // Already loaded: just carry on rather than restarting the chapter.
-      if (bookRef.current?.id === id && loadedRef.current) {
+      if (
+        bookRef.current?.id === id &&
+        loadedRef.current &&
+        (opts?.chapter === undefined || opts.chapter === chapterRef.current)
+      ) {
         audioRef.current?.play().catch(() => {});
         return;
       }
       const b = await selectBook(id);
       if (!b) return;
-      await startChapter(b, chapterRef.current, resumeAtRef.current, true);
+      if (opts?.range !== undefined) setListenRange(id, opts.range);
+      if (opts?.chapter !== undefined && b.chapters[opts.chapter]) {
+        chapterRef.current = opts.chapter;
+        resumeAtRef.current = opts.time ?? 0;
+        setChapter(opts.chapter);
+      }
+      await requestStart(b, chapterRef.current, resumeAtRef.current, true);
     },
-    [selectBook, startChapter],
+    [selectBook, requestStart],
   );
 
   const playChapter = useCallback(
     async (index: number) => {
       const b = bookRef.current;
       if (!b || !b.chapters[index]) return;
-      await startChapter(b, index, 0, true);
+      // Choosing a chapter outside the chosen range means they want to read from there.
+      if (!inRange(listenRangeRef.current, index)) setListenRange(b.id, null);
+      await requestStart(b, index, 0, true);
     },
-    [startChapter],
+    [requestStart],
   );
 
   const togglePlay = useCallback(async () => {
@@ -444,12 +551,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (!audio || !b) return;
     if (preparing) return;
     if (loadedRef.current !== `${b.id}:${chapterRef.current}`) {
-      await startChapter(b, chapterRef.current, resumeAtRef.current, true);
+      await requestStart(b, chapterRef.current, resumeAtRef.current, true);
       return;
     }
     if (audio.paused) audio.play().catch(() => {});
     else audio.pause();
-  }, [preparing, startChapter]);
+  }, [preparing, requestStart]);
 
   const seek = useCallback((seconds: number) => {
     const audio = audioRef.current;
@@ -471,8 +578,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const nextChapter = useCallback(() => {
     const b = bookRef.current;
-    if (b && chapterRef.current < b.chapters.length - 1) void startChapter(b, chapterRef.current + 1, 0, false);
-  }, [startChapter]);
+    if (b && chapterRef.current < b.chapters.length - 1) void requestStart(b, chapterRef.current + 1, 0, false);
+  }, [requestStart]);
 
   const prevChapter = useCallback(() => {
     const b = bookRef.current;
@@ -483,8 +590,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       seek(0);
       return;
     }
-    if (chapterRef.current > 0) void startChapter(b, chapterRef.current - 1, 0, false);
-  }, [seek, startChapter]);
+    if (chapterRef.current > 0) void requestStart(b, chapterRef.current - 1, 0, false);
+  }, [seek, requestStart]);
 
   const cycleRate = useCallback(() => {
     rateTouched.current = true;
@@ -505,6 +612,12 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       const i = DIM_LEVELS.findIndex((l) => l > d);
       return i === -1 ? DIM_LEVELS[0] : DIM_LEVELS[i];
     });
+  }, []);
+
+  const setConfirmNarrate = useCallback((on: boolean) => {
+    confirmRef.current = on;
+    setConfirmNarrateState(on);
+    writeStore(CONFIRM_KEY, on);
   }, []);
 
   const setAutoNext = useCallback(
@@ -666,12 +779,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       return;
     }
     const next = chapterRef.current + 1;
-    if (next >= b.chapters.length) return;
-    const isReady = readyRef.current.has(`${b.id}:${next}`) || b.narrated?.includes(next);
-    // With auto-narrate off, only roll straight on into a chapter that's ready.
-    if (!autoNextRef.current && !isReady) return;
-    // A very long chapter may still be narrating; wait for it rather than playing a 202.
-    if (!isReady) {
+    const decision = afterChapter({
+      next,
+      count: b.chapters.length,
+      isReady: isReadyIdx(b, next),
+      autoNext: autoNextRef.current,
+      range: listenRangeRef.current,
+    });
+    if (decision === "stop") return;
+    // A chapter the listener asked for but that isn't narrated yet: wait for it rather than playing a 202.
+    if (decision === "narrate") {
       void startChapter(b, next, 0, false);
       return;
     }
@@ -759,6 +876,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     bedside,
     selectBook,
     openBook,
+    confirmNarrate,
+    setConfirmNarrate,
+    pendingNarration,
+    confirmNarration,
+    cancelNarration,
     playChapter,
     togglePlay,
     seek,

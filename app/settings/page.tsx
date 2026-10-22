@@ -173,6 +173,18 @@ export default function Settings() {
         </section>
       ) : null}
 
+      <section className="section" aria-label="Asking first">
+        <div className="option">
+          <div className="grow">
+            <div className="label">Ask before narrating a chapter</div>
+            <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
+              Shows the cost and lets you cancel, so a stray tap doesn&apos;t spend money. Chapters already narrated play without asking.
+            </div>
+          </div>
+          <button role="switch" aria-checked={p.confirmNarrate} aria-label="Ask before narrating a chapter" className="switch" onClick={() => p.setConfirmNarrate(!p.confirmNarrate)} />
+        </div>
+      </section>
+
       <section className="section" aria-label="Narrating ahead">
         <div className="option">
           <div className="grow">
