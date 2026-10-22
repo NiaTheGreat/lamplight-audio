@@ -82,8 +82,10 @@ export default function Narrating() {
   }
 
   const total = book.chapters.length;
-  const running = p.job?.status === "running";
-  const stalled = running && p.job ? Date.now() - p.job.updatedAt > STALE_MS : false;
+  const jobRunning = p.job?.status === "running";
+  // A job whose worker has gone quiet isn't really running: the chapter pickers must stay usable.
+  const stalled = jobRunning && p.job ? Date.now() - p.job.updatedAt > STALE_MS : false;
+  const running = jobRunning && !stalled;
   const paused = p.job?.status === "paused";
   const failedHere = p.job?.status === "error" ? p.job.chapter : null;
   const sel = range ?? { from: 0, to: total - 1 };
@@ -124,7 +126,7 @@ export default function Narrating() {
   const lead = done
     ? "The whole book is ready to listen to."
     : stalled
-      ? "Narration looks stalled. You can pick it back up."
+      ? "Narration looks stalled. You can resume it where it stopped, or choose chapters below to start again."
       : paused && p.job
         ? `Paused before chapter ${Math.min(p.job.chapter + 1, total)}. Nothing more is spent until you continue.`
       : running && p.job
@@ -146,6 +148,9 @@ export default function Narrating() {
       </div>
 
       <p className="lead" style={{ marginTop: 22 }}>{lead}</p>
+      {stalled ? (
+        <button className="btn" style={{ marginTop: 12 }} onClick={() => void p.resumeBackground()}>Resume where it stopped</button>
+      ) : null}
       <div style={{ marginTop: 18 }}><Ticks
           done={p.readyCount}
           total={total}
@@ -398,7 +403,7 @@ export default function Narrating() {
         >
           <Icon name="play" size={20} />Start listening
         </button>
-        {running && !stalled ? (
+        {running ? (
           <>
             <button className="btn" onClick={() => void p.pauseBackground()}>Pause</button>
             <button className="btn" onClick={() => void p.stopBackground()}>Cancel</button>
@@ -411,10 +416,10 @@ export default function Narrating() {
         ) : !done ? (
           <button
             className="btn"
-            disabled={rangeToDo === 0 && failedHere === null && !stalled}
-            onClick={() => void p.startBackground(failedHere !== null || stalled ? { from: runFrom, to: runTo } : sel, failedHere !== null || stalled ? undefined : batchVoice || undefined)}
+            disabled={rangeToDo === 0 && failedHere === null}
+            onClick={() => (failedHere !== null ? void p.resumeBackground() : void p.startBackground(sel, batchVoice || undefined))}
           >
-            {failedHere !== null || stalled
+            {failedHere !== null
               ? "Resume"
               : wholeBook
                 ? "Read it all"
