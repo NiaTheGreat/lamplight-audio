@@ -1457,3 +1457,28 @@ input[type="range"]::-moz-range-thumb {
   padding: 0;
   margin-right: 0;
 }
+
+/* Wide screens: the mini player and the tabs share one row. */
+@media (min-width: 800px) {
+  .dock-in {
+    max-width: 900px;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .dock-in .mini {
+    flex: 1;
+    min-width: 0;
+    border-bottom: 0;
+    border-right: 1px solid var(--rule);
+  }
+
+  .dock-in .tabbar {
+    flex: 0 0 380px;
+  }
+
+  /* Without a mini player the tabs stay centred. */
+  .dock-in .tabbar:only-child {
+    margin: 0 auto;
+  }
+}

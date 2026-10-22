@@ -46,3 +46,67 @@ export function cleanMp3(input: Buffer): Buffer {
   if (end - start >= 128 && input.toString("latin1", end - 128, end - 125) === "TAG") end -= 128;
   return start >= end ? input : input.subarray(start, end);
 }
+
+export type Mp3Report = {
+  bytes: number;
+  id3v2Bytes: number;
+  /** Xing/Info/VBRI length-header frames found anywhere (more than one in a joined file is the seeking bug). */
+  infoFramesAt: number[];
+  frames: number;
+  firstFrame?: { mpegVersion: string; bitrateKbps: number; sampleRate: number; mono: boolean };
+  bitrates: Record<string, number>;
+  sampleRates: number[];
+  seconds: number;
+  /** Byte offset where frame parsing lost sync, if it did. */
+  lostSyncAt?: number;
+};
+
+const SAMPLES_PER_FRAME: Record<number, number> = { 3: 1152, 2: 576, 0: 576 };
+
+/** Walk an MP3 frame by frame and describe it, to see why a player can't measure or seek it. */
+export function inspectMp3(b: Buffer): Mp3Report {
+  const report: Mp3Report = {
+    bytes: b.length,
+    id3v2Bytes: 0,
+    infoFramesAt: [],
+    frames: 0,
+    bitrates: {},
+    sampleRates: [],
+    seconds: 0,
+  };
+  let at = 0;
+  while (b.toString("latin1", at, at + 3) === "ID3" && at + 10 <= b.length) {
+    const size = ((b[at + 6] & 0x7f) << 21) | ((b[at + 7] & 0x7f) << 14) | ((b[at + 8] & 0x7f) << 7) | (b[at + 9] & 0x7f);
+    at += 10 + size;
+    report.id3v2Bytes = at;
+  }
+  const rates = new Set<number>();
+  while (at + 4 <= b.length) {
+    const f = frameAt(b, at);
+    if (!f) {
+      if (b.toString("latin1", b.length - 128, b.length - 125) === "TAG" && at >= b.length - 128) break;
+      report.lostSyncAt = at;
+      break;
+    }
+    const version = (b[at + 1] >> 3) & 3;
+    const bitrate = (version === 3 ? BITRATES_V1 : BITRATES_V2)[(b[at + 2] >> 4) & 15];
+    const rate = RATES[version][(b[at + 2] >> 2) & 3];
+    if (report.frames === 0) {
+      report.firstFrame = {
+        mpegVersion: version === 3 ? "MPEG1" : version === 2 ? "MPEG2" : "MPEG2.5",
+        bitrateKbps: bitrate,
+        sampleRate: rate,
+        mono: ((b[at + 3] >> 6) & 3) === 3,
+      };
+    }
+    if (isInfoFrame(b, at, f)) report.infoFramesAt.push(at);
+    else report.seconds += SAMPLES_PER_FRAME[version] / rate;
+    report.bitrates[bitrate] = (report.bitrates[bitrate] ?? 0) + 1;
+    rates.add(rate);
+    report.frames++;
+    at += f.length;
+  }
+  report.sampleRates = [...rates];
+  report.seconds = Math.round(report.seconds * 10) / 10;
+  return report;
+}

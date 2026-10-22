@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Hanken_Grotesk } from "next/font/google";
 import type { ReactNode } from "react";
+import { DialogProvider } from "@/components/Dialog";
 import { AppChrome } from "@/components/AppChrome";
 import { PlayerProvider } from "@/components/PlayerProvider";
 import "./globals.css";
@@ -31,8 +32,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en" className={`${serif.variable} ${sans.variable}`}>
       <body suppressHydrationWarning>
         <PlayerProvider>
-          {children}
-          <AppChrome />
+          <DialogProvider>
+            {children}
+            <AppChrome />
+          </DialogProvider>
         </PlayerProvider>
       </body>
     </html>

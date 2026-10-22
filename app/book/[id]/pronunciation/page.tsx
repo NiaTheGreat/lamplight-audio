@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
@@ -14,6 +15,7 @@ type Data = { lines: Pron[]; list: { id: string; name: string; lines: Pron[] } |
 export default function PronunciationPage() {
   const { id } = useParams<{ id: string }>();
   const p = usePlayer();
+  const dialog = useDialog();
   const voice = p.library.find((b) => b.id === id)?.voice;
   const [lines, setLines] = useState<Pron[]>([]);
   const [stale, setStale] = useState<StaleChapter[]>([]);
@@ -102,11 +104,13 @@ export default function PronunciationPage() {
             className="btn"
             style={{ marginTop: 10 }}
             disabled={busy}
-            onClick={() => {
+            onClick={async () => {
               if (
-                window.confirm(
-                  `Copy the current "${list.name}" into this fic again? Chapters not narrated yet use it. Chapters already narrated keep their audio; re-reading them with the update costs money and you'll see the price first.`,
-                )
+                await dialog.confirm({
+                  title: `Copy "${list.name}" in again?`,
+                  body: "Chapters not narrated yet use it. Chapters already narrated keep their audio; re-reading them with the update costs money and you'll see the price first.",
+                  confirmLabel: "Update from list",
+                })
               ) {
                 void call("POST", { action: "updateFromList" }, "Updated from the list.");
               }
@@ -165,8 +169,8 @@ export default function PronunciationPage() {
             className="btn"
             style={{ marginTop: 12 }}
             disabled={busy || picked.length === 0}
-            onClick={() => {
-              if (window.confirm(`Re-read ${picked.length} chapter${picked.length === 1 ? "" : "s"}? They'll be narrated again when you play them, about ${formatUsd(costUsd(staleChars, voice))}.`)) {
+            onClick={async () => {
+              if (await dialog.confirm({ title: `Re-read ${picked.length} chapter${picked.length === 1 ? "" : "s"}?`, body: `They'll be narrated again when you play them, about ${formatUsd(costUsd(staleChars, voice))}.`, confirmLabel: "Re-read" })) {
                 void call("POST", { chapters: picked.map((c) => c.index) }, "Those chapters will be read again with the new pronunciations when you play them.");
               }
             }}

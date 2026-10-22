@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useDialog } from "@/components/Dialog";
 import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
 import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
@@ -23,6 +24,7 @@ export default function Narrating() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const p = usePlayer();
+  const dialog = useDialog();
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
   const [repairMsg, setRepairMsg] = useState("");
@@ -80,24 +82,6 @@ export default function Narrating() {
     .reduce((sum, c) => sum + c.chars, 0);
   const rangeToDo = book.chapters.filter((c) => inRange(c.index) && notReady(c.index)).length;
   const cost = costUsd(rangeChars, book.voice).toFixed(2);
-  async function reread(index: number, title: string, chars: number) {
-    if (!book) return;
-    const price = formatUsd(costUsd(chars, book.voice));
-    if (!window.confirm(`Throw away the narration of "${title}" and read it again? It will be narrated again when you play it, about ${price}.`)) return;
-    const res = await fetch(`/api/books/${book.id}/reread`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chapter: index }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      window.alert(data.error ?? "Couldn't do that.");
-      return;
-    }
-    await p.refreshBook(book.id);
-    await p.refreshLibrary();
-  }
-
   async function repair() {
     if (!book) return;
     setRepairMsg("Fixing…");
@@ -299,7 +283,7 @@ export default function Narrating() {
                 </>
               )}
               {state === "ready" ? (
-                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => void reread(c.index, c.title, c.chars)}>
+                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => dialog.reread({ bookId: book.id, index: c.index, title: c.title, chars: c.chars })}>
                   <Icon name="retry" size={20} />
                 </button>
               ) : null}

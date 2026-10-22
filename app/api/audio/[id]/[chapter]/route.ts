@@ -1,11 +1,13 @@
 import { serveBytes } from "@/lib/http";
 import { markNarrated } from "@/lib/library";
 import { getObject, getPublicUrl, hasObject, putObject } from "@/lib/storage";
+import { inspectMp3 } from "@/lib/mp3";
+import { voiceFor } from "@/lib/chaptervoice";
+import { setLive } from "@/lib/live";
 import { spokenText } from "@/lib/pronunciation";
 import {
   audioKey,
   chapterProgress,
-  defaultVoice,
   synthesizeChapter,
   type ChapterProgress,
 } from "@/lib/tts";
@@ -45,9 +47,16 @@ export async function GET(
   const ch = book.chapters[Number(chapter)];
   if (!ch) return new Response("Chapter not found", { status: 404 });
 
-  const voice = book.voice ?? defaultVoice();
+  const voice = voiceFor(book, ch.index);
   const spoken = spokenText(book, ch.index, ch.text);
   const key = audioKey(spoken, voice);
+
+  // ?inspect=1: describe the saved MP3 (headers, frames, length) to diagnose seeking problems.
+  if (query.get("inspect") === "1") {
+    const audio = await getObject(key);
+    if (!audio) return Response.json({ error: "Not narrated yet." }, { status: 404 });
+    return Response.json({ voice, key, ...inspectMp3(audio) }, { headers: { "Cache-Control": "no-store" } });
+  }
 
   if (query.get("progress") === "1") {
     const done = await hasObject(key);
@@ -60,15 +69,21 @@ export async function GET(
   const generate = () => {
     let job = inflight.get(key);
     if (!job) {
-      job = synthesizeChapter(spoken, undefined, voice)
-        .then(async (result) => {
+      job = (async () => {
+        // Shows up in the queue while it's being narrated.
+        await setLive(id, ch.index, true);
+        try {
+          const result = await synthesizeChapter(spoken, undefined, voice);
           if (result.done) {
             await putObject(key, result.audio, "audio/mpeg");
             await markNarrated(id, ch.index);
           }
           return result;
-        })
-        .finally(() => inflight.delete(key));
+        } finally {
+          await setLive(id, ch.index, false);
+          inflight.delete(key);
+        }
+      })();
       inflight.set(key, job);
     }
     return job;

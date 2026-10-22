@@ -132,6 +132,12 @@ type Ctx = {
   removeBook: (id: string) => Promise<void>;
   startBackground: (range?: { from: number; to: number }) => Promise<void>;
   stopBackground: () => Promise<void>;
+  /** Throw away a narrated chapter and narrate it again now (stopping it if it's playing). Returns an error message, or null. */
+  rereadAndNarrate: (
+    bookId: string,
+    index: number,
+    opts: { listId?: string; voice?: string; voiceForBook?: boolean },
+  ) => Promise<string | null>;
   pauseBackground: () => Promise<void>;
   resumeBackground: () => Promise<void>;
   chapterState: (index: number) => ChapterState;
@@ -720,6 +726,32 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
     setJob((await res.json()) as JobInfo | null);
   }, []);
+  const rereadAndNarrate = useCallback(
+    async (
+      bookId: string,
+      index: number,
+      opts: { listId?: string; voice?: string; voiceForBook?: boolean },
+    ): Promise<string | null> => {
+      const res = await fetch(`/api/books/${bookId}/reread`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chapter: index, ...opts }),
+      }).catch(() => null);
+      if (!res) return "Couldn't reach the server.";
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        return data.error ?? "Couldn't do that.";
+      }
+      void refreshLibrary();
+      const fresh = await fetch(`/api/books/${bookId}`).catch(() => null);
+      if (!fresh || !fresh.ok) return "Re-read, but couldn't reload the book. Open it to narrate.";
+      // Starting the chapter replaces whatever is playing, so the old narration stops here.
+      await startChapter((await fresh.json()) as BookSummary, index, 0, true);
+      return null;
+    },
+    [refreshLibrary, startChapter],
+  );
+
   const pauseBackground = useCallback(() => actOnJob("pause"), [actOnJob]);
   const resumeBackground = useCallback(() => actOnJob("resume"), [actOnJob]);
 
@@ -922,6 +954,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     stopBackground,
     pauseBackground,
     resumeBackground,
+    rereadAndNarrate,
     chapterState,
     readyCount,
     chapterMinutes,

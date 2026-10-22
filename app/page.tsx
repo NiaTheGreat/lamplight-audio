@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
@@ -11,6 +12,7 @@ import { bindingFor, Ticks } from "@/components/Ticks";
 export default function Library() {
   const router = useRouter();
   const p = usePlayer();
+  const dialog = useDialog();
 
   // Books added before chapter lengths were recorded: opening them once fills the lengths in,
   // so ask for each (one at a time) and then reload the shelf.
@@ -40,7 +42,7 @@ export default function Library() {
   }
 
   async function remove(id: string, title: string) {
-    if (!window.confirm(`Remove "${title}" from your shelf? Narration already made is kept.`)) return;
+    if (!(await dialog.confirm({ title: `Remove "${title}" from your shelf?`, body: "Narration already made is kept.", confirmLabel: "Remove" }))) return;
     await p.removeBook(id);
   }
 
