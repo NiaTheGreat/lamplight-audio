@@ -94,11 +94,13 @@ describe("R2 storage backend", () => {
     expect(await listKeys("library/")).toEqual(["library/aaaaaaaaaaaaaaaa.json"]);
   });
 
-  it("caches audio for a year and keeps records out of caches", async () => {
+  it("caches chapter audio only briefly (it can be rebuilt under the same name), previews for a year, records never", async () => {
     const { putObject } = await import("@/lib/storage");
     await putObject("audio/abc.mp3", Buffer.from([1, 2, 3]), "audio/mpeg");
     await putObject("settings.json", "{}", "application/json");
-    expect(objects.get("audio/abc.mp3")?.cache).toContain("immutable");
+    await putObject("previews/p.mp3", Buffer.from([4]), "audio/mpeg");
+    expect(objects.get("audio/abc.mp3")?.cache).toBe("private, max-age=600");
+    expect(objects.get("previews/p.mp3")?.cache).toContain("immutable");
     expect(objects.get("settings.json")?.cache).toBe("no-store");
     expect(objects.get("audio/abc.mp3")?.body).toEqual(Buffer.from([1, 2, 3]));
   });
