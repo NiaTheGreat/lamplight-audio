@@ -16,7 +16,7 @@ import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
 
 export type JobInfo = {
-  status: "running" | "done" | "cancelled" | "error";
+  status: "running" | "paused" | "done" | "cancelled" | "error";
   chapter: number;
   total: number;
   from?: number;
@@ -132,6 +132,8 @@ type Ctx = {
   removeBook: (id: string) => Promise<void>;
   startBackground: (range?: { from: number; to: number }) => Promise<void>;
   stopBackground: () => Promise<void>;
+  pauseBackground: () => Promise<void>;
+  resumeBackground: () => Promise<void>;
   chapterState: (index: number) => ChapterState;
   readyCount: number;
   chapterMinutes: (chars: number) => number;
@@ -702,6 +704,25 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setJob(null);
   }, []);
 
+  const actOnJob = useCallback(async (action: "pause" | "resume") => {
+    const b = bookRef.current;
+    if (!b) return;
+    setError("");
+    const res = await fetch(`/api/books/${b.id}/narrate`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    }).catch(() => null);
+    if (!res || !res.ok) {
+      const data = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+      setError(data?.error ?? `Couldn't ${action} narration.`);
+      return;
+    }
+    setJob((await res.json()) as JobInfo | null);
+  }, []);
+  const pauseBackground = useCallback(() => actOnJob("pause"), [actOnJob]);
+  const resumeBackground = useCallback(() => actOnJob("resume"), [actOnJob]);
+
   const bookId = book?.id;
   useEffect(() => {
     if (!bookId || onLogin) return;
@@ -899,6 +920,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     removeBook,
     startBackground,
     stopBackground,
+    pauseBackground,
+    resumeBackground,
     chapterState,
     readyCount,
     chapterMinutes,

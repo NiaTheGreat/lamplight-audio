@@ -22,6 +22,7 @@ export function AppChrome() {
   const showMini = p.book && !inBook && !p.bedside;
   const tabs = [
     { href: "/", label: "Shelf", icon: "shelf" as const, active: pathname === "/" },
+    { href: "/queue", label: "Queue", icon: "queue" as const, active: pathname === "/queue" },
     { href: "/add", label: "Add", icon: "add" as const, active: pathname === "/add" },
     { href: "/settings", label: "Settings", icon: "settings" as const, active: pathname === "/settings" },
   ];

@@ -9,12 +9,13 @@ process.env.CACHE_DIR = cacheDir;
 
 let server: Server;
 let calls = 0;
+let delayMs = 0;
 
 beforeAll(async () => {
   server = createServer((req, res) => {
     calls++;
     req.resume();
-    req.on("end", () => res.end(Buffer.alloc(200_000, 1)));
+    req.on("end", () => setTimeout(() => res.end(Buffer.alloc(200_000, 1)), delayMs));
   });
   await new Promise<void>((r) => server.listen(0, r));
   const { port } = server.address() as { port: number };
@@ -109,5 +110,60 @@ describe("background narration job", () => {
     const result = await runJob(ID, { budgetMs: 60_000, reserveMs: 0 });
     expect(result.finished).toBe(true);
     expect((await getJob(ID))?.status).toBe("cancelled");
+  });
+
+  it("pauses without being overwritten, then continues from the same place", async () => {
+    const { startJob, pauseJob, resumeJob, runJob, getJob, listQueue } = await import("@/lib/narration");
+    const { deleteObject, putObject } = await import("@/lib/storage");
+    const id = "0011223344556677";
+    const chapters = [0, 1, 2].map((i) => ({ index: i, title: `P${i}`, text: `P${i}. ${`Pause words ${i} `.repeat(30)}` }));
+    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "Pz", chapters }), "application/json");
+    await putObject(
+      `library/${id}.json`,
+      JSON.stringify({ id, title: "Pz", chapterCount: 3, addedAt: 1, chars: chapters.map((c) => c.text.length) }),
+      "application/json",
+    );
+
+    await startJob(id, 3);
+    expect((await listQueue()).map((q) => q.id)).toContain(id);
+    await pauseJob(id);
+    const before = calls;
+    const held = await runJob(id, { budgetMs: 60_000, reserveMs: 0 });
+    expect(held.finished).toBe(true);
+    expect(calls).toBe(before); // nothing spent while paused
+    const j = await getJob(id);
+    expect(j?.status).toBe("paused");
+    expect(j?.leaseUntil).toBe(0);
+    const q = (await listQueue()).find((x) => x.id === id);
+    expect(q?.job.status).toBe("paused");
+    expect(q?.remainingChars).toBeGreaterThan(0);
+
+    await resumeJob(id);
+    const done = await runJob(id, { budgetMs: 60_000, reserveMs: 0 });
+    expect(done.finished).toBe(true);
+    expect(calls).toBe(before + 3);
+    expect((await getJob(id))?.status).toBe("done");
+    expect((await listQueue()).map((x) => x.id)).not.toContain(id);
+    await deleteObject(`jobs/${id}.json`);
+  });
+
+  it("a pause that arrives mid-run holds the status and leaves the chapter for later", async () => {
+    const { startJob, pauseJob, runJob, getJob } = await import("@/lib/narration");
+    const { deleteObject, putObject } = await import("@/lib/storage");
+    const id = "8899aabbccddeeff";
+    const text = Array.from({ length: 12 }, (_, i) => `Sentence number ${i} of a long chapter. `.repeat(40)).join("\n\n");
+    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "L", chapters: [{ index: 0, title: "L", text }] }), "application/json");
+    await startJob(id, 1);
+    const callsBefore = calls;
+    // Pause as soon as the first provider call is seen.
+    delayMs = 150;
+    const t = setTimeout(() => void pauseJob(id), 200);
+    const result = await runJob(id, { budgetMs: 60_000, reserveMs: 0, stopCheckMs: 0 });
+    clearTimeout(t);
+    delayMs = 0;
+    expect(calls).toBeLessThan(callsBefore + 12);
+    expect(result.finished).toBe(true);
+    expect((await getJob(id))?.status).toBe("paused");
+    await deleteObject(`jobs/${id}.json`);
   });
 });
