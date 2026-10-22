@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon, StateGlyph } from "@/components/Icon";
 import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
+import { estimateMs, formatEta, type SpeedStats } from "@/lib/eta";
 import { startingPoint } from "@/lib/listening";
 import { costUsd, formatUsd, narratorLabel, PRICE_PER_MILLION_CHARS, providerOf } from "@/lib/narrators-shared";
 import { Ticks } from "@/components/Ticks";
@@ -24,6 +25,10 @@ export default function Narrating() {
   const p = usePlayer();
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
+  const [speed, setSpeed] = useState<SpeedStats>({});
+  useEffect(() => {
+    fetch("/api/speed").then((r) => (r.ok ? r.json() : {})).then(setSpeed).catch(() => {});
+  }, []);
   const groups = useNarrators();
   const [narratorError, setNarratorError] = useState("");
   // Which chapters to read in the background (0-based, inclusive).
@@ -64,6 +69,7 @@ export default function Narrating() {
   const total = book.chapters.length;
   const running = p.job?.status === "running";
   const stalled = running && p.job ? Date.now() - p.job.updatedAt > STALE_MS : false;
+  const paused = p.job?.status === "paused";
   const failedHere = p.job?.status === "error" ? p.job.chapter : null;
   const sel = range ?? { from: 0, to: total - 1 };
   const inRange = (i: number) => i >= sel.from && i <= sel.to;
@@ -73,7 +79,8 @@ export default function Narrating() {
     .reduce((sum, c) => sum + c.chars, 0);
   const rangeToDo = book.chapters.filter((c) => inRange(c.index) && notReady(c.index)).length;
   const cost = costUsd(rangeChars, book.voice).toFixed(2);
-  const canChangeNarrator = p.readyCount === 0 && !running;
+  const eta = formatEta(estimateMs(rangeChars, speed[providerOf(book.voice)]));
+  const canChangeNarrator = p.readyCount === 0 && !running && !paused;
   const done = p.readyCount >= total;
   const wholeBook = sel.from === 0 && sel.to === total - 1;
   const runFrom = p.job?.from ?? 0;
@@ -83,6 +90,8 @@ export default function Narrating() {
     ? "The whole book is ready to listen to."
     : stalled
       ? "Narration looks stalled. You can pick it back up."
+      : paused && p.job
+        ? `Paused before chapter ${Math.min(p.job.chapter + 1, total)}. Nothing more is spent until you continue.`
       : running && p.job
         ? `Chapter ${Math.min(p.job.chapter + 1, total)} is being read now${runFrom > 0 || runTo < total - 1 ? ` (chapters ${runFrom + 1} to ${runTo + 1})` : ""}. You can close this page; it will keep going.`
         : p.readyCount > 0
@@ -110,7 +119,7 @@ export default function Narrating() {
         /></div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }} className="faint">
         <span>{p.readyCount} of {total} ready</span>
-        {!done ? <span>About ${cost} to read the rest</span> : null}
+        {!done ? <span>About ${cost} · {eta}</span> : null}
       </div>
       {p.error ? <p className="error" role="alert">{p.error}</p> : null}
       {p.job?.status === "error" ? (
@@ -168,7 +177,7 @@ export default function Narrating() {
         </p>
       </section>
 
-      {!running && !done ? (
+      {!running && !paused && !done ? (
         <section className="section" aria-label="Which chapters to read">
           <div className="eyebrow">Which chapters</div>
           <div className="rangepick">
@@ -255,7 +264,15 @@ export default function Narrating() {
           <Icon name="play" size={20} />Start listening
         </button>
         {running && !stalled ? (
-          <button className="btn" onClick={() => void p.stopBackground()}>Stop</button>
+          <>
+            <button className="btn" onClick={() => void p.pauseBackground()}>Pause</button>
+            <button className="btn" onClick={() => void p.stopBackground()}>Cancel</button>
+          </>
+        ) : paused ? (
+          <>
+            <button className="btn" onClick={() => void p.resumeBackground()}>Continue</button>
+            <button className="btn" onClick={() => void p.stopBackground()}>Cancel</button>
+          </>
         ) : !done ? (
           <button
             className="btn"

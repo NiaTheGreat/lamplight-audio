@@ -1391,3 +1391,25 @@ input[type="range"]::-moz-range-thumb {
     transition: none !important;
   }
 }
+
+/* Queue */
+.queue {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.qbtns {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.qbtns .btn {
+  flex: 1;
+}
+
+.sticky-actions .btn:not(.primary) {
+  padding-left: 18px;
+  padding-right: 18px;
+}

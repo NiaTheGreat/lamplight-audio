@@ -1,7 +1,8 @@
 import { markNarrated } from "./library";
 import { getObject, hasObject, putObject } from "./storage";
-import { audioKey, defaultVoice, synthesizeChapter } from "./tts";
-import type { Book } from "./types";
+import { recordSpeed, flushSpeed } from "./speed";
+import { audioKey, charsSynthesized, defaultVoice, synthesizeChapter } from "./tts";
+import type { Book, LibraryEntry } from "./types";
 
 /**
  * Background narration of a whole book. A job is a small record in storage; a
@@ -10,7 +11,7 @@ import type { Book } from "./types";
  * chunk by chunk, so a crashed or timed-out run loses almost nothing.
  */
 export type Job = {
-  status: "running" | "done" | "cancelled" | "error";
+  status: "running" | "paused" | "done" | "cancelled" | "error";
   /** Next chapter index to narrate. */
   chapter: number;
   total: number;
@@ -34,6 +35,60 @@ export async function getJob(bookId: string): Promise<Job | null> {
 async function saveJob(bookId: string, job: Job): Promise<void> {
   job.updatedAt = Date.now();
   await putObject(jobKey(bookId), JSON.stringify(job), "application/json");
+}
+
+/**
+ * Which books have a job worth showing in the queue (running, paused or failed), so the
+ * queue page reads one small file instead of listing storage.
+ */
+const INDEX_KEY = "jobs/active.json";
+
+async function readIndex(): Promise<string[]> {
+  const raw = await getObject(INDEX_KEY);
+  return raw ? (JSON.parse(raw.toString("utf8")) as string[]) : [];
+}
+
+async function setQueued(bookId: string, queued: boolean): Promise<void> {
+  try {
+    const ids = await readIndex();
+    if (ids.includes(bookId) === queued) return;
+    const next = queued ? [...ids, bookId] : ids.filter((id) => id !== bookId);
+    await putObject(INDEX_KEY, JSON.stringify(next), "application/json");
+  } catch {
+    /* the queue page is a convenience; a missed update fixes itself on the next change */
+  }
+}
+
+export type QueueItem = {
+  id: string;
+  title: string;
+  author?: string;
+  voice?: string;
+  job: Job;
+  /** Characters still to narrate in this job's range. */
+  remainingChars: number;
+};
+
+/** Everything in the queue, with what's left of each job. */
+export async function listQueue(): Promise<QueueItem[]> {
+  const items: QueueItem[] = [];
+  const stale: string[] = [];
+  for (const id of await readIndex()) {
+    const job = await getJob(id);
+    const raw = await getObject(`library/${id}.json`);
+    if (!job || !raw || job.status === "done" || job.status === "cancelled") {
+      stale.push(id);
+      continue;
+    }
+    const entry = JSON.parse(raw.toString("utf8")) as LibraryEntry;
+    const done = new Set(entry.narrated ?? []);
+    const last = Math.min(job.to ?? entry.chapterCount - 1, entry.chapterCount - 1);
+    let remainingChars = 0;
+    for (let i = Math.max(job.chapter, 0); i <= last; i++) if (!done.has(i)) remainingChars += entry.chars?.[i] ?? 0;
+    items.push({ id, title: entry.title, author: entry.author, voice: entry.voice, job, remainingChars });
+  }
+  for (const id of stale) await setQueued(id, false);
+  return items;
 }
 
 /** Keep a requested range inside the book, with from <= to. Missing ends mean the first/last chapter. */
@@ -65,15 +120,54 @@ export async function startJob(
     leaseUntil: 0,
   };
   await saveJob(bookId, job);
+  await setQueued(bookId, true);
   return job;
 }
 
+/** Stop the job for good. Chapters already narrated are kept. */
 export async function cancelJob(bookId: string): Promise<void> {
   const job = await getJob(bookId);
-  if (job && job.status === "running") {
+  if (job && (job.status === "running" || job.status === "paused" || job.status === "error")) {
     job.status = "cancelled";
     await saveJob(bookId, job);
   }
+  await setQueued(bookId, false);
+}
+
+/** Hold a running job. The worker notices between chunks, so at most one chunk more is spent. */
+export async function pauseJob(bookId: string): Promise<Job | null> {
+  const job = await getJob(bookId);
+  if (job && job.status === "running") {
+    job.status = "paused";
+    await saveJob(bookId, job);
+  }
+  return job;
+}
+
+/** Continue a paused (or failed) job from where it stopped. The caller then kicks the worker. */
+export async function resumeJob(bookId: string): Promise<Job | null> {
+  const job = await getJob(bookId);
+  if (job && (job.status === "paused" || job.status === "error")) {
+    job.status = "running";
+    delete job.error;
+    await saveJob(bookId, job);
+    await setQueued(bookId, true);
+  }
+  return job;
+}
+
+/**
+ * Called when a worker leaves: hand back the lease and, if the user paused or cancelled meanwhile,
+ * keep that status instead of overwriting it with this worker's stale copy.
+ */
+async function leave(bookId: string, mine: Job, finished: boolean): Promise<Job> {
+  const fresh = (await getJob(bookId)) ?? mine;
+  fresh.chapter = Math.max(fresh.chapter, mine.chapter);
+  if (fresh.status === "running" && finished) fresh.status = "done";
+  fresh.leaseUntil = 0;
+  await saveJob(bookId, fresh);
+  if (fresh.status === "done") await setQueued(bookId, false);
+  return fresh;
 }
 
 export type RunResult = { finished: boolean; skipped?: boolean; error?: string };
@@ -84,7 +178,7 @@ export type RunResult = { finished: boolean; skipped?: boolean; error?: string }
  */
 export async function runJob(
   bookId: string,
-  opts: { budgetMs: number; reserveMs?: number },
+  opts: { budgetMs: number; reserveMs?: number; stopCheckMs?: number },
 ): Promise<RunResult> {
   const reserve = opts.reserveMs ?? 40_000;
   const deadline = Date.now() + opts.budgetMs;
@@ -105,14 +199,19 @@ export async function runJob(
   job.leaseUntil = deadline + 30_000;
   await saveJob(bookId, job);
 
+  // Looked at between chunks, at most every few seconds, so a pause or cancel takes hold quickly
+  // without a storage read per chunk.
+  let checkedAt = 0;
+  const shouldStop = async () => {
+    if (Date.now() - checkedAt < (opts.stopCheckMs ?? 8_000)) return false;
+    checkedAt = Date.now();
+    const now = await getJob(bookId);
+    return !now || now.status !== "running";
+  };
+
   try {
     const last = Math.min(job.to ?? book.chapters.length - 1, book.chapters.length - 1);
     while (job.chapter <= last) {
-      // Stop if the user cancelled while we were working.
-      const fresh = await getJob(bookId);
-      if (!fresh || fresh.status !== "running") return { finished: true };
-      job = { ...fresh, leaseUntil: job.leaseUntil };
-
       const ch = book.chapters[job.chapter];
       const voice = book.voice ?? defaultVoice();
       const key = audioKey(ch.text, voice);
@@ -120,26 +219,39 @@ export async function runJob(
       if (!(await hasObject(key))) {
         const chunkBudget = deadline - Date.now() - reserve;
         if (chunkBudget <= 0) break;
-        const result = await synthesizeChapter(ch.text, chunkBudget, voice);
+        const startedMs = Date.now();
+        const charsBefore = charsSynthesized();
+        const result = await synthesizeChapter(ch.text, chunkBudget, voice, shouldStop);
+        recordSpeed(voice, charsSynthesized() - charsBefore, Date.now() - startedMs);
         if (!result.done) break;
         await putObject(key, result.audio, "audio/mpeg");
       }
       await markNarrated(bookId, ch.index);
-      job.chapter += 1;
+      // Look again before saving: a pause or cancel that arrived while this chapter was being
+      // narrated must not be overwritten with our older copy.
+      const fresh = await getJob(bookId);
+      if (!fresh || fresh.status !== "running") {
+        job.chapter += 1;
+        await leave(bookId, job, false);
+        return { finished: true };
+      }
+      job = { ...fresh, chapter: job.chapter + 1, leaseUntil: job.leaseUntil };
       await saveJob(bookId, job);
     }
 
-    const finished = job.chapter > last;
-    if (finished) job.status = "done";
-    job.leaseUntil = 0;
-    await saveJob(bookId, job);
-    return { finished };
+    const after = await leave(bookId, job, job.chapter > last);
+    await flushSpeed();
+    return { finished: after.status !== "running" };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Narration failed.";
-    job.status = "error";
-    job.error = message;
-    job.leaseUntil = 0;
-    await saveJob(bookId, job);
+    const current = (await getJob(bookId)) ?? job;
+    if (current.status === "running") {
+      current.status = "error";
+      current.error = message;
+    }
+    current.leaseUntil = 0;
+    await saveJob(bookId, current);
+    await flushSpeed();
     return { finished: true, error: message };
   }
 }

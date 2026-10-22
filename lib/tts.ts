@@ -152,10 +152,16 @@ export type ChapterProgress =
  * next call. No new chunk is started after `deadlineMs`; the caller reports
  * progress and the client asks again.
  */
+let synthesizedChars = 0;
+/** Characters sent to a provider by this process so far (for measuring narration speed). */
+export const charsSynthesized = () => synthesizedChars;
+
 export async function synthesizeChapter(
   text: string,
   deadlineMs = 200_000,
   voice: string = defaultVoice(),
+  /** Asked before each new chunk; true leaves the rest un-narrated (the chunks done stay cached). */
+  shouldStop?: () => Promise<boolean>,
 ): Promise<ChapterProgress> {
   const chunks = splitForTts(text);
   const keys = chunks.map((c) => audioKey(c, voice));
@@ -170,7 +176,9 @@ export async function synthesizeChapter(
         return;
       }
       if (Date.now() >= stop) return;
+      if (shouldStop && (await shouldStop())) return;
       const audio = await synthChunk(chunk, voice);
+      synthesizedChars += chunk.length;
       await putObject(keys[i], audio, "audio/mpeg");
       parts[i] = audio;
     });

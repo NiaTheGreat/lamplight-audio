@@ -31,6 +31,7 @@ const PATHS: Record<string, ReactNode> = {
   ),
   speed: <path d="M5 17a8 8 0 1 1 14 0M12 13l3.5-4.5" />,
   download: <path d="M12 4v10M7.5 10.5L12 15l4.5-4.5M5 19h14" />,
+  queue: <path d="M4 7h16M4 12h16M4 17h9" />,
   add: <path d="M12 5v14M5 12h14" />,
   shelf: (
     <>
