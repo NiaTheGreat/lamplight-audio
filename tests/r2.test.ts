@@ -110,6 +110,19 @@ describe("R2 storage backend", () => {
     expect((await getObject("progress.json"))?.toString()).toBe("{}");
   });
 
+  it("hands out a signed address for the browser to upload a large file to", async () => {
+    const { getUploadUrl } = await import("@/lib/storage");
+    const { newUploadKey, isUploadKey } = await import("@/lib/uploads");
+    const key = newUploadKey();
+    expect(isUploadKey(key)).toBe(true);
+    expect(isUploadKey("books/abc.json")).toBe(false);
+    expect(isUploadKey("uploads/../secret.epub")).toBe(false);
+    const url = await getUploadUrl(key);
+    expect(url).toContain(key);
+    expect(url).toContain("X-Amz-Signature=");
+    expect(url).toContain("X-Amz-Expires=900");
+  });
+
   it("hands out a signed, expiring address only for objects that exist", async () => {
     const { getPublicUrl } = await import("@/lib/storage");
     const url = await getPublicUrl("audio/abc.mp3");

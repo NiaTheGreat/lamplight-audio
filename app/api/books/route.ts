@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { parseEpub } from "@/lib/epub";
 import { getSettings } from "@/lib/settings";
-import { getObject, listKeys, putObject } from "@/lib/storage";
+import { deleteObject, getObject, listKeys, putObject } from "@/lib/storage";
+import { isUploadKey } from "@/lib/uploads";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -36,24 +37,50 @@ export async function GET() {
   return NextResponse.json(books, { headers: { "Cache-Control": "no-store" } });
 }
 
-/** Upload an EPUB, parse it into chapters, and store the parsed book. */
+/**
+ * Add an EPUB. Either the file is posted here as multipart form data (small
+ * files), or JSON `{ uploadKey, skipNotes }` names a file the browser already
+ * uploaded straight to storage (large files, which Vercel won't accept in a body).
+ */
 export async function POST(req: Request) {
-  let form: FormData;
-  try {
-    form = await req.formData();
-  } catch {
-    return NextResponse.json({ error: "Couldn't read the upload." }, { status: 400 });
+  let buf: Buffer;
+  let skipNotes = true;
+  let uploadKey: string | null = null;
+
+  if ((req.headers.get("content-type") ?? "").includes("application/json")) {
+    const body = (await req.json().catch(() => null)) as { uploadKey?: unknown; skipNotes?: unknown } | null;
+    if (!body || !isUploadKey(body.uploadKey)) {
+      return NextResponse.json({ error: "Couldn't find that upload." }, { status: 400 });
+    }
+    uploadKey = body.uploadKey;
+    skipNotes = body.skipNotes !== false;
+    let stored: Buffer | null;
+    try {
+      stored = await getObject(uploadKey);
+    } catch {
+      return NextResponse.json({ error: "Couldn't read the uploaded file from storage." }, { status: 502 });
+    }
+    if (!stored) {
+      return NextResponse.json({ error: "The uploaded file wasn't found. Try uploading it again." }, { status: 404 });
+    }
+    buf = stored;
+  } else {
+    let form: FormData;
+    try {
+      form = await req.formData();
+    } catch {
+      return NextResponse.json({ error: "Couldn't read the upload." }, { status: 400 });
+    }
+    const file = form.get("file");
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "Choose an EPUB file first." }, { status: 400 });
+    }
+    skipNotes = form.get("skipNotes") !== "false";
+    buf = Buffer.from(await file.arrayBuffer());
   }
 
-  const file = form.get("file");
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Choose an EPUB file first." }, { status: 400 });
-  }
-
-  const skipNotes = form.get("skipNotes") !== "false";
-
   try {
-    const book = await parseEpub(Buffer.from(await file.arrayBuffer()), { skipNotes });
+    const book = await parseEpub(buf, { skipNotes });
     // A book keeps the voice it was first added with, so it never changes mid-story.
     const existing = await getObject(`books/${book.id}.json`);
     const keepVoice = existing
@@ -74,5 +101,8 @@ export async function POST(req: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Couldn't read that EPUB.";
     return NextResponse.json({ error: message }, { status: 422 });
+  } finally {
+    // The raw upload has served its purpose either way.
+    if (uploadKey) await deleteObject(uploadKey).catch(() => {});
   }
 }

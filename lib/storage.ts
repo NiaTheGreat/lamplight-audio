@@ -179,6 +179,21 @@ export async function getPublicUrl(key: string): Promise<string | null> {
   return signed.url;
 }
 
+/**
+ * A temporary address the browser can PUT a file to directly (15 minutes), or
+ * null when there is no bucket. Used for EPUBs too large to pass through a function.
+ */
+export async function getUploadUrl(key: string): Promise<string | null> {
+  const store = r2();
+  if (!store) return null;
+  const url = new URL(objectUrl(store.base, key));
+  url.searchParams.set("X-Amz-Expires", "900");
+  const signed = await store.client.sign(new Request(url, { method: "PUT" }), {
+    aws: { signQuery: true },
+  });
+  return signed.url;
+}
+
 /** Keys under a prefix (e.g. "library/"), for listing saved books. */
 export async function listKeys(prefix: string): Promise<string[]> {
   assertDurable();
