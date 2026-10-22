@@ -219,3 +219,15 @@ describe("changing a narrator", () => {
     await expect(setChapterVoice(ID, [0], "nonsense")).rejects.toBeInstanceOf(NarratorChangeError);
   });
 });
+
+describe("Kokoro voice labels", () => {
+  it("say the accent and gender", async () => {
+    const { kokoroTraits, NARRATOR_GROUPS } = await import("@/lib/narrators-shared");
+    expect(kokoroTraits("af_bella")).toBe("American, female");
+    expect(kokoroTraits("am_adam")).toBe("American, male");
+    expect(kokoroTraits("bf_emma")).toBe("British, female");
+    expect(kokoroTraits("bm_george")).toBe("British, male");
+    const kokoro = NARRATOR_GROUPS.find((g) => g.provider === "deepinfra")!;
+    expect(kokoro.narrators.find((n) => n.id === "deepinfra:kokoro:bm_george")?.label).toBe("George · British, male");
+  });
+});

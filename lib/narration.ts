@@ -1,3 +1,4 @@
+import { setKey } from "./keys";
 import { listLive } from "./live";
 import { voiceFor } from "./chaptervoice";
 import { spokenText } from "./pronunciation";
@@ -269,6 +270,7 @@ export async function runJob(
         await putObject(key, result.audio, "audio/mpeg");
       }
       await markNarrated(bookId, ch.index);
+      await setKey(bookId, ch.index, key);
       // Look again before saving: a pause or cancel that arrived while this chapter was being
       // narrated must not be overwritten with our older copy.
       const fresh = await getJob(bookId);

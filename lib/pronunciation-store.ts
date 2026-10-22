@@ -1,3 +1,4 @@
+import { clearKeys } from "./keys";
 import { getJob, isJobActive } from "./narration";
 import { applyPronunciations, effectiveLines, linesFor, sanitizeLines, spokenText, type Pron } from "./pronunciation";
 import { getObject, putObject } from "./storage";
@@ -97,6 +98,7 @@ export async function renarrate(bookId: string, chapters: unknown) {
     ? staleIdx.filter((i) => chapters.includes(i))
     : staleIdx;
   for (const i of wanted) delete book.frozen?.[i];
+  await clearKeys(bookId, wanted);
   if (book.frozen && Object.keys(book.frozen).length === 0) delete book.frozen;
   await putObject(`books/${bookId}.json`, JSON.stringify(book), "application/json");
   if (entry) {

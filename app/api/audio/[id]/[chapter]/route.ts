@@ -1,4 +1,5 @@
 import { serveBytes } from "@/lib/http";
+import { getKeys, setKey } from "@/lib/keys";
 import { markNarrated } from "@/lib/library";
 import { getObject, getPublicUrl, hasObject, putObject } from "@/lib/storage";
 import { inspectMp3 } from "@/lib/mp3";
@@ -17,6 +18,26 @@ export const runtime = "nodejs";
 // Long chapters can take a while to narrate. (Vercel Hobby caps this lower
 // than 300s unless Fluid Compute is on; see README.)
 export const maxDuration = 300;
+
+// Progress polling asks every couple of seconds; the book's text doesn't change in that time, so
+// the parsed book is kept for a short while instead of being read from storage each time. Playing
+// and narrating always read it fresh: a stale copy there could narrate the wrong text or voice.
+const recentBooks = new Map<string, { at: number; book: Book }>();
+const RECENT_MS = 30_000;
+
+async function loadBook(id: string, allowRecent: boolean): Promise<Book | null> {
+  const now = Date.now();
+  const hit = recentBooks.get(id);
+  if (allowRecent && hit && now - hit.at < RECENT_MS) return hit.book;
+  const raw = await getObject(`books/${id}.json`);
+  if (!raw) return null;
+  const book = JSON.parse(raw.toString("utf8")) as Book;
+  if (allowRecent) {
+    if (recentBooks.size > 4) recentBooks.clear();
+    recentBooks.set(id, { at: now, book });
+  }
+  return book;
+}
 
 // If the same chapter is requested twice at once (e.g. prefetch + play),
 // only generate it once.
@@ -40,10 +61,27 @@ export async function GET(
   }
   const query = new URL(req.url).searchParams;
 
-  const raw = await getObject(`books/${id}.json`);
-  if (!raw) return new Response("Book not found. Upload the EPUB again.", { status: 404 });
+  // Fast path for a chapter that's already narrated: its audio's name is in a small per-book
+  // file, so there's no need to read the whole book's text just to find it.
+  const plain = !query.get("progress") && !query.get("inspect") && !query.get("download");
+  if (plain) {
+    const known = (await getKeys(id))[chapter];
+    if (known) {
+      if (query.get("prepare") === "1") {
+        if (await hasObject(known)) {
+          return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
+        }
+      } else {
+        const url = await getPublicUrl(known);
+        if (url) return new Response(null, { status: 307, headers: { Location: url, "Cache-Control": "no-store" } });
+        const audio = await getObject(known);
+        if (audio) return serveBytes(req, audio, "audio/mpeg");
+      }
+    }
+  }
 
-  const book = JSON.parse(raw.toString("utf8")) as Book;
+  const book = await loadBook(id, query.get("progress") === "1");
+  if (!book) return new Response("Book not found. Upload the EPUB again.", { status: 404 });
   const ch = book.chapters[Number(chapter)];
   if (!ch) return new Response("Chapter not found", { status: 404 });
 
@@ -77,6 +115,7 @@ export async function GET(
           if (result.done) {
             await putObject(key, result.audio, "audio/mpeg");
             await markNarrated(id, ch.index);
+            await setKey(id, ch.index, key);
           }
           return result;
         } finally {
@@ -101,6 +140,7 @@ export async function GET(
     if (await hasObject(key)) {
       // Books narrated before the library tracked this get caught up here.
       await markNarrated(id, ch.index);
+      await setKey(id, ch.index, key);
       return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
     }
     try {
@@ -114,7 +154,9 @@ export async function GET(
 
   const wantsDownload = query.get("download") === "1";
 
-  if (!wantsDownload) {
+  if (!wantsDownload && (await hasObject(key))) {
+    // Remember where this chapter's audio is, so the next play doesn't need the book.
+    await setKey(id, ch.index, key);
     const url = await getPublicUrl(key);
     if (url) {
       return new Response(null, {

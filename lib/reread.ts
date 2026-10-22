@@ -1,3 +1,4 @@
+import { clearKeys } from "./keys";
 import { voiceFor } from "./chaptervoice";
 import { getJob, isJobActive } from "./narration";
 import { getLists } from "./pronlists";
@@ -101,6 +102,7 @@ export async function rereadChapters(
   // If nothing changed, the audio they will be narrated as is the audio just removed; clear any piece left.
   for (const i of chapters) await deleteAudio(book, i);
 
+  await clearKeys(bookId, chapters);
   entry.narrated = (entry.narrated ?? []).filter((i) => !chapters.includes(i));
   entry.voice = book.voice;
   await putObject(`library/${bookId}.json`, JSON.stringify(entry), "application/json");

@@ -136,11 +136,12 @@ export default function Narrating() {
           : "Nothing has been read aloud yet. It happens when you press play, or all at once below.";
 
   return (
-    <main className="screen no-tabs" style={{ paddingBottom: 140 }}>
+    <main className="screen no-tabs narrating" style={{ paddingBottom: 140 }}>
       <div className="topbar">
         <Link href="/" className="icon-btn" aria-label="Back to shelf"><Icon name="back" /></Link>
       </div>
 
+      <div className="ncol">
       <div className="eyebrow" style={{ marginTop: 6 }}>Being read aloud</div>
       <h1 className="title" style={{ marginTop: 6 }}>{book.title}</h1>
       <div className="muted" style={{ marginTop: 6 }}>
@@ -305,6 +306,9 @@ export default function Narrating() {
         </div>
       ) : null}
 
+      </div>
+
+      <div className="nlist">
       <div className="rows" style={{ marginTop: 20 }}>
         {book.chapters.map((c) => {
           const state = p.chapterState(c.index);
@@ -331,6 +335,7 @@ export default function Narrating() {
                     aria-label={`Select ${c.title}`}
                   />
                   <span className="nm">{c.title}</span>
+                  <span className="mins">{p.chapterMinutes(c.chars)} min</span>
                   <span className="st">{label}</span>
                 </label>
               ) : state === "ready" ? (
@@ -344,12 +349,14 @@ export default function Narrating() {
                 >
                   <PlayDot />
                   <span className="nm">{c.title}</span>
+                  <span className="mins">{p.chapterMinutes(c.chars)} min</span>
                   <span className="st">{label}</span>
                 </button>
               ) : (
                 <>
                   <StateGlyph state={state} />
                   <span className="nm">{c.title}</span>
+                  <span className="mins">{p.chapterMinutes(c.chars)} min</span>
                   <span className="st">{label}</span>
                 </>
               )}
@@ -361,6 +368,7 @@ export default function Narrating() {
             </div>
           );
         })}
+      </div>
       </div>
 
       {selecting ? (

@@ -417,26 +417,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       loadedRef.current = "";
       audio.play().catch(() => {});
 
-      try {
-        const ok = await prepare(
-          b,
-          index,
-          (ready, total) => {
-            if (token === loadToken.current) {
-              setPreparing({ chapter: index, pct: Math.round((ready / total) * 100) });
-            }
-          },
-          () => token !== loadToken.current,
-        );
-        if (!ok || token !== loadToken.current) return;
-      } catch (err) {
-        if (token !== loadToken.current) return;
-        audio.pause();
-        setPreparing(null);
-        setFailedChapter(index);
-        setError(err instanceof Error ? err.message : "Couldn't prepare that chapter.");
-        return;
+      // A chapter that is already narrated needs no preparing: one request plays it.
+      if (!isReadyIdx(b, index)) {
+        try {
+          const ok = await prepare(
+            b,
+            index,
+            (ready, total) => {
+              if (token === loadToken.current) {
+                setPreparing({ chapter: index, pct: Math.round((ready / total) * 100) });
+              }
+            },
+            () => token !== loadToken.current,
+          );
+          if (!ok || token !== loadToken.current) return;
+        } catch (err) {
+          if (token !== loadToken.current) return;
+          audio.pause();
+          setPreparing(null);
+          setFailedChapter(index);
+          setError(err instanceof Error ? err.message : "Couldn't prepare that chapter.");
+          return;
+        }
       }
+      if (token !== loadToken.current) return;
 
       audio.src = `/api/audio/${b.id}/${index}`;
       loadedRef.current = `${b.id}:${index}`;
@@ -748,6 +752,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         return data.error ?? "Couldn't do that.";
       }
+      readyRef.current.delete(`${bookId}:${index}`);
       void refreshLibrary();
       const fresh = await fetch(`/api/books/${bookId}`).catch(() => null);
       if (!fresh || !fresh.ok) return "Re-read, but couldn't reload the book. Open it to narrate.";
@@ -778,6 +783,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         headers: json,
         body: JSON.stringify({ chapters: indices }),
       }).catch(() => null);
+      for (const i of indices) readyRef.current.delete(`${bookId}:${i}`);
       void refreshLibrary();
       if (bookRef.current?.id === bookId) void refreshBook(bookId);
       if (!run || !run.ok) {
