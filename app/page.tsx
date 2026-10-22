@@ -90,7 +90,8 @@ export default function Library() {
               <div key={b.id} style={{ position: "relative" }}>
                 <Link
                   className="spine"
-                  href={`/book/${b.id}`}
+                  // A book nothing has been narrated or listened to yet opens on the chapter picker.
+                  href={narrated === 0 && !started ? `/book/${b.id}/narrating` : `/book/${b.id}`}
                   style={{ ["--spine" as string]: bindingFor(b.id) }}
                 >
                   <div className="binding" aria-hidden="true">

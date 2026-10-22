@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon, StateGlyph } from "@/components/Icon";
-import { usePlayer } from "@/components/PlayerProvider";
+import { USD_PER_MILLION_CHARS, usePlayer } from "@/components/PlayerProvider";
 
 function clock(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
@@ -53,6 +53,10 @@ export default function Player() {
         ? "Sleep · chapter end"
         : `Sleep · ${Math.max(1, Math.ceil((p.sleep.endsAt - Date.now()) / 60000))} min`;
   const preparing = p.preparing?.chapter === p.chapter ? p.preparing : null;
+  const unreadChars = book.chapters
+    .filter((c) => !["ready", "playing"].includes(p.chapterState(c.index)))
+    .reduce((sum, c) => sum + c.chars, 0);
+  const unfinished = p.readyCount < book.chapters.length;
 
   return (
     <main className="screen no-tabs book player">
@@ -125,12 +129,25 @@ export default function Player() {
             <Icon name="sun" size={20} />Dim
           </button>
         </div>
+      {unfinished ? (
+        <div className="banner">
+          <span className="grow">
+            {p.readyCount === 0
+              ? "Nothing is narrated yet."
+              : `${p.readyCount} of ${book.chapters.length} chapters are narrated.`}{" "}
+            About ${((unreadChars * USD_PER_MILLION_CHARS) / 1_000_000).toFixed(2)} for the rest.
+          </span>
+          <Link className="btn" href={`/book/${book.id}/narrating`}>Choose chapters</Link>
+        </div>
+      ) : null}
       </div>
 
       <section className="sheet" aria-label="Chapters">
         <div className="sheet-head">
           <h2>Chapters</h2>
-          <Link href={`/book/${book.id}/narrating`}>{p.readyCount} of {book.chapters.length} ready</Link>
+          <Link href={`/book/${book.id}/narrating`}>
+            {p.readyCount} of {book.chapters.length} ready · choose chapters
+          </Link>
         </div>
         {book.chapters.map((c) => {
           const state = p.chapterState(c.index);
