@@ -18,7 +18,9 @@ export function AppChrome() {
   const p = usePlayer();
   if (pathname === "/login") return <div className="dim" style={{ opacity: 0 }} />;
 
-  const inBook = pathname.startsWith("/book/");
+  // Screens with their own fixed bottom button (a book, the pronunciation lists) hide the tab bar
+  // so it can't sit on top of that button.
+  const inBook = pathname.startsWith("/book/") || pathname.startsWith("/pronunciations");
   const showMini = p.book && !inBook && !p.bedside;
   const tabs = [
     { href: "/", label: "Shelf", icon: "shelf" as const, active: pathname === "/" },
@@ -29,6 +31,9 @@ export function AppChrome() {
 
   return (
     <>
+      {showMini || !inBook ? (
+      <div className="dock">
+       <div className="dock-in">
       {showMini && p.book ? (
         <div className="mini">
           <Link href={`/book/${p.book.id}`}>
@@ -62,6 +67,9 @@ export function AppChrome() {
             </Link>
           ))}
         </nav>
+      ) : null}
+       </div>
+      </div>
       ) : null}
 
       {p.bedside && p.book ? <Bedside formatRemaining={formatRemaining} /> : null}

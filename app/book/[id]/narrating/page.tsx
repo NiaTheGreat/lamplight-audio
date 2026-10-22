@@ -25,6 +25,7 @@ export default function Narrating() {
   const p = usePlayer();
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
+  const [repairMsg, setRepairMsg] = useState("");
   const [speed, setSpeed] = useState<SpeedStats>({});
   useEffect(() => {
     fetch("/api/speed").then((r) => (r.ok ? r.json() : {})).then(setSpeed).catch(() => {});
@@ -79,6 +80,36 @@ export default function Narrating() {
     .reduce((sum, c) => sum + c.chars, 0);
   const rangeToDo = book.chapters.filter((c) => inRange(c.index) && notReady(c.index)).length;
   const cost = costUsd(rangeChars, book.voice).toFixed(2);
+  async function reread(index: number, title: string, chars: number) {
+    if (!book) return;
+    const price = formatUsd(costUsd(chars, book.voice));
+    if (!window.confirm(`Throw away the narration of "${title}" and read it again? It will be narrated again when you play it, about ${price}.`)) return;
+    const res = await fetch(`/api/books/${book.id}/reread`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chapter: index }),
+    });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      window.alert(data.error ?? "Couldn't do that.");
+      return;
+    }
+    await p.refreshBook(book.id);
+    await p.refreshLibrary();
+  }
+
+  async function repair() {
+    if (!book) return;
+    setRepairMsg("Fixing…");
+    const res = await fetch(`/api/books/${book.id}/repair`, { method: "POST" });
+    const data = (await res.json().catch(() => ({}))) as { rebuilt?: number; skipped?: number; error?: string };
+    setRepairMsg(
+      res.ok
+        ? `Fixed ${data.rebuilt} chapter${data.rebuilt === 1 ? "" : "s"}${data.skipped ? `; ${data.skipped} couldn't be fixed` : ""}. Nothing was spent.`
+        : (data.error ?? "Couldn't fix them."),
+    );
+  }
+
   const eta = formatEta(estimateMs(rangeChars, speed[providerOf(book.voice)]));
   const canChangeNarrator = p.readyCount === 0 && !running && !paused;
   const done = p.readyCount >= total;
@@ -226,6 +257,15 @@ export default function Narrating() {
         </section>
       ) : null}
 
+      {providerOf(book.voice) === "deepinfra" && p.readyCount > 0 && !running ? (
+        <div style={{ marginTop: 16 }}>
+          <button className="btn" onClick={() => void repair()}>Fix seeking in finished chapters</button>
+          <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
+            {repairMsg || "If dragging the slider jumps back to the start, this rebuilds the finished chapters from their saved pieces. Free."}
+          </p>
+        </div>
+      ) : null}
+
       <div className="rows" style={{ marginTop: 20 }}>
         {book.chapters.map((c) => {
           const state = p.chapterState(c.index);
@@ -258,6 +298,11 @@ export default function Narrating() {
                   <span className="st">{label}</span>
                 </>
               )}
+              {state === "ready" ? (
+                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => void reread(c.index, c.title, c.chars)}>
+                  <Icon name="retry" size={20} />
+                </button>
+              ) : null}
             </div>
           );
         })}

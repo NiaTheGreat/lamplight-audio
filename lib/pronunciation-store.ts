@@ -1,4 +1,4 @@
-import { getJob } from "./narration";
+import { getJob, isJobActive } from "./narration";
 import { applyPronunciations, effectiveLines, linesFor, sanitizeLines, spokenText, type Pron } from "./pronunciation";
 import { getObject, putObject } from "./storage";
 import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
@@ -27,7 +27,7 @@ async function load(bookId: string): Promise<{ book: Book; entry: LibraryEntry |
 
 async function assertIdle(bookId: string) {
   const job = await getJob(bookId);
-  if (job?.status === "running") {
+  if (isJobActive(job)) {
     throw new PronunciationError("Narration is running for this book. Pause or cancel it first.", 409);
   }
 }

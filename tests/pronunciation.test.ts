@@ -133,3 +133,18 @@ describe("re-reading one chapter", () => {
     await expect(rereadChapter(id, 0)).rejects.toThrow(/isn't narrated/);
   });
 });
+
+describe("a crashed worker's job", () => {
+  it("does not block re-reading once it has gone quiet", async () => {
+    const { putObject } = await import("@/lib/storage");
+    const { rereadChapter } = await import("@/lib/reread");
+    const id = "dddd111122223333";
+    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "T", voice: "ballad", chapters: [{ index: 0, title: "A", text: "Words." }] }), "application/json");
+    await putObject(`library/${id}.json`, JSON.stringify({ id, title: "T", chapterCount: 1, addedAt: 1, narrated: [0] }), "application/json");
+    const job = { status: "running", chapter: 0, total: 1, startedAt: 1, updatedAt: Date.now(), leaseUntil: 0 };
+    await putObject(`jobs/${id}.json`, JSON.stringify(job), "application/json");
+    await expect(rereadChapter(id, 0)).rejects.toThrow(/running/); // just saved progress: busy
+    await putObject(`jobs/${id}.json`, JSON.stringify({ ...job, updatedAt: Date.now() - 9 * 60_000 }), "application/json");
+    await expect(rereadChapter(id, 0)).resolves.toEqual({ chapter: 0 }); // quiet for 9 minutes: dead
+  });
+});

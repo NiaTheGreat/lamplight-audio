@@ -26,6 +26,14 @@ export type Job = {
   error?: string;
 };
 
+/** A running job whose worker hasn't saved progress for this long is treated as dead, not busy. */
+export const JOB_STALE_MS = 8 * 60 * 1000;
+
+/** Really being worked on right now (a job left "running" by a crashed worker doesn't count). */
+export function isJobActive(job: Job | null | undefined): boolean {
+  return job?.status === "running" && Date.now() - job.updatedAt < JOB_STALE_MS;
+}
+
 const jobKey = (bookId: string) => `jobs/${bookId}.json`;
 
 export async function getJob(bookId: string): Promise<Job | null> {

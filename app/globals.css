@@ -215,16 +215,25 @@ p {
 
 /* ---------- Tab bar and mini player ---------- */
 
-.tabbar {
+/* One dock stuck to the bottom: the mini player sits on the tab bar, both as wide as the page. */
+.dock {
   position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 20;
+  background: var(--ground);
+  border-top: 1px solid var(--rule);
+}
+
+.dock-in {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.tabbar {
   height: calc(var(--tabbar) + env(safe-area-inset-bottom));
   padding-bottom: env(safe-area-inset-bottom);
-  border-top: 1px solid var(--rule);
-  background: var(--ground);
   display: flex;
 }
 
@@ -247,14 +256,10 @@ p {
 }
 
 .mini {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--tabbar) + env(safe-area-inset-bottom));
-  z-index: 19;
+  position: relative;
   height: var(--mini);
   background: var(--raised);
-  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
   display: flex;
   align-items: center;
   gap: 4px;
@@ -1076,17 +1081,6 @@ input[type="range"]::-moz-range-thumb {
 
   .screen.book .topbar {
     grid-column: 1 / -1;
-  }
-}
-
-@media (min-width: 700px) {
-  .tabbar {
-    left: 50%;
-    right: auto;
-    width: 440px;
-    transform: translateX(-50%);
-    border: 1px solid var(--rule);
-    border-bottom: 0;
   }
 }
 

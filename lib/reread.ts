@@ -1,4 +1,4 @@
-import { getJob } from "./narration";
+import { getJob, isJobActive } from "./narration";
 import { effectiveLines, applyPronunciations } from "./pronunciation";
 import { PronunciationError } from "./pronunciation-store";
 import { deleteObject, getObject, putObject } from "./storage";
@@ -17,7 +17,7 @@ export async function rereadChapter(bookId: string, index: unknown): Promise<{ c
     throw new PronunciationError("Which chapter?", 400);
   }
   const job = await getJob(bookId);
-  if (job?.status === "running") {
+  if (isJobActive(job)) {
     throw new PronunciationError("Narration is running for this book. Pause or cancel it first.", 409);
   }
   const raw = await getObject(`books/${bookId}.json`);
