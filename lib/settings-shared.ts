@@ -1,23 +1,12 @@
-/** OpenAI speech voices offered in Settings. */
-export const VOICES = [
-  "alloy",
-  "ash",
-  "ballad",
-  "coral",
-  "echo",
-  "fable",
-  "nova",
-  "onyx",
-  "sage",
-  "shimmer",
-] as const;
+import { VOICES, sanitizeNarrator } from "./narrators-shared";
 
-/** A voice name from the offered list, or undefined for anything else. */
-export const sanitizeVoice = (v: unknown): string | undefined =>
-  typeof v === "string" && (VOICES as readonly string[]).includes(v) ? v : undefined;
+export { VOICES };
+
+/** A narrator id from the offered list (OpenAI voice names and Kokoro ids), or undefined for anything else. */
+export const sanitizeVoice = (v: unknown): string | undefined => sanitizeNarrator(v);
 
 export type Settings = {
-  /** Voice given to newly added fics. */
+  /** Narrator id given to newly added fics: a plain OpenAI voice name, or e.g. "deepinfra:kokoro:af_bella". */
   voice: string;
   /** Default playback speed. */
   speed: number;
@@ -38,7 +27,7 @@ export function sanitizeSettings(input: unknown, base: Settings = DEFAULT_SETTIN
   const num = (v: unknown, lo: number, hi: number, fallback: number) =>
     typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : fallback;
   return {
-    voice: (VOICES as readonly string[]).includes(raw.voice ?? "") ? (raw.voice as string) : base.voice,
+    voice: sanitizeNarrator(raw.voice) ?? base.voice,
     speed: num(raw.speed, 0.5, 2, base.speed),
     sleep: SLEEP_OPTIONS.includes(raw.sleep as number) ? (raw.sleep as number) : base.sleep,
     dim: Math.round(num(raw.dim, 0, 100, base.dim)),

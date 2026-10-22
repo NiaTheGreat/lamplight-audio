@@ -40,10 +40,6 @@ const DIM_LEVELS = [0, 25, 50, 80];
 const SILENT_WAV =
   "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 
-// Rough all-in narration cost: gpt-4o-mini-tts is ~$0.015/min and tts-1 is $15 per
-// million characters. Both land near $15-17 per million characters of text.
-export const USD_PER_MILLION_CHARS = 16;
-
 function readStore<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -103,6 +99,7 @@ type Ctx = {
   setAutoNext: (on: boolean) => void;
   updateSettings: (patch: Partial<Settings>) => Promise<void>;
   refreshLibrary: () => Promise<void>;
+  refreshBook: (id: string) => Promise<void>;
   removeBook: (id: string) => Promise<void>;
   startBackground: (range?: { from: number; to: number }) => Promise<void>;
   stopBackground: () => Promise<void>;
@@ -776,6 +773,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setAutoNext,
     updateSettings,
     refreshLibrary,
+    refreshBook,
     removeBook,
     startBackground,
     stopBackground,

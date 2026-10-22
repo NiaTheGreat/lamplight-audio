@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
-import { VOICES } from "@/lib/settings-shared";
+import { useNarrators } from "@/components/useNarrators";
+import { formatUsd } from "@/lib/narrators-shared";
 import type { BookSummary } from "@/lib/types";
 
 function describeFailure(status: number, serverMessage: string | undefined, body: string, file: File): string {
@@ -27,7 +28,8 @@ export default function AddFic() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [over, setOver] = useState(false);
-  // Starts at the voice chosen in Settings; changing it here only affects this book.
+  const groups = useNarrators();
+  // Starts at the narrator chosen in Settings; changing it here only affects this book.
   const [voice, setVoice] = useState(p.settings.voice);
   const voiceTouched = useRef(false);
   useEffect(() => {
@@ -183,7 +185,7 @@ export default function AddFic() {
       <div className="section">
         <div className="option">
           <div className="grow">
-            <label className="label" htmlFor="voice">Narrator voice</label>
+            <label className="label" htmlFor="voice">Narrator</label>
             <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
               This fic keeps it from now on. Hear the voices in Settings.
             </div>
@@ -197,10 +199,15 @@ export default function AddFic() {
               setVoice(e.target.value);
             }}
           >
-            {VOICES.map((v) => (
-              <option key={v} value={v}>
-                {v.charAt(0).toUpperCase() + v.slice(1)}
-              </option>
+            {groups.map((g) => (
+              <optgroup key={g.provider} label={`${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`}>
+                {g.narrators.map((n) => (
+                  <option key={n.id} value={n.id} disabled={!g.configured}>
+                    {n.label}
+                    {g.configured ? "" : " (needs a key)"}
+                  </option>
+                ))}
+              </optgroup>
             ))}
           </select>
         </div>

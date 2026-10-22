@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Icon } from "@/components/Icon";
-import { USD_PER_MILLION_CHARS, usePlayer } from "@/components/PlayerProvider";
+import { usePlayer } from "@/components/PlayerProvider";
+import { costUsd, formatUsd } from "@/lib/narrators-shared";
 import { bindingFor, Ticks } from "@/components/Ticks";
 
 export default function Library() {
@@ -85,7 +86,7 @@ export default function Library() {
             const started = Boolean(p.progress.books[b.id]);
             const done = new Set(b.narrated ?? []);
             const remainingChars = (b.chars ?? []).reduce((sum, n, i) => (done.has(i) ? sum : sum + n), 0);
-            const cost = b.chars && remainingChars > 0 ? `$${((remainingChars * USD_PER_MILLION_CHARS) / 1_000_000).toFixed(2)} to finish` : "";
+            const cost = b.chars && remainingChars > 0 ? `${formatUsd(costUsd(remainingChars, b.voice))} to finish` : "";
             return (
               <div key={b.id} style={{ position: "relative" }}>
                 <Link
