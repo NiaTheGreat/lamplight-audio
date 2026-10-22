@@ -36,14 +36,44 @@ export default function AddFic() {
     void upload(file);
   }
 
-  async function upload(file: File) {
-    setError("");
-    setBusy(true);
+  // Vercel rejects request bodies over ~4.5 MB, so bigger files go straight to storage.
+  const DIRECT_LIMIT = 4_000_000;
+
+  /** Send the file to the server in the body (small files, or when there's no bucket). */
+  async function postFile(file: File): Promise<Response> {
     const form = new FormData();
     form.append("file", file);
     form.append("skipNotes", String(skipNotes));
+    return fetch("/api/books", { method: "POST", body: form });
+  }
+
+  /** Upload straight to storage, then tell the server which file to read. */
+  async function postViaStorage(file: File): Promise<Response | null> {
+    const ask = await fetch("/api/uploads", { method: "POST" });
+    const slot = (await ask.json().catch(() => null)) as { direct?: boolean; key?: string; url?: string } | null;
+    if (!ask.ok || !slot) throw new Error("Couldn't start the upload. Reload the page and try again.");
+    if (slot.direct || !slot.key || !slot.url) return null; // no bucket: use the normal path
+    let put: Response;
     try {
-      const res = await fetch("/api/books", { method: "POST", body: form });
+      put = await fetch(slot.url, { method: "PUT", body: file });
+    } catch {
+      throw new Error(
+        "Couldn't upload to storage. If this keeps happening, the bucket's CORS setting probably doesn't allow this site.",
+      );
+    }
+    if (!put.ok) throw new Error(`Storage refused the upload (${put.status}).`);
+    return fetch("/api/books", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ uploadKey: slot.key, skipNotes }),
+    });
+  }
+
+  async function upload(file: File) {
+    setError("");
+    setBusy(true);
+    try {
+      const res = (file.size > DIRECT_LIMIT ? await postViaStorage(file) : null) ?? (await postFile(file));
       // The host can answer with plain text or HTML (too large, timed out, signed out),
       // so read the text first instead of assuming JSON.
       const text = await res.text();

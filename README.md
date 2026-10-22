@@ -22,7 +22,13 @@ Open http://localhost:3000. Locally, audio is cached in `./.cache`.
 
 1. Import this repo at vercel.com/new.
 2. Add environment variables: `OPENAI_API_KEY` and `APP_PASSWORD` (the app refuses to run in production without a password). Optional: `MONTHLY_CHAR_LIMIT` (default 3,000,000 characters, about $48) stops narration once reached.
-3. Create a Cloudflare **R2** bucket for parsed books and cached audio: in the Cloudflare dashboard go to R2, create a bucket (private is fine), then **Manage R2 API Tokens** and create a token with **Object Read & Write** on that bucket. Add these variables in Vercel: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. (R2's free tier covers this app: 10 GB, millions of operations, no charge for data leaving. Vercel Blob's Hobby limits did not.)
+3. Create a Cloudflare **R2** bucket for parsed books and cached audio: in the Cloudflare dashboard go to R2, create a bucket (private is fine), then **Manage R2 API Tokens** and create a token with **Object Read & Write** on that bucket. Add these variables in Vercel: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. 
+   **One more bucket setting, for EPUBs over ~4 MB** (Vercel won't accept bigger request bodies, so the browser uploads them straight to R2): open the bucket's **Settings → CORS Policy → Add** and paste
+   ```json
+   [{"AllowedOrigins": ["https://YOUR-APP.vercel.app"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["*"], "MaxAgeSeconds": 3600}]
+   ```
+   using your real site address. Without it, small EPUBs still work and large ones fail with a message about CORS.
+   (R2's free tier covers this app: 10 GB, millions of operations, no charge for data leaving. Vercel Blob's Hobby limits did not.)
 4. Deploy, open the URL on your phone, and "Add to Home Screen".
 
 Narrating a long first chapter can take a minute or more. If requests time out on your plan, enable Fluid Compute in the Vercel project settings.

@@ -19,6 +19,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - `lib/text.ts` splits chapters into chunks under OpenAI's 4096-character limit.
 - `lib/tts.ts` calls OpenAI, retries on 429/5xx, caches each chunk, and joins the MP3 pieces.
 - `lib/narration.ts` + `app/api/worker/[id]` + `app/api/books/[id]/narrate` background narration of a whole book: a job record in storage, a worker that narrates ~250s then calls itself again.
+- `app/api/uploads` + `lib/uploads.ts`: EPUBs over ~4 MB are PUT by the browser straight to R2 via a signed URL (Vercel caps request bodies at ~4.5 MB), then `POST /api/books` with `{uploadKey}` reads, parses and deletes the temporary file. Needs a CORS rule on the bucket (see README).
 - `lib/library.ts` records which chapters are narrated for the library list.
 - `lib/http.ts` serves audio with HTTP Range support. iOS Safari needs this to play and seek.
 - `app/api/audio/[id]/[chapter]/route.ts` has four modes: `?progress=1`, `?prepare=1` (narrate if needed, no bytes), `?download=1` (proxied named MP3), and plain (307 redirect to a short-lived signed R2 URL so the phone streams from the CDN; served from disk locally).
@@ -38,6 +39,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 
 ## Known gaps
 
+- Direct-to-R2 EPUB upload (signed PUT URL + bucket CORS) is tested only against an in-memory stand-in, not real R2.
 - The audio redirect to R2 (and Range playback through it on iOS Safari) hasn't been tried on real Vercel/phone. The `?prepare=1` flow avoids a cross-origin fetch on purpose; the audio element itself follows the redirect.
 - The Lamplight screens were checked with screenshots only against a fake OpenAI server. Playing real audio, the sleep timer, bedside mode and auto-advance haven't been exercised in a real browser or on a phone.
 - Paste-an-AO3-link is a disabled placeholder (scraping is a standing decision to avoid).
