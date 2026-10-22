@@ -191,7 +191,7 @@ export async function synthesizeChapter(
   const ready = parts.filter(Boolean).length;
   if (ready < chunks.length) return { done: false, ready, total: chunks.length };
   // MP3 frames can simply be concatenated.
-  return { done: true, audio: joinMp3(parts as Buffer[]) };
+  return { done: true, audio: joinMp3(parts as Buffer[], { repair: providerOf(voice) === "deepinfra" }) };
 }
 
 /** How many of a chapter's chunks are already cached (for the progress bar). */

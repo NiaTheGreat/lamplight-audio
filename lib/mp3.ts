@@ -126,11 +126,13 @@ function xingFrame(first: NonNullable<Walked["first"]>, lengths: number[], audio
 }
 
 /**
- * Join MP3 pieces into one file. Every piece is stripped to bare audio frames. If the result is
- * variable bitrate (as Kokoro's is), a correct length header is put in front; constant-bitrate
- * audio (OpenAI's) is just concatenated as before.
+ * Join MP3 pieces into one file. By default this just concatenates, exactly as OpenAI audio always
+ * has been. With `repair` (Kokoro only), every piece is stripped to bare audio frames and, if the
+ * result is variable bitrate, a correct length header is put in front.
  */
-export function joinMp3(pieces: Buffer[]): Buffer {
+export function joinMp3(pieces: Buffer[], opts: { repair?: boolean } = {}): Buffer {
+  // Only for providers whose audio needs it (Kokoro). Others are joined exactly as they always were.
+  if (!opts.repair) return Buffer.concat(pieces);
   const walked = pieces.map(walk).filter((w) => w.lengths.length > 0);
   if (walked.length === 0) return Buffer.concat(pieces);
   const audio = Buffer.concat(walked.map((w) => w.audio));

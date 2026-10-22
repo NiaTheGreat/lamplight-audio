@@ -70,7 +70,7 @@ describe("joining variable-bitrate pieces (Kokoro)", () => {
     // Each piece is several sentence streams, each opening with its own Info frame.
     const sentence = () => Buffer.concat([v2Info(), v2(1, 1), v2(8, 2), v2(3, 3), v2(8, 4)]);
     const piece = Buffer.concat([sentence(), sentence(), sentence()]);
-    const joined = joinMp3([piece, piece]);
+    const joined = joinMp3([piece, piece], { repair: true });
 
     const r = inspectMp3(joined);
     expect(r.lostSyncAt).toBeUndefined();
@@ -92,6 +92,10 @@ describe("joining variable-bitrate pieces (Kokoro)", () => {
   });
   it("leaves constant-bitrate audio as plain concatenation", () => {
     const a = Buffer.concat([frame(1), frame(2)]);
-    expect(joinMp3([a, a]).equals(Buffer.concat([a, a]))).toBe(true);
+    expect(joinMp3([a, a], { repair: true }).equals(Buffer.concat([a, a]))).toBe(true);
+  });
+  it("does nothing but concatenate unless asked to repair (other providers)", () => {
+    const piece = Buffer.concat([v2Info(), v2(1, 1), v2(8, 2)]);
+    expect(joinMp3([piece, piece]).equals(Buffer.concat([piece, piece]))).toBe(true);
   });
 });

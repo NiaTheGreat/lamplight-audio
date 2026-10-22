@@ -3,6 +3,7 @@ import { PronunciationError } from "./pronunciation-store";
 import { spokenText } from "./pronunciation";
 import { getObject, putObject } from "./storage";
 import { splitForTts } from "./text";
+import { providerOf } from "./narrators-shared";
 import { voiceFor } from "./chaptervoice";
 import { audioKey, joinMp3 } from "./tts";
 import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
@@ -30,6 +31,7 @@ export async function repairBook(bookId: string, only?: number): Promise<{ rebui
     const ch = book.chapters[index];
     if (!ch) continue;
     const voice = voiceFor(book, index);
+    if (providerOf(voice) !== "deepinfra") continue; // only Kokoro audio needs this
     const spoken = spokenText(book, index, ch.text);
     const pieces: Buffer[] = [];
     for (const chunk of splitForTts(spoken)) {
@@ -41,7 +43,7 @@ export async function repairBook(bookId: string, only?: number): Promise<{ rebui
       skipped++; // pieces are gone; leave the finished file as it is
       continue;
     }
-    await putObject(audioKey(spoken, voice), joinMp3(pieces), "audio/mpeg");
+    await putObject(audioKey(spoken, voice), joinMp3(pieces, { repair: true }), "audio/mpeg");
     rebuilt++;
   }
   return { rebuilt, skipped };
