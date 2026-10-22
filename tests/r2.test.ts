@@ -27,8 +27,18 @@ beforeAll(async () => {
         );
       }
       if (req.method === "PUT") {
+        // Like R2: an upload must declare its size up front (no chunked bodies).
+        if (req.headers["content-length"] === undefined) {
+          res.statusCode = 411;
+          return res.end("<Error><Code>MissingContentLength</Code></Error>");
+        }
+        const body = Buffer.concat(chunks);
+        if (Number(req.headers["content-length"]) !== body.length) {
+          res.statusCode = 400;
+          return res.end("size mismatch");
+        }
         objects.set(key, {
-          body: Buffer.concat(chunks),
+          body,
           type: String(req.headers["content-type"]),
           cache: String(req.headers["cache-control"]),
         });
