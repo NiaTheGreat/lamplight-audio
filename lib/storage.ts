@@ -1,48 +1,49 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { del, get, list, put } from "@vercel/blob";
+import { AwsClient } from "aws4fetch";
 
 /**
  * Tiny key/value store for parsed books and generated audio.
- *  - With BLOB_READ_WRITE_TOKEN set (Vercel Blob), objects live in Blob storage.
- *  - Otherwise they are written to ./.cache (or /tmp on Vercel), which is fine
- *    for local development.
+ *  - With the R2_* variables set, objects live in a Cloudflare R2 bucket (S3 API).
+ *  - Otherwise they are written to ./.cache (or CACHE_DIR), which is fine for
+ *    local development. On Vercel that disk is wiped between runs, so storage
+ *    must be configured there.
  * Keys are always hex-hash based, never user-supplied paths.
  */
 const isImmutable = (key: string) => key.startsWith("audio/") || key.startsWith("previews/");
-const useBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+
+const r2 = () => {
+  const accountId = process.env.R2_ACCOUNT_ID;
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const bucket = process.env.R2_BUCKET;
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return null;
+  const endpoint = process.env.R2_ENDPOINT || `https://${accountId}.r2.cloudflarestorage.com`;
+  return {
+    bucket,
+    base: `${endpoint}/${bucket}`,
+    client: new AwsClient({ accessKeyId, secretAccessKey, service: "s3", region: "auto" }),
+  };
+};
+
 const localRoot = () =>
   process.env.CACHE_DIR ||
   (process.env.VERCEL ? "/tmp/audiobook-cache" : path.join(process.cwd(), ".cache"));
 
-export async function putObject(
-  key: string,
-  data: Buffer | string,
-  contentType: string,
-): Promise<void> {
-  if (useBlob()) {
-    await put(key, data, {
-      access: "public",
-      contentType,
-      addRandomSuffix: false,
-      allowOverwrite: true,
-      // Records we rewrite (library, settings, progress, jobs) must not be served
-      // stale, so they get a short cache. Audio is named by a hash of its content
-      // and never changes, so it can be cached for a year.
-      cacheControlMaxAge: isImmutable(key) ? 31_536_000 : 60,
-    });
-    return;
+/** Where we are running without storage configured, and would silently lose data. */
+function assertDurable(): void {
+  if (process.env.VERCEL && !process.env.CACHE_DIR && !r2()) {
+    throw new Error(
+      "Storage isn't configured. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET.",
+    );
   }
-  const file = path.join(localRoot(), key);
-  await fs.mkdir(path.dirname(file), { recursive: true });
-  // Write then rename, so stopping the server mid-write can't leave a partial file.
-  const tmp = `${file}.${randomUUID()}.tmp`;
-  await fs.writeFile(tmp, data);
-  await fs.rename(tmp, file);
 }
 
-/** Retry a flaky network read a couple of times before giving up. */
+const objectUrl = (base: string, key: string) =>
+  `${base}/${key.split("/").map(encodeURIComponent).join("/")}`;
+
+/** Retry a flaky network call a couple of times before giving up. */
 async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
@@ -56,42 +57,63 @@ async function withRetry<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
   throw lastError;
 }
 
-/** Read through the public CDN address. Kept as a fallback for the authenticated read below. */
-async function readViaPublicUrl(key: string): Promise<Buffer | null> {
-  const { blobs } = await list({ prefix: key, limit: 5 });
-  const hit = blobs.find((b) => b.pathname === key);
-  if (!hit) return null;
-  // The upload time in the URL makes every overwrite a fresh cache entry.
-  const res = await fetch(`${hit.url}?v=${new Date(hit.uploadedAt).getTime()}`, { cache: "no-store" });
-  if (res.status === 404) return null;
-  if (!res.ok) throw new Error(`Storage read failed (${res.status}) for ${key}`);
-  return Buffer.from(await res.arrayBuffer());
+/** One signed request to the bucket. 5xx/429 throw so withRetry tries again. */
+async function r2Fetch(
+  store: NonNullable<ReturnType<typeof r2>>,
+  url: string,
+  init: RequestInit,
+): Promise<Response> {
+  const res = await store.client.fetch(url, init);
+  if (res.status >= 500 || res.status === 429) {
+    throw new Error(`Storage error (${res.status}) for ${init.method ?? "GET"} ${url}`);
+  }
+  return res;
+}
+
+export async function putObject(
+  key: string,
+  data: Buffer | string,
+  contentType: string,
+): Promise<void> {
+  assertDurable();
+  const store = r2();
+  if (store) {
+    await withRetry(async () => {
+      const res = await r2Fetch(store, objectUrl(store.base, key), {
+        method: "PUT",
+        headers: {
+          "Content-Type": contentType,
+          // Audio is named by a hash of its content and never changes.
+          "Cache-Control": isImmutable(key) ? "public, max-age=31536000, immutable" : "no-store",
+        },
+        body: typeof data === "string" ? data : new Uint8Array(data),
+      });
+      if (!res.ok) throw new Error(`Storage write failed (${res.status}) for ${key}`);
+    });
+    return;
+  }
+  const file = path.join(localRoot(), key);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  // Write then rename, so stopping the server mid-write can't leave a partial file.
+  const tmp = `${file}.${randomUUID()}.tmp`;
+  await fs.writeFile(tmp, data);
+  await fs.rename(tmp, file);
 }
 
 /**
  * Read an object. Returns null only when it genuinely isn't there. A read that
  * keeps failing throws, so callers never mistake a hiccup for "missing" (which
  * would make books vanish from the shelf, or re-narrate audio that exists).
- *
- * Blob reads go through the SDK with the store's own token. Records we rewrite
- * bypass the CDN cache so they are never stale; audio (immutable) may use it.
  */
 export async function getObject(key: string): Promise<Buffer | null> {
-  if (useBlob()) {
+  assertDurable();
+  const store = r2();
+  if (store) {
     return withRetry(async () => {
-      try {
-        const result = await get(key, { access: "public", useCache: isImmutable(key) });
-        if (!result) return null;
-        if (result.statusCode !== 200 || !result.stream) return null;
-        return Buffer.from(await new Response(result.stream).arrayBuffer());
-      } catch (err) {
-        // If the authenticated read fails for any reason, try the public address once.
-        try {
-          return await readViaPublicUrl(key);
-        } catch {
-          throw err;
-        }
-      }
+      const res = await r2Fetch(store, objectUrl(store.base, key), { method: "GET" });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`Storage read failed (${res.status}) for ${key}`);
+      return Buffer.from(await res.arrayBuffer());
     });
   }
   try {
@@ -103,9 +125,15 @@ export async function getObject(key: string): Promise<Buffer | null> {
 
 /** Cheap existence check, so progress polling doesn't download audio. */
 export async function hasObject(key: string): Promise<boolean> {
-  if (useBlob()) {
-    const { blobs } = await list({ prefix: key, limit: 5 });
-    return blobs.some((b) => b.pathname === key);
+  assertDurable();
+  const store = r2();
+  if (store) {
+    return withRetry(async () => {
+      const res = await r2Fetch(store, objectUrl(store.base, key), { method: "HEAD" });
+      if (res.status === 404) return false;
+      if (!res.ok) throw new Error(`Storage check failed (${res.status}) for ${key}`);
+      return true;
+    });
   }
   try {
     await fs.access(path.join(localRoot(), key));
@@ -115,29 +143,46 @@ export async function hasObject(key: string): Promise<boolean> {
   }
 }
 
-/** Keys under a prefix (e.g. "library/"), for listing saved books. */
 /**
- * The direct CDN address of an object, or null when objects aren't served
- * from a public URL (local development). Lets the browser stream audio from
- * Blob instead of routing every byte through a function.
+ * A temporary direct address for an object, or null when objects aren't served
+ * from a bucket (local development) or it doesn't exist. Lets the browser
+ * stream audio straight from R2 instead of routing every byte through a
+ * function. The bucket stays private; the address stops working after an hour.
  */
 export async function getPublicUrl(key: string): Promise<string | null> {
-  if (!useBlob()) return null;
-  return withRetry(async () => {
-    const { blobs } = await list({ prefix: key, limit: 5 });
-    return blobs.find((b) => b.pathname === key)?.url ?? null;
+  const store = r2();
+  if (!store) return null;
+  if (!(await hasObject(key))) return null;
+  const url = new URL(objectUrl(store.base, key));
+  url.searchParams.set("X-Amz-Expires", "3600");
+  const signed = await store.client.sign(new Request(url, { method: "GET" }), {
+    aws: { signQuery: true },
   });
+  return signed.url;
 }
 
+/** Keys under a prefix (e.g. "library/"), for listing saved books. */
 export async function listKeys(prefix: string): Promise<string[]> {
-  if (useBlob()) {
+  assertDurable();
+  const store = r2();
+  if (store) {
     const keys: string[] = [];
-    let cursor: string | undefined;
+    let token: string | undefined;
     do {
-      const page = await list({ prefix, cursor, limit: 1000 });
-      keys.push(...page.blobs.map((b) => b.pathname));
-      cursor = page.hasMore ? page.cursor : undefined;
-    } while (cursor);
+      const url = new URL(store.base);
+      url.searchParams.set("list-type", "2");
+      url.searchParams.set("prefix", prefix);
+      if (token) url.searchParams.set("continuation-token", token);
+      const xml = await withRetry(async () => {
+        const res = await r2Fetch(store, url.toString(), { method: "GET" });
+        if (!res.ok) throw new Error(`Storage list failed (${res.status}) for ${prefix}`);
+        return res.text();
+      });
+      for (const m of xml.matchAll(/<Key>([^<]*)<\/Key>/g)) keys.push(decodeXml(m[1]));
+      token = /<IsTruncated>true<\/IsTruncated>/.test(xml)
+        ? /<NextContinuationToken>([^<]*)<\/NextContinuationToken>/.exec(xml)?.[1]
+        : undefined;
+    } while (token);
     return keys;
   }
   try {
@@ -148,11 +193,17 @@ export async function listKeys(prefix: string): Promise<string[]> {
   }
 }
 
+const decodeXml = (s: string) =>
+  s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+
 export async function deleteObject(key: string): Promise<void> {
-  if (useBlob()) {
-    const { blobs } = await list({ prefix: key, limit: 5 });
-    const hit = blobs.find((b) => b.pathname === key);
-    if (hit) await del(hit.url);
+  assertDurable();
+  const store = r2();
+  if (store) {
+    await withRetry(async () => {
+      const res = await r2Fetch(store, objectUrl(store.base, key), { method: "DELETE" });
+      if (!res.ok && res.status !== 404) throw new Error(`Storage delete failed (${res.status}) for ${key}`);
+    });
     return;
   }
   await fs.rm(path.join(localRoot(), key), { force: true });

@@ -255,7 +255,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     // Nothing has been played yet (just browsing a book): don't record a position.
     if (!audio || !b || !loadedRef.current || audio.src.startsWith("data:")) return;
     const now = Date.now();
-    if (!force && now - lastSaved.current < 15000) return;
+    if (!force && now - lastSaved.current < 30000) return;
     lastSaved.current = now;
     const pos = { id: b.id, chapter: chapterRef.current, time: Math.floor(audio.currentTime) };
     writeStore(POSITION_KEY, pos);
@@ -590,25 +590,32 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!bookId || onLogin) return;
     let alive = true;
+    let lastStatus: string | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
+      let delay = 30_000; // idle: look rarely
       try {
         const res = await fetch(`/api/books/${bookId}/narrate`);
         if (!res.ok || !alive) return;
         const j = (await res.json()) as JobInfo | null;
         setJob(j);
-        if (j?.status === "running" || j?.status === "done") {
+        // Refresh the book and shelf only while a job runs and once when it changes state.
+        if (j?.status === "running") delay = 15_000;
+        if (j && (j.status === "running" || j.status !== lastStatus)) {
           void refreshBook(bookId);
           void refreshLibrary();
         }
+        lastStatus = j?.status;
       } catch {
         /* try again next tick */
+      } finally {
+        if (alive) timer = setTimeout(poll, delay);
       }
     };
     void poll();
-    const timer = setInterval(poll, 6000);
     return () => {
       alive = false;
-      clearInterval(timer);
+      if (timer) clearTimeout(timer);
     };
   }, [bookId, onLogin, refreshBook, refreshLibrary]);
 

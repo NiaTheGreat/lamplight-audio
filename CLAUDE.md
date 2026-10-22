@@ -9,7 +9,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - Narration is OpenAI TTS. Default `gpt-4o-mini-tts`, switchable to `tts-1` via `OPENAI_TTS_MODEL`. Cost matters: it should be cheap, so audio is generated once per chapter and cached (`audioKey` in `lib/tts.ts`).
 - Streaming playback is the default; MP3 download is also available. Both come from the same cached file.
 - Author's notes, chapter summaries and end notes are stripped before narration (`lib/epub.ts`). This must stay on by default. The upload form has a toggle.
-- Storage is Vercel Blob in production and `./.cache` locally (`lib/storage.ts`).
+- Storage is Cloudflare R2 (S3 API via `aws4fetch`) in production and `./.cache` locally (`lib/storage.ts`). It replaced Vercel Blob, whose Hobby limits (2,000 advanced operations a month) were exhausted by polling and per-chunk writes. Keep operation counts low anyway: avoid tight polling and unneeded list calls.
 - The deployed app is behind one shared password (`APP_PASSWORD`, checked in `middleware.ts`) so nobody else can spend the OpenAI credits.
 - Single-user for now (one shared password, one shared library). Might become multi-user later. If so: real auth in `middleware.ts`, library/books keyed per user, resume position moved server-side, and per-user narration spend limits. Audio can stay shared since its keys are hashes of text and settings.
 
@@ -21,7 +21,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - `lib/narration.ts` + `app/api/worker/[id]` + `app/api/books/[id]/narrate` background narration of a whole book: a job record in storage, a worker that narrates ~250s then calls itself again.
 - `lib/library.ts` records which chapters are narrated for the library list.
 - `lib/http.ts` serves audio with HTTP Range support. iOS Safari needs this to play and seek.
-- `app/api/audio/[id]/[chapter]/route.ts` has four modes: `?progress=1`, `?prepare=1` (narrate if needed, no bytes), `?download=1` (proxied named MP3), and plain (307 redirect to the audio's public Blob URL so the phone streams from the CDN; served from disk locally).
+- `app/api/audio/[id]/[chapter]/route.ts` has four modes: `?progress=1`, `?prepare=1` (narrate if needed, no bytes), `?download=1` (proxied named MP3), and plain (307 redirect to a short-lived signed R2 URL so the phone streams from the CDN; served from disk locally).
 - `lib/usage.ts` monthly character cap (`MONTHLY_CHAR_LIMIT`, default 3M) checked before every OpenAI call. `lib/throttle.ts` locks a login address out for 15 minutes after 5 wrong passwords.
 - `components/PlayerProvider.tsx` the one persistent `<audio>` element and all playback logic (chapter loading, auto-advance, sleep timer, resume, lock-screen controls, background-job polling). It lives in the root layout so audio keeps playing while screens change.
 - `components/AppChrome.tsx` tab bar, mini player, dim layer and bedside mode. `components/Icon.tsx` is the line-icon set.
@@ -38,7 +38,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 
 ## Known gaps
 
-- The audio redirect to Blob (and Range playback through it on iOS Safari) hasn't been tried on real Vercel/phone. The `?prepare=1` flow avoids a cross-origin fetch on purpose; the audio element itself follows the redirect.
+- The audio redirect to R2 (and Range playback through it on iOS Safari) hasn't been tried on real Vercel/phone. The `?prepare=1` flow avoids a cross-origin fetch on purpose; the audio element itself follows the redirect.
 - The Lamplight screens were checked with screenshots only against a fake OpenAI server. Playing real audio, the sleep timer, bedside mode and auto-advance haven't been exercised in a real browser or on a phone.
 - Paste-an-AO3-link is a disabled placeholder (scraping is a standing decision to avoid).
 - Background narration (self-chaining worker) works locally against a mock but hasn't run on real Vercel. Check that the worker can call its own production URL (Deployment Protection off) and that a >250s book hops correctly.
