@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { applyPronunciations, sanitizeLines } from "@/lib/pronunciation";
+import { applyPronunciations, effectiveLines, sanitizeLines } from "@/lib/pronunciation";
 
 const cacheDir = mkdtempSync(path.join(tmpdir(), "abg-pron-"));
 process.env.CACHE_DIR = cacheDir;
@@ -79,5 +79,35 @@ describe("saving pronunciations", () => {
     await seed();
     await startJob(ID, 3);
     await expect(savePronunciations(ID, [])).rejects.toThrow(/running/);
+  });
+});
+
+describe("named lists", () => {
+  it("own lines win over the copied list", () => {
+    const lines = effectiveLines({
+      pronList: { id: "x", name: "HP", lines: [{ from: "Sirius", to: "list" }, { from: "Harry", to: "h" }] },
+      pronunciations: [{ from: "sirius", to: "own" }],
+    });
+    expect(applyPronunciations("Sirius and Harry", lines)).toBe("own and h");
+  });
+
+  it("saves lists, copies the automatic one into new fics, and updates a copy on request", async () => {
+    const { saveLists, listForUpload } = await import("@/lib/pronlists");
+    const { updateFromList, getPronunciations } = await import("@/lib/pronunciation-store");
+    const { putObject } = await import("@/lib/storage");
+
+    const saved = await saveLists({ lists: [{ name: "HP", lines: [{ from: "Sirius", to: "SEER-ee-us" }] }], auto: "bogus" });
+    expect(saved.auto).toBeUndefined(); // unknown id ignored
+    const id = saved.lists[0].id;
+    const withAuto = await saveLists({ lists: saved.lists, auto: id });
+    expect((await listForUpload(undefined))?.name).toBe("HP");
+    expect(await listForUpload("none")).toBeUndefined();
+    expect((await listForUpload(id))?.id).toBe(id);
+
+    const bookId = "bbbb111122223333";
+    await putObject(`books/${bookId}.json`, JSON.stringify({ id: bookId, title: "T", chapters: [{ index: 0, title: "A", text: "Sirius ran." }], pronList: { id, name: "HP", lines: [] } }), "application/json");
+    const got = await updateFromList(bookId, withAuto.lists[0]);
+    expect(got.list?.lines).toHaveLength(1);
+    expect((await getPronunciations(bookId)).list?.name).toBe("HP");
   });
 });

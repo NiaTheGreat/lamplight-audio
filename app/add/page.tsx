@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import type { PronLists } from "@/lib/pronlists";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
@@ -32,6 +33,12 @@ export default function AddFic() {
   // Starts at the narrator chosen in Settings; changing it here only affects this book.
   const [voice, setVoice] = useState(p.settings.voice);
   const voiceTouched = useRef(false);
+  // "" = the automatic list (if any); "none" = no list.
+  const [lists, setLists] = useState<PronLists>({ lists: [] });
+  const [listChoice, setListChoice] = useState("");
+  useEffect(() => {
+    fetch("/api/pronunciation-lists").then((r) => (r.ok ? r.json() : { lists: [] })).then(setLists).catch(() => {});
+  }, []);
   useEffect(() => {
     if (!voiceTouched.current) setVoice(p.settings.voice);
   }, [p.settings.voice]);
@@ -54,6 +61,7 @@ export default function AddFic() {
     form.append("file", file);
     form.append("skipNotes", String(skipNotes));
     form.append("voice", voice);
+    if (listChoice) form.append("pronList", listChoice);
     return fetch("/api/books", { method: "POST", body: form });
   }
 
@@ -75,7 +83,7 @@ export default function AddFic() {
     return fetch("/api/books", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uploadKey: slot.key, skipNotes, voice }),
+      body: JSON.stringify({ uploadKey: slot.key, skipNotes, voice, pronList: listChoice || undefined }),
     });
   }
 
@@ -212,6 +220,28 @@ export default function AddFic() {
           </select>
         </div>
       </div>
+
+      {lists.lists.length > 0 ? (
+        <div className="section">
+          <div className="option">
+            <div className="grow">
+              <label className="label" htmlFor="pronlist">Pronunciations</label>
+              <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
+                A copy of the list goes into this fic. Changing the list later won&apos;t touch it.
+              </div>
+            </div>
+            <select id="pronlist" className="select" value={listChoice} onChange={(e) => setListChoice(e.target.value)}>
+              <option value="">
+                {lists.auto ? `Automatic: ${lists.lists.find((l) => l.id === lists.auto)?.name}` : "None"}
+              </option>
+              {lists.auto ? <option value="none">None</option> : null}
+              {lists.lists.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 22, display: "flex", gap: 12, color: "var(--cream-2)", fontSize: 13, lineHeight: 1.5 }}>
         <Icon name="moon" size={18} />

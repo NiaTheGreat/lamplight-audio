@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
@@ -111,6 +112,14 @@ export default function Settings() {
         <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
           Each fic keeps the narrator it was added with, so a half-listened story never changes narrator.
         </p>
+      </section>
+
+      <section className="section" aria-label="Pronunciation lists">
+        <div className="eyebrow">Pronunciation lists</div>
+        <p className="faint" style={{ margin: "8px 0 12px", lineHeight: 1.5 }}>
+          Named lists of how to say names and words. Copied into a fic when you add it.
+        </p>
+        <Link href="/pronunciations" className="btn">Manage lists</Link>
       </section>
 
       <section className="section" aria-label="Default speed">

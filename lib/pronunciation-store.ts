@@ -1,5 +1,5 @@
 import { getJob } from "./narration";
-import { applyPronunciations, linesFor, sanitizeLines, spokenText, type Pron } from "./pronunciation";
+import { applyPronunciations, effectiveLines, linesFor, sanitizeLines, spokenText, type Pron } from "./pronunciation";
 import { getObject, putObject } from "./storage";
 import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
 
@@ -37,36 +37,52 @@ function stale(book: Book, entry: LibraryEntry | null): StaleChapter[] {
   const narrated = new Set(entry?.narrated ?? []);
   return book.chapters
     .filter((c) => narrated.has(c.index) && book.frozen?.[c.index])
-    .filter((c) => spokenText(book, c.index, c.text) !== applyPronunciations(c.text, book.pronunciations))
+    .filter((c) => spokenText(book, c.index, c.text) !== applyPronunciations(c.text, effectiveLines(book)))
     .map((c) => ({ index: c.index, title: c.title, chars: c.text.length }));
 }
 
-export async function getPronunciations(bookId: string): Promise<{ lines: Pron[]; stale: StaleChapter[] }> {
+export async function getPronunciations(bookId: string) {
   const { book, entry } = await load(bookId);
-  return { lines: book.pronunciations ?? [], stale: stale(book, entry) };
+  return { lines: book.pronunciations ?? [], list: book.pronList ?? null, stale: stale(book, entry) };
 }
 
 /**
- * Save the book's lines. Chapters already narrated keep the lines they were narrated with (their
- * audio stays ready and nothing is spent); chapters not narrated yet use the new ones.
+ * Change a book's lines (its own, or the copied list). Chapters already narrated keep the lines
+ * they were narrated with (their audio stays ready and nothing is spent); chapters not narrated
+ * yet use the new ones.
  */
-export async function savePronunciations(bookId: string, input: unknown) {
+async function change(bookId: string, mutate: (book: Book) => void) {
   await assertIdle(bookId);
   const { book, entry } = await load(bookId);
-  const lines = sanitizeLines(input);
+  const before = effectiveLines(book);
+  mutate(book);
+  const after = effectiveLines(book);
 
   const narrated = new Set(entry?.narrated ?? []);
   for (const c of book.chapters) {
     if (!narrated.has(c.index) || book.frozen?.[c.index]) continue;
     // Pin the lines this chapter was narrated under, but only if the change would alter it.
-    const was = linesFor(book, c.index);
-    if (applyPronunciations(c.text, was) !== applyPronunciations(c.text, lines)) {
-      (book.frozen ??= {})[c.index] = was;
+    if (applyPronunciations(c.text, before) !== applyPronunciations(c.text, after)) {
+      (book.frozen ??= {})[c.index] = before;
     }
   }
-  book.pronunciations = lines.length ? lines : undefined;
   await putObject(`books/${bookId}.json`, JSON.stringify(book), "application/json");
-  return { lines, stale: stale(book, entry) };
+  return { lines: book.pronunciations ?? [], list: book.pronList ?? null, stale: stale(book, entry) };
+}
+
+/** Replace the book's own lines. */
+export function savePronunciations(bookId: string, input: unknown) {
+  const lines = sanitizeLines(input);
+  return change(bookId, (book) => {
+    book.pronunciations = lines.length ? lines : undefined;
+  });
+}
+
+/** Re-copy the named list into the book (it changes only what's not narrated yet, until re-read). */
+export function updateFromList(bookId: string, list: { id: string; name: string; lines: Pron[] } | null) {
+  return change(bookId, (book) => {
+    book.pronList = list ? { id: list.id, name: list.name, lines: list.lines } : undefined;
+  });
 }
 
 /**

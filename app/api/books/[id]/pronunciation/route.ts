@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getPronunciations, PronunciationError, renarrate, savePronunciations } from "@/lib/pronunciation-store";
+import { getLists } from "@/lib/pronlists";
+import { getPronunciations, PronunciationError, renarrate, savePronunciations, updateFromList } from "@/lib/pronunciation-store";
 
 export const runtime = "nodejs";
 
@@ -24,8 +25,19 @@ export async function PUT(req: Request, ctx: Ctx) {
   return run(ctx, (id) => savePronunciations(id, body?.lines));
 }
 
-/** Re-read narrated chapters with the current lines. Body: `{ chapters?: number[] }` (none = all). */
+/**
+ * `{ action: "updateFromList" }` copies the book's named list again, as it is now;
+ * otherwise re-read narrated chapters with the current lines. Body: `{ chapters?: number[] }` (none = all).
+ */
 export async function POST(req: Request, ctx: Ctx) {
-  const body = (await req.json().catch(() => null)) as { chapters?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as { chapters?: unknown; action?: unknown } | null;
+  if (body?.action === "updateFromList") {
+    return run(ctx, async (id) => {
+      const current = (await getPronunciations(id)).list;
+      const fresh = current ? (await getLists()).lists.find((l) => l.id === current.id) : undefined;
+      if (!fresh) throw new PronunciationError("That list no longer exists.", 404);
+      return updateFromList(id, fresh);
+    });
+  }
   return run(ctx, (id) => renarrate(id, body?.chapters));
 }

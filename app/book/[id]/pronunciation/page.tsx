@@ -9,7 +9,7 @@ import { costUsd, formatUsd } from "@/lib/narrators-shared";
 import type { Pron } from "@/lib/pronunciation";
 import type { StaleChapter } from "@/lib/pronunciation-store";
 
-type Data = { lines: Pron[]; stale: StaleChapter[] };
+type Data = { lines: Pron[]; list: { id: string; name: string; lines: Pron[] } | null; stale: StaleChapter[] };
 
 export default function PronunciationPage() {
   const { id } = useParams<{ id: string }>();
@@ -17,6 +17,7 @@ export default function PronunciationPage() {
   const voice = p.library.find((b) => b.id === id)?.voice;
   const [lines, setLines] = useState<Pron[]>([]);
   const [stale, setStale] = useState<StaleChapter[]>([]);
+  const [list, setList] = useState<Data["list"]>(null);
   const [loaded, setLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -26,6 +27,7 @@ export default function PronunciationPage() {
   const apply = useCallback((d: Data) => {
     setLines(d.lines);
     setStale(d.stale);
+    setList(d.list);
     setDirty(false);
   }, []);
 
@@ -83,6 +85,34 @@ export default function PronunciationPage() {
 
       {error ? <p className="error" role="alert">{error}</p> : null}
       {message ? <p className="faint" role="status">{message}</p> : null}
+
+      {list ? (
+        <section className="section" aria-label="Copied list">
+          <div className="eyebrow">List copied into this fic</div>
+          <p className="serif" style={{ fontSize: 17, margin: "8px 0 4px" }}>
+            {list.name} <span className="faint">· {list.lines.length} line{list.lines.length === 1 ? "" : "s"}</span>
+          </p>
+          <p className="faint" style={{ lineHeight: 1.5 }}>
+            This is the copy made when the fic was added. Your own lines below win over it.
+          </p>
+          <button
+            className="btn"
+            style={{ marginTop: 10 }}
+            disabled={busy}
+            onClick={() => {
+              if (
+                window.confirm(
+                  `Copy the current "${list.name}" into this fic again? Chapters not narrated yet use it. Chapters already narrated keep their audio; re-reading them with the update costs money and you'll see the price first.`,
+                )
+              ) {
+                void call("POST", { action: "updateFromList" }, "Updated from the list.");
+              }
+            }}
+          >
+            Update from list
+          </button>
+        </section>
+      ) : null}
 
       {loaded ? (
         <section className="section" aria-label="Pronunciation lines">

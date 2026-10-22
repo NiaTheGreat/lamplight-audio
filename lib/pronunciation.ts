@@ -39,12 +39,19 @@ export function applyPronunciations(text: string, lines: Pron[] | undefined): st
   return text.replace(re, (m) => map.get(m.toLowerCase()) ?? m);
 }
 
+/** The copied list's lines first, then the fic's own, which win when both cover the same word. */
+export function effectiveLines(book: Pick<Book, "pronunciations" | "pronList">): Pron[] {
+  const own = book.pronunciations ?? [];
+  const owned = new Set(own.map((l) => l.from.toLowerCase()));
+  return [...(book.pronList?.lines ?? []).filter((l) => !owned.has(l.from.toLowerCase())), ...own];
+}
+
 /** The lines a chapter is read with: the ones it was narrated under if frozen, else the book's current ones. */
-export function linesFor(book: Pick<Book, "pronunciations" | "frozen">, index: number): Pron[] {
-  return book.frozen?.[index] ?? book.pronunciations ?? [];
+export function linesFor(book: Pick<Book, "pronunciations" | "pronList" | "frozen">, index: number): Pron[] {
+  return book.frozen?.[index] ?? effectiveLines(book);
 }
 
 /** The text actually sent to the narrator for a chapter. */
-export function spokenText(book: Pick<Book, "pronunciations" | "frozen">, index: number, text: string): string {
+export function spokenText(book: Pick<Book, "pronunciations" | "pronList" | "frozen">, index: number, text: string): string {
   return applyPronunciations(text, linesFor(book, index));
 }
