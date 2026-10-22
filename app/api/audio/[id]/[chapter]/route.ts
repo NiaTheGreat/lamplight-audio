@@ -1,6 +1,7 @@
 import { serveBytes } from "@/lib/http";
 import { markNarrated } from "@/lib/library";
 import { getObject, getPublicUrl, hasObject, putObject } from "@/lib/storage";
+import { inspectMp3 } from "@/lib/mp3";
 import { voiceFor } from "@/lib/chaptervoice";
 import { setLive } from "@/lib/live";
 import { spokenText } from "@/lib/pronunciation";
@@ -49,6 +50,13 @@ export async function GET(
   const voice = voiceFor(book, ch.index);
   const spoken = spokenText(book, ch.index, ch.text);
   const key = audioKey(spoken, voice);
+
+  // ?inspect=1: describe the saved MP3 (headers, frames, length) to diagnose seeking problems.
+  if (query.get("inspect") === "1") {
+    const audio = await getObject(key);
+    if (!audio) return Response.json({ error: "Not narrated yet." }, { status: 404 });
+    return Response.json({ voice, key, ...inspectMp3(audio) }, { headers: { "Cache-Control": "no-store" } });
+  }
 
   if (query.get("progress") === "1") {
     const done = await hasObject(key);
