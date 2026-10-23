@@ -9,7 +9,14 @@ export default async function LoginPage({
       <div className="eyebrow">Audiobook generator</div>
       <h1 className="display">Lamplight</h1>
       <form method="post" action="/api/login">
-        <input type="password" name="password" placeholder="Password" autoFocus required aria-label="Password" />
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          autoFocus
+          required
+          aria-label="Password"
+        />
         <button type="submit" className="btn primary block">
           Unlock
         </button>

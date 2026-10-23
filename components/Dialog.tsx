@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { costUsd, formatUsd, narratorLabel } from "@/lib/narrators-shared";
@@ -36,7 +44,8 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   const [rereadReq, setRereadReq] = useState<RereadRequest | null>(null);
 
   const confirm = useCallback(
-    (opts: ConfirmOptions) => new Promise<boolean>((resolve) => setPending({ ...opts, alertOnly: false, resolve })),
+    (opts: ConfirmOptions) =>
+      new Promise<boolean>((resolve) => setPending({ ...opts, alertOnly: false, resolve })),
     [],
   );
   const notify = useCallback(
@@ -51,7 +60,15 @@ export function DialogProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={{ confirm, notify, reread }}>
       {children}
-      {pending ? <ConfirmModal pending={pending} close={(ok) => { pending.resolve(ok); setPending(null); }} /> : null}
+      {pending ? (
+        <ConfirmModal
+          pending={pending}
+          close={(ok) => {
+            pending.resolve(ok);
+            setPending(null);
+          }}
+        />
+      ) : null}
       {rereadReq ? <RereadModal req={rereadReq} close={() => setRereadReq(null)} /> : null}
     </Ctx.Provider>
   );
@@ -72,15 +89,29 @@ function ConfirmModal({ pending, close }: { pending: Pending; close: (ok: boolea
   useEscape(() => close(false));
   return (
     <div className="modal-backdrop" onClick={() => close(false)}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="dlg-title" onClick={(e) => e.stopPropagation()}>
-        <h2 id="dlg-title" className="serif">{pending.title}</h2>
-        {pending.body ? <p className="muted" style={{ marginTop: 10, lineHeight: 1.5 }}>{pending.body}</p> : null}
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dlg-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="dlg-title" className="serif">
+          {pending.title}
+        </h2>
+        {pending.body ? (
+          <p className="muted" style={{ marginTop: 10, lineHeight: 1.5 }}>
+            {pending.body}
+          </p>
+        ) : null}
         <div className="modal-actions">
           <button ref={yes} className="btn primary" onClick={() => close(true)}>
             {pending.confirmLabel ?? "OK"}
           </button>
           {pending.alertOnly ? null : (
-            <button className="btn" onClick={() => close(false)}>{pending.cancelLabel ?? "Cancel"}</button>
+            <button className="btn" onClick={() => close(false)}>
+              {pending.cancelLabel ?? "Cancel"}
+            </button>
           )}
         </div>
       </div>
@@ -95,7 +126,9 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
   const bookVoice = summary?.voice;
   const many = req.items.length > 1;
   // With several chapters the voice shown is the fic's; each chapter keeps its own unless you change it.
-  const chapterVoice = (!many && p.book?.id === req.bookId ? p.book.chapterVoices?.[req.items[0].index] : undefined) ?? bookVoice;
+  const chapterVoice =
+    (!many && p.book?.id === req.bookId ? p.book.chapterVoices?.[req.items[0].index] : undefined) ??
+    bookVoice;
   const totalChars = req.items.reduce((n, c) => n + c.chars, 0);
 
   const [lists, setLists] = useState<PronLists>({ lists: [] });
@@ -116,9 +149,17 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
   async function narrate() {
     setBusy(true);
     setError("");
-    const opts = { listId, voice: changedVoice ? voice : undefined, voiceForBook: changedVoice && forBook };
+    const opts = {
+      listId,
+      voice: changedVoice ? voice : undefined,
+      voiceForBook: changedVoice && forBook,
+    };
     const message = many
-      ? await p.rereadMany(req.bookId, req.items.map((c) => c.index), opts)
+      ? await p.rereadMany(
+          req.bookId,
+          req.items.map((c) => c.index),
+          opts,
+        )
       : await p.rereadAndNarrate(req.bookId, req.items[0].index, opts);
     if (message) {
       setError(message);
@@ -130,46 +171,86 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
 
   return (
     <div className="modal-backdrop" onClick={() => !busy && close()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="reread-title" onClick={(e) => e.stopPropagation()}>
-        <h2 id="reread-title" className="serif">{many ? `Narrate ${req.items.length} chapters again` : "Narrate this chapter again"}</h2>
-        <p className="lead-sm">{many ? `${req.items[0].title} and ${req.items.length - 1} more` : req.items[0].title}</p>
+      <div
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reread-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="reread-title" className="serif">
+          {many ? `Narrate ${req.items.length} chapters again` : "Narrate this chapter again"}
+        </h2>
+        <p className="lead-sm">
+          {many ? `${req.items[0].title} and ${req.items.length - 1} more` : req.items[0].title}
+        </p>
         <p className="muted" style={{ marginTop: 10, lineHeight: 1.5 }}>
           {many
             ? "Their current narration is thrown away and they're narrated again in the background. Follow it in the Queue."
             : "The current narration is thrown away. If you're listening to this chapter, it stops."}
         </p>
 
-        <label className="label" htmlFor="rr-list" style={{ display: "block", marginTop: 18 }}>Pronunciations</label>
-        <select id="rr-list" className="select wide" value={listId} onChange={(e) => setListId(e.target.value)}>
+        <label className="label" htmlFor="rr-list" style={{ display: "block", marginTop: 18 }}>
+          Pronunciations
+        </label>
+        <select
+          id="rr-list"
+          className="select wide"
+          value={listId}
+          onChange={(e) => setListId(e.target.value)}
+        >
           <option value="keep">Keep this fic&apos;s current</option>
           <option value="none">No list</option>
           {lists.lists.map((l) => (
-            <option key={l.id} value={l.id}>{l.name}</option>
+            <option key={l.id} value={l.id}>
+              {l.name}
+            </option>
           ))}
         </select>
 
-        <label className="label" htmlFor="rr-voice" style={{ display: "block", marginTop: 14 }}>Voice</label>
-        <select id="rr-voice" className="select wide" value={voice} onChange={(e) => setVoice(e.target.value)}>
+        <label className="label" htmlFor="rr-voice" style={{ display: "block", marginTop: 14 }}>
+          Voice
+        </label>
+        <select
+          id="rr-voice"
+          className="select wide"
+          value={voice}
+          onChange={(e) => setVoice(e.target.value)}
+        >
           <NarratorOptions groups={groups} keep={chapterVoice} markKept />
         </select>
 
         {changedVoice ? (
-          <label className="faint" style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, minHeight: 44 }}>
-            <input type="checkbox" checked={forBook} onChange={(e) => setForBook(e.target.checked)} />
+          <label
+            className="faint"
+            style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12, minHeight: 44 }}
+          >
+            <input
+              type="checkbox"
+              checked={forBook}
+              onChange={(e) => setForBook(e.target.checked)}
+            />
             Use {narratorLabel(voice)} for the whole fic from now on
           </label>
         ) : null}
 
         <p className="muted" style={{ marginTop: 14, lineHeight: 1.5 }}>
-          {many ? "Together they cost" : "Costs"} about {price} with {narratorLabel(voice)}. It&apos;s saved afterwards, so listening again is free.
+          {many ? "Together they cost" : "Costs"} about {price} with {narratorLabel(voice)}.
+          It&apos;s saved afterwards, so listening again is free.
         </p>
-        {error ? <p className="error" role="alert">{error}</p> : null}
+        {error ? (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        ) : null}
 
         <div className="modal-actions">
           <button className="btn primary" disabled={busy} onClick={() => void narrate()}>
             {busy ? "Starting…" : many ? `Narrate ${req.items.length} chapters` : "Narrate"}
           </button>
-          <button className="btn" disabled={busy} onClick={close}>Cancel</button>
+          <button className="btn" disabled={busy} onClick={close}>
+            Cancel
+          </button>
         </div>
       </div>
     </div>

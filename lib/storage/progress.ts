@@ -21,11 +21,7 @@ export async function getProgress(): Promise<Progress> {
 }
 
 /** Record a listening position. Single user, so a plain read-modify-write is fine. */
-export async function savePosition(
-  id: string,
-  chapter: number,
-  time: number,
-): Promise<Progress> {
+export async function savePosition(id: string, chapter: number, time: number): Promise<Progress> {
   const progress = await getProgress();
   const pos: BookPosition = {
     chapter: Math.max(0, Math.floor(chapter)),

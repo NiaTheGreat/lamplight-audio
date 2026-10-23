@@ -10,15 +10,25 @@ import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import type { BookSummary } from "@/lib/types";
 
-function describeFailure(status: number, serverMessage: string | undefined, body: string, file: File): string {
+function describeFailure(
+  status: number,
+  serverMessage: string | undefined,
+  body: string,
+  file: File,
+): string {
   if (serverMessage) return serverMessage;
   const mb = (file.size / 1_000_000).toFixed(1);
   if (status === 413) {
     return `That file is ${mb} MB, which is too big for the server to accept (the limit is about 4.5 MB).`;
   }
   if (status === 401) return "You've been signed out. Reload the page and log in again.";
-  if (status === 504 || status === 408) return "The upload took too long and timed out. Try again, or try a smaller file.";
-  const snippet = body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120);
+  if (status === 504 || status === 408)
+    return "The upload took too long and timed out. Try again, or try a smaller file.";
+  const snippet = body
+    .replace(/<[^>]*>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
   return `Upload failed (${status}${snippet ? `: ${snippet}` : ""}). The file was ${mb} MB.`;
 }
 
@@ -69,8 +79,13 @@ export default function AddFic() {
   /** Upload straight to storage, then tell the server which file to read. */
   async function postViaStorage(file: File): Promise<Response | null> {
     const ask = await fetch("/api/uploads", { method: "POST" });
-    const slot = (await ask.json().catch(() => null)) as { direct?: boolean; key?: string; url?: string } | null;
-    if (!ask.ok || !slot) throw new Error("Couldn't start the upload. Reload the page and try again.");
+    const slot = (await ask.json().catch(() => null)) as {
+      direct?: boolean;
+      key?: string;
+      url?: string;
+    } | null;
+    if (!ask.ok || !slot)
+      throw new Error("Couldn't start the upload. Reload the page and try again.");
     if (slot.direct || !slot.key || !slot.url) return null; // no bucket: use the normal path
     let put: Response;
     try {
@@ -84,7 +99,12 @@ export default function AddFic() {
     return fetch("/api/books", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ uploadKey: slot.key, skipNotes, voice, pronList: listChoice || undefined }),
+      body: JSON.stringify({
+        uploadKey: slot.key,
+        skipNotes,
+        voice,
+        pronList: listChoice || undefined,
+      }),
     });
   }
 
@@ -92,7 +112,8 @@ export default function AddFic() {
     setError("");
     setBusy(true);
     try {
-      const res = (file.size > DIRECT_LIMIT ? await postViaStorage(file) : null) ?? (await postFile(file));
+      const res =
+        (file.size > DIRECT_LIMIT ? await postViaStorage(file) : null) ?? (await postFile(file));
       // The host can answer with plain text or HTML (too large, timed out, signed out),
       // so read the text first instead of assuming JSON.
       const text = await res.text();
@@ -158,12 +179,19 @@ export default function AddFic() {
           }}
         >
           <Icon name="book" size={44} stroke={1.25} />
-          <span className="big">{busy ? "Reading your EPUB…" : over ? "Drop it here" : "Choose an EPUB"}</span>
+          <span className="big">
+            {busy ? "Reading your EPUB…" : over ? "Drop it here" : "Choose an EPUB"}
+          </span>
           <span className="muted" style={{ maxWidth: 250, lineHeight: 1.45 }}>
-            On AO3, open the work and use Download, then EPUB. Then pick the file here, or drop it on this box.
+            On AO3, open the work and use Download, then EPUB. Then pick the file here, or drop it
+            on this box.
           </span>
         </button>
-        {error ? <p className="error" role="alert">{error}</p> : null}
+        {error ? (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        ) : null}
       </div>
 
       <div style={{ marginTop: 14 }} className="soft-row" aria-disabled="true">
@@ -194,7 +222,9 @@ export default function AddFic() {
       <div className="section">
         <div className="option">
           <div className="grow">
-            <label className="label" htmlFor="voice">Narrator</label>
+            <label className="label" htmlFor="voice">
+              Narrator
+            </label>
             <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
               This fic keeps it from now on. Hear the voices in Settings.
             </div>
@@ -217,25 +247,45 @@ export default function AddFic() {
         <div className="section">
           <div className="option">
             <div className="grow">
-              <label className="label" htmlFor="pronlist">Pronunciations</label>
+              <label className="label" htmlFor="pronlist">
+                Pronunciations
+              </label>
               <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
                 A copy of the list goes into this fic. Changing the list later won&apos;t touch it.
               </div>
             </div>
-            <select id="pronlist" className="select" value={listChoice} onChange={(e) => setListChoice(e.target.value)}>
+            <select
+              id="pronlist"
+              className="select"
+              value={listChoice}
+              onChange={(e) => setListChoice(e.target.value)}
+            >
               <option value="">
-                {lists.auto ? `Automatic: ${lists.lists.find((l) => l.id === lists.auto)?.name}` : "None"}
+                {lists.auto
+                  ? `Automatic: ${lists.lists.find((l) => l.id === lists.auto)?.name}`
+                  : "None"}
               </option>
               {lists.auto ? <option value="none">None</option> : null}
               {lists.lists.map((l) => (
-                <option key={l.id} value={l.id}>{l.name}</option>
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
               ))}
             </select>
           </div>
         </div>
       ) : null}
 
-      <div style={{ marginTop: 22, display: "flex", gap: 12, color: "var(--cream-2)", fontSize: 13, lineHeight: 1.5 }}>
+      <div
+        style={{
+          marginTop: 22,
+          display: "flex",
+          gap: 12,
+          color: "var(--cream-2)",
+          fontSize: 13,
+          lineHeight: 1.5,
+        }}
+      >
         <Icon name="moon" size={18} />
         <span>Narration is made once and kept, so listening again never costs anything.</span>
       </div>

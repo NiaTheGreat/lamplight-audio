@@ -45,7 +45,8 @@ let pending: Used = { chars: 0, usd: 0 };
 
 async function storedUsed(force = false): Promise<Used> {
   const month = currentMonth();
-  if (!force && stored && stored.month === month && Date.now() - stored.at < READ_TTL_MS) return stored;
+  if (!force && stored && stored.month === month && Date.now() - stored.at < READ_TTL_MS)
+    return stored;
   stored = { ...(await readUsed()), month, at: Date.now() };
   return stored;
 }

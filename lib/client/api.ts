@@ -19,12 +19,19 @@ import type { Settings } from "../settings-shared";
 import type { BookSummary } from "../types";
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
     super(message);
   }
 }
 
-type Init = { method?: "GET" | "PUT" | "POST" | "PATCH" | "DELETE"; body?: unknown; noStore?: boolean };
+type Init = {
+  method?: "GET" | "PUT" | "POST" | "PATCH" | "DELETE";
+  body?: unknown;
+  noStore?: boolean;
+};
 
 /** Send a request, expect JSON back, and turn a failure into an `ApiError`. */
 async function call<T>(url: string, init: Init, fallback: string): Promise<T> {
@@ -60,32 +67,50 @@ export type BookPronunciation = {
 
 export const pronunciationListsOrEmpty = async (): Promise<PronLists> =>
   (await soft<PronLists>("/api/pronunciation-lists")) ?? { lists: [] };
-export const getPronunciationLists = () => call<PronLists>("/api/pronunciation-lists", {}, "Couldn't load your lists.");
+export const getPronunciationLists = () =>
+  call<PronLists>("/api/pronunciation-lists", {}, "Couldn't load your lists.");
 export const savePronunciationLists = (data: PronLists) =>
   call<PronLists>("/api/pronunciation-lists", { method: "PUT", body: data }, "Couldn't save.");
 
 export const getBookPronunciation = (bookId: string) =>
   call<BookPronunciation>(`/api/books/${bookId}/pronunciation`, {}, "Couldn't load the list.");
 export const changeBookPronunciation = (bookId: string, method: "PUT" | "POST", body: unknown) =>
-  call<BookPronunciation>(`/api/books/${bookId}/pronunciation`, { method, body }, "That didn't work.");
+  call<BookPronunciation>(
+    `/api/books/${bookId}/pronunciation`,
+    { method, body },
+    "That didn't work.",
+  );
 
 // ---------- Narration ----------
 
 export type QueueState = { items: QueueItem[]; live: LiveItem[]; speed: SpeedStats };
-export const getQueue = () => call<QueueState>("/api/queue", { noStore: true }, "Couldn't load the queue.");
+export const getQueue = () =>
+  call<QueueState>("/api/queue", { noStore: true }, "Couldn't load the queue.");
 
 export type JobAction = "pause" | "resume" | "cancel";
 /** Pause, resume or cancel a book's background narration job. */
 export const jobAction = (bookId: string, action: JobAction) =>
-  call<unknown>(`/api/books/${bookId}/narrate`, { method: "PATCH", body: { action } }, `Couldn't ${action} narration.`);
+  call<unknown>(
+    `/api/books/${bookId}/narrate`,
+    { method: "PATCH", body: { action } },
+    `Couldn't ${action} narration.`,
+  );
 
 export const changeNarrator = (bookId: string, narrator: string) =>
-  call<unknown>(`/api/books/${bookId}/narrator`, { method: "PUT", body: { narrator } }, "Couldn't change the narrator.");
+  call<unknown>(
+    `/api/books/${bookId}/narrator`,
+    { method: "PUT", body: { narrator } },
+    "Couldn't change the narrator.",
+  );
 
 /** Rebuild one narrated chapter's MP3 from its saved pieces. Resolves to the number rebuilt, or null on any failure. */
 export async function repairChapter(bookId: string, chapter: number): Promise<number | null> {
   try {
-    const data = await call<{ rebuilt?: number }>(`/api/books/${bookId}/repair`, { method: "POST", body: { chapter } }, "Couldn't repair that chapter.");
+    const data = await call<{ rebuilt?: number }>(
+      `/api/books/${bookId}/repair`,
+      { method: "POST", body: { chapter } },
+      "Couldn't repair that chapter.",
+    );
     return data.rebuilt ?? 0;
   } catch {
     return null;
@@ -100,7 +125,11 @@ export const getSettings = () => soft<Settings>("/api/settings");
 /** Save settings; resolves to what the server kept, or null if it couldn't be reached. */
 export async function saveSettings(settings: Settings): Promise<Settings | null> {
   try {
-    return await call<Settings>("/api/settings", { method: "PUT", body: settings }, "Couldn't save settings.");
+    return await call<Settings>(
+      "/api/settings",
+      { method: "PUT", body: settings },
+      "Couldn't save settings.",
+    );
   } catch {
     return null;
   }
@@ -108,6 +137,7 @@ export async function saveSettings(settings: Settings): Promise<Settings | null>
 
 // ---------- Reference data (soft) ----------
 
-export const getSpeed = async (): Promise<SpeedStats> => (await soft<SpeedStats>("/api/speed")) ?? {};
+export const getSpeed = async (): Promise<SpeedStats> =>
+  (await soft<SpeedStats>("/api/speed")) ?? {};
 export const getUsage = () => soft<{ chars: number; usd: number; limitUsd: number }>("/api/usage");
 export const getNarrators = () => soft<NarratorGroupInfo[]>("/api/narrators");

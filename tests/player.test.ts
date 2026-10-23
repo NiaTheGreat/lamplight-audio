@@ -39,20 +39,35 @@ function mockFetch() {
     const body = init?.body ? JSON.parse(String(init.body)) : undefined;
     calls.push({ method, url, body });
     const json = (data: unknown, status = 200) =>
-      new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+      new Response(JSON.stringify(data), {
+        status,
+        headers: { "Content-Type": "application/json" },
+      });
     if (url === "/api/books") return json([]);
     if (url === "/api/progress" && method === "GET") return json(server.progress);
-    if (url === "/api/progress" && method === "PUT") return json({ last: body, books: { [body.id]: body } });
+    if (url === "/api/progress" && method === "PUT")
+      return json({ last: body, books: { [body.id]: body } });
     if (url === "/api/settings") return json(method === "PUT" ? body : DEFAULT_SETTINGS);
     if (url === "/api/books/b1") return json(server.book);
     if (url === "/api/books/b1/narrate") {
-      if (method === "POST") return server.postNarrate.ok ? json({ status: "running", chapter: 2, total: 3, updatedAt: 1 }) : json({ error: "busy" }, 409);
-      if (method === "PATCH") return json({ status: body.action === "pause" ? "paused" : "running", chapter: 2, total: 3, updatedAt: 1 });
+      if (method === "POST")
+        return server.postNarrate.ok
+          ? json({ status: "running", chapter: 2, total: 3, updatedAt: 1 })
+          : json({ error: "busy" }, 409);
+      if (method === "PATCH")
+        return json({
+          status: body.action === "pause" ? "paused" : "running",
+          chapter: 2,
+          total: 3,
+          updatedAt: 1,
+        });
       if (method === "DELETE") return json(null);
       return json(server.job);
     }
-    if (url.startsWith("/api/audio/b1/") && url.endsWith("?progress=1")) return json(server.audioProgress);
-    if (url.startsWith("/api/audio/b1/") && url.endsWith("?prepare=1")) return new Response("", { status: 200 });
+    if (url.startsWith("/api/audio/b1/") && url.endsWith("?progress=1"))
+      return json(server.audioProgress);
+    if (url.startsWith("/api/audio/b1/") && url.endsWith("?prepare=1"))
+      return new Response("", { status: 200 });
     return new Response("not mocked: " + url, { status: 404 });
   });
 }
@@ -88,13 +103,20 @@ async function mount() {
 const flush = () => act(async () => {});
 const fire = (type: string) => act(async () => void audio.dispatchEvent(new Event(type)));
 const setAudio = (props: { currentTime?: number; duration?: number }) => {
-  for (const [k, v] of Object.entries(props)) Object.defineProperty(audio, k, { value: v, configurable: true, writable: true });
+  for (const [k, v] of Object.entries(props))
+    Object.defineProperty(audio, k, { value: v, configurable: true, writable: true });
 };
 const audioPath = () => new URL(audio.src, "http://localhost").pathname;
 
 beforeEach(() => {
   calls = [];
-  server = { book: { ...BOOK }, progress: { last: null, books: {} }, job: null, audioProgress: { ready: 0, total: 2 }, postNarrate: { ok: true } };
+  server = {
+    book: { ...BOOK },
+    progress: { last: null, books: {} },
+    job: null,
+    audioProgress: { ready: 0, total: 2 },
+    postNarrate: { ok: true },
+  };
   vi.stubGlobal("fetch", mockFetch());
   localStorage.clear();
   installMediaStubs();
@@ -120,7 +142,10 @@ describe("player: starting playback", () => {
   });
 
   it("resumes at the saved chapter and time", async () => {
-    server.progress = { last: { id: "b1", chapter: 1, time: 42, updatedAt: 1 }, books: { b1: { chapter: 1, time: 42, updatedAt: 1 } } };
+    server.progress = {
+      last: { id: "b1", chapter: 1, time: 42, updatedAt: 1 },
+      books: { b1: { chapter: 1, time: 42, updatedAt: 1 } },
+    };
     await mount();
     await act(async () => player.openBook("b1"));
     expect(player.chapter).toBe(1);
@@ -151,7 +176,11 @@ describe("player: starting playback", () => {
     await act(async () => player.togglePlay());
     const put = calls.filter((c) => c.method === "PUT" && c.url === "/api/progress").pop();
     expect(put?.body).toEqual({ id: "b1", chapter: 0, time: 77 });
-    expect(JSON.parse(localStorage.getItem("abg:last")!)).toEqual({ id: "b1", chapter: 0, time: 77 });
+    expect(JSON.parse(localStorage.getItem("abg:last")!)).toEqual({
+      id: "b1",
+      chapter: 0,
+      time: 77,
+    });
   });
 
   it("does not save a position before anything has played", async () => {
@@ -281,7 +310,8 @@ describe("player: auto-advance", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-        if (String(input) === "/api/audio/b1/2?prepare=1") await new Promise<void>((r) => (finish = r));
+        if (String(input) === "/api/audio/b1/2?prepare=1")
+          await new Promise<void>((r) => (finish = r));
         return inner(input, init);
       }),
     );
@@ -397,9 +427,17 @@ describe("player: lock screen", () => {
     const handlers: Record<string, () => void> = {};
     Object.defineProperty(navigator, "mediaSession", {
       configurable: true,
-      value: { metadata: null, setActionHandler: (a: string, h: () => void) => void (handlers[a] = h) },
+      value: {
+        metadata: null,
+        setActionHandler: (a: string, h: () => void) => void (handlers[a] = h),
+      },
     });
-    vi.stubGlobal("MediaMetadata", class { constructor(public init: unknown) {} });
+    vi.stubGlobal(
+      "MediaMetadata",
+      class {
+        constructor(public init: unknown) {}
+      },
+    );
     await mount();
     await act(async () => player.openBook("b1"));
     expect((navigator.mediaSession.metadata as unknown as { init: unknown }).init).toEqual({
@@ -409,7 +447,14 @@ describe("player: lock screen", () => {
     });
     await act(async () => handlers.nexttrack());
     expect(player.chapter).toBe(1);
-    expect(Object.keys(handlers).sort()).toEqual(["nexttrack", "pause", "play", "previoustrack", "seekbackward", "seekforward"]);
+    expect(Object.keys(handlers).sort()).toEqual([
+      "nexttrack",
+      "pause",
+      "play",
+      "previoustrack",
+      "seekbackward",
+      "seekforward",
+    ]);
   });
 });
 
@@ -426,7 +471,9 @@ describe("player: background narration job", () => {
     await mount();
     await act(async () => void (await player.selectBook("b1")));
     await act(async () => player.startBackground({ from: 1, to: 2 }, "ballad"));
-    expect(calls.find((c) => c.method === "POST" && c.url === "/api/books/b1/narrate")?.body).toEqual({ from: 1, to: 2, voice: "ballad" });
+    expect(
+      calls.find((c) => c.method === "POST" && c.url === "/api/books/b1/narrate")?.body,
+    ).toEqual({ from: 1, to: 2, voice: "ballad" });
     expect(player.job?.status).toBe("running");
     await act(async () => player.pauseBackground());
     expect(player.job?.status).toBe("paused");
@@ -434,7 +481,9 @@ describe("player: background narration job", () => {
     expect(player.job?.status).toBe("running");
     await act(async () => player.stopBackground());
     expect(player.job).toBeNull();
-    expect(calls.some((c) => c.method === "DELETE" && c.url === "/api/books/b1/narrate")).toBe(true);
+    expect(calls.some((c) => c.method === "DELETE" && c.url === "/api/books/b1/narrate")).toBe(
+      true,
+    );
   });
 
   it("reports a start failure instead of throwing", async () => {

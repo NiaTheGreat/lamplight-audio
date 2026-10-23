@@ -34,7 +34,10 @@ afterEach(() => vi.unstubAllGlobals());
 describe("api client: errors", () => {
   it("throws the server's own message when it sent one", async () => {
     reply = { status: 409, body: { error: "A job is already running." } };
-    await expect(changeNarrator("b1", "nova")).rejects.toMatchObject({ message: "A job is already running.", status: 409 });
+    await expect(changeNarrator("b1", "nova")).rejects.toMatchObject({
+      message: "A job is already running.",
+      status: 409,
+    });
   });
 
   it("falls back to its own message when the server sent none", async () => {

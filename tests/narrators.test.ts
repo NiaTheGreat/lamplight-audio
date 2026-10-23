@@ -36,16 +36,27 @@ beforeAll(async () => {
 afterAll(() => {
   server.close();
   rmSync(cacheDir, { recursive: true, force: true });
-  for (const k of ["DEEPINFRA_BASE_URL", "OPENAI_BASE_URL", "DEEPINFRA_API_KEY", "OPENAI_API_KEY", "MONTHLY_BUDGET_USD"]) {
+  for (const k of [
+    "DEEPINFRA_BASE_URL",
+    "OPENAI_BASE_URL",
+    "DEEPINFRA_API_KEY",
+    "OPENAI_API_KEY",
+    "MONTHLY_BUDGET_USD",
+  ]) {
     delete process.env[k];
   }
 });
 
 describe("narrator ids", () => {
   it("treats a plain voice name as the original OpenAI narrator and knows Kokoro ids", async () => {
-    const { parseNarrator, sanitizeNarrator, narratorLabel, providerOf } = await import("@/lib/narrators-shared");
+    const { parseNarrator, sanitizeNarrator, narratorLabel, providerOf } =
+      await import("@/lib/narrators-shared");
     expect(parseNarrator("ballad")).toEqual({ provider: "openai", voice: "ballad" });
-    expect(parseNarrator("deepinfra:kokoro:af_bella")).toEqual({ provider: "deepinfra", model: "kokoro", voice: "af_bella" });
+    expect(parseNarrator("deepinfra:kokoro:af_bella")).toEqual({
+      provider: "deepinfra",
+      model: "kokoro",
+      voice: "af_bella",
+    });
     expect(parseNarrator("deepinfra:kokoro:")).toBeNull();
     expect(parseNarrator("somebody:else:voice")).toBeNull();
     expect(sanitizeNarrator("ballad")).toBe("ballad");
@@ -79,7 +90,9 @@ describe("cache keys", () => {
     expect(keys.size).toBe(4);
     expect(audioKey(text, "deepinfra:kokoro:af_bella")).toMatch(/^audio\/[0-9a-f]{64}\.mp3$/);
     // Golden value for the new layout (computed independently of lib/narration/tts.ts), so it can't drift later either.
-    expect(audioKey(text, "deepinfra:kokoro:af_bella")).toBe("audio/9e046cdbfaf1ddcef30649617477a7c9d21ffc9ec9646771e95452c0a2463ed4.mp3");
+    expect(audioKey(text, "deepinfra:kokoro:af_bella")).toBe(
+      "audio/9e046cdbfaf1ddcef30649617477a7c9d21ffc9ec9646771e95452c0a2463ed4.mp3",
+    );
   });
 });
 
@@ -87,7 +100,10 @@ describe("Kokoro on DeepInfra", () => {
   it("sends an OpenAI-style speech request asking for MP3, with no OpenAI-only extras", async () => {
     const { synthChunk } = await import("@/lib/narration/tts");
     seen.length = 0;
-    const audio = await synthChunk("The quick brown fox jumps over the lazy dog.", "deepinfra:kokoro:af_bella");
+    const audio = await synthChunk(
+      "The quick brown fox jumps over the lazy dog.",
+      "deepinfra:kokoro:af_bella",
+    );
     expect(audio.length).toBe(300_000);
     expect(seen).toHaveLength(1);
     expect(seen[0].url).toBe("/audio/speech");
@@ -158,7 +174,11 @@ describe("dollar budget", () => {
     const { putObject } = await import("@/lib/storage/storage");
     expect((await getUsage()).limitUsd).toBe(30);
     await flushUsage(); // settle anything counted by the tests above before replacing the stored month
-    await putObject(`usage/${new Date().toISOString().slice(0, 7)}.json`, JSON.stringify({ chars: 500_000 }), "application/json");
+    await putObject(
+      `usage/${new Date().toISOString().slice(0, 7)}.json`,
+      JSON.stringify({ chars: 500_000 }),
+      "application/json",
+    );
     expect((await getUsage()).usd).toBeCloseTo(8, 5); // 500k characters at $16 per million
   });
 });
@@ -167,10 +187,21 @@ describe("changing a narrator", () => {
   const ID = "0123456789abcdef";
   async function seed(narrated: number[]) {
     const { putObject } = await import("@/lib/storage/storage");
-    await putObject(`books/${ID}.json`, JSON.stringify({ id: ID, title: "T", voice: "ballad", chapters: [] }), "application/json");
+    await putObject(
+      `books/${ID}.json`,
+      JSON.stringify({ id: ID, title: "T", voice: "ballad", chapters: [] }),
+      "application/json",
+    );
     await putObject(
       `library/${ID}.json`,
-      JSON.stringify({ id: ID, title: "T", chapterCount: 3, addedAt: 1, voice: "ballad", narrated }),
+      JSON.stringify({
+        id: ID,
+        title: "T",
+        chapterCount: 3,
+        addedAt: 1,
+        voice: "ballad",
+        narrated,
+      }),
       "application/json",
     );
   }
@@ -180,8 +211,12 @@ describe("changing a narrator", () => {
     const { getObject } = await import("@/lib/storage/storage");
     await seed([]);
     expect(await changeNarrator(ID, "deepinfra:kokoro:af_bella")).toBe("deepinfra:kokoro:af_bella");
-    expect(JSON.parse((await getObject(`books/${ID}.json`))!.toString()).voice).toBe("deepinfra:kokoro:af_bella");
-    expect(JSON.parse((await getObject(`library/${ID}.json`))!.toString()).voice).toBe("deepinfra:kokoro:af_bella");
+    expect(JSON.parse((await getObject(`books/${ID}.json`))!.toString()).voice).toBe(
+      "deepinfra:kokoro:af_bella",
+    );
+    expect(JSON.parse((await getObject(`library/${ID}.json`))!.toString()).voice).toBe(
+      "deepinfra:kokoro:af_bella",
+    );
   });
 
   it("switches a fic that already has narrated chapters, keeping those chapters in their old voice", async () => {
@@ -209,11 +244,16 @@ describe("changing a narrator", () => {
     await setChapterVoice(ID, [0, 1, 2], "deepinfra:kokoro:af_bella");
     const book = JSON.parse((await getObject(`books/${ID}.json`))!.toString());
     expect(book.voice).toBe("ballad");
-    expect([0, 1, 2].map((i) => voiceFor(book, i))).toEqual(["deepinfra:kokoro:af_bella", "ballad", "deepinfra:kokoro:af_bella"]);
+    expect([0, 1, 2].map((i) => voiceFor(book, i))).toEqual([
+      "deepinfra:kokoro:af_bella",
+      "ballad",
+      "deepinfra:kokoro:af_bella",
+    ]);
   });
 
   it("refuses an unknown narrator", async () => {
-    const { changeNarrator, setChapterVoice, NarratorChangeError } = await import("@/lib/narration/narrator");
+    const { changeNarrator, setChapterVoice, NarratorChangeError } =
+      await import("@/lib/narration/narrator");
     await seed([]);
     await expect(changeNarrator(ID, "nonsense")).rejects.toBeInstanceOf(NarratorChangeError);
     await expect(setChapterVoice(ID, [0], "nonsense")).rejects.toBeInstanceOf(NarratorChangeError);
@@ -228,6 +268,8 @@ describe("Kokoro voice labels", () => {
     expect(kokoroTraits("bf_emma")).toBe("British, female");
     expect(kokoroTraits("bm_george")).toBe("British, male");
     const kokoro = NARRATOR_GROUPS.find((g) => g.provider === "deepinfra")!;
-    expect(kokoro.narrators.find((n) => n.id === "deepinfra:kokoro:bm_george")?.label).toBe("George · British, male");
+    expect(kokoro.narrators.find((n) => n.id === "deepinfra:kokoro:bm_george")?.label).toBe(
+      "George · British, male",
+    );
   });
 });

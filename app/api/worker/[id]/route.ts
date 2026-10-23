@@ -14,10 +14,7 @@ const BUDGET_MS = 250_000;
  * the response, then calls itself again if the book isn't finished. The
  * middleware lets this through only with the worker token.
  */
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!BOOK_ID_RE.test(id)) return new Response("Bad request", { status: 400 });
 

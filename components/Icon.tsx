@@ -9,7 +9,15 @@ const PATHS: Record<string, ReactNode> = {
   back15: (
     <>
       <path d="M4.5 12a7.5 7.5 0 1 0 2.3-5.4M4.5 4.5v3.8h3.8" />
-      <text x="12" y="15" fontSize="6.5" textAnchor="middle" fill="currentColor" stroke="none" fontWeight="600">
+      <text
+        x="12"
+        y="15"
+        fontSize="6.5"
+        textAnchor="middle"
+        fill="currentColor"
+        stroke="none"
+        fontWeight="600"
+      >
         15
       </text>
     </>
@@ -17,7 +25,15 @@ const PATHS: Record<string, ReactNode> = {
   fwd15: (
     <>
       <path d="M19.5 12a7.5 7.5 0 1 1-2.3-5.4M19.5 4.5v3.8h-3.8" />
-      <text x="12" y="15" fontSize="6.5" textAnchor="middle" fill="currentColor" stroke="none" fontWeight="600">
+      <text
+        x="12"
+        y="15"
+        fontSize="6.5"
+        textAnchor="middle"
+        fill="currentColor"
+        stroke="none"
+        fontWeight="600"
+      >
         15
       </text>
     </>
@@ -47,8 +63,12 @@ const PATHS: Record<string, ReactNode> = {
       <circle cx="8" cy="16" r="2.2" />
     </>
   ),
-  link: <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />,
-  book: <path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5v13" />,
+  link: (
+    <path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" />
+  ),
+  book: (
+    <path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5v13" />
+  ),
   back: <path d="M15 5l-7 7 7 7" />,
   chevronDown: <path d="M5 9l7 7 7-7" />,
   retry: <path d="M19 12a7 7 0 1 1-2.1-5M19 4.5v4h-4" />,
@@ -94,20 +114,50 @@ export function StateGlyph({
 }: {
   state: "ready" | "reading" | "waiting" | "playing" | "failed";
 }) {
-  const label = { ready: "Ready", reading: "Reading aloud", waiting: "Waiting", playing: "Playing", failed: "Failed" }[
-    state
-  ];
+  const label = {
+    ready: "Ready",
+    reading: "Reading aloud",
+    waiting: "Waiting",
+    playing: "Playing",
+    failed: "Failed",
+  }[state];
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" strokeLinecap="round" strokeLinejoin="round" role="img" aria-label={label} className={`glyph glyph-${state}`}>
-      {state === "ready" ? <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="1.75" /> : null}
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      role="img"
+      aria-label={label}
+      className={`glyph glyph-${state}`}
+    >
+      {state === "ready" ? (
+        <path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="1.75" />
+      ) : null}
       {state === "reading" ? (
         <>
-          <circle cx="12" cy="12" r="8" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1.75" />
+          <circle
+            cx="12"
+            cy="12"
+            r="8"
+            stroke="currentColor"
+            strokeOpacity="0.3"
+            strokeWidth="1.75"
+          />
           <path d="M12 4a8 8 0 0 1 8 8" stroke="currentColor" strokeWidth="1.75" />
         </>
       ) : null}
       {state === "waiting" ? (
-        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2 3.4" />
+        <circle
+          cx="12"
+          cy="12"
+          r="8"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeDasharray="2 3.4"
+        />
       ) : null}
       {state === "playing" ? (
         <g fill="currentColor">

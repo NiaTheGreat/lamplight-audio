@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MutableRefObject, type RefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type MutableRefObject,
+  type RefObject,
+} from "react";
 import type { BookSummary } from "@/lib/types";
 import { POSITION_KEY, writeStore } from "./store";
 import type { Progress } from "./types";
@@ -23,26 +30,29 @@ export function useSavedPosition({
   const lastSaved = useRef(0);
   const [progress, setProgress] = useState<Progress>({ last: null, books: {} });
 
-  const savePosition = useCallback((force = false) => {
-    const audio = audioRef.current;
-    const b = bookRef.current;
-    // Nothing has been played yet (just browsing a book): don't record a position.
-    if (!audio || !b || !loadedRef.current || audio.src.startsWith("data:")) return;
-    const now = Date.now();
-    if (!force && now - lastSaved.current < 30000) return;
-    lastSaved.current = now;
-    const pos = { id: b.id, chapter: chapterRef.current, time: Math.floor(audio.currentTime) };
-    writeStore(POSITION_KEY, pos);
-    fetch("/api/progress", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pos),
-      keepalive: true,
-    })
-      .then((r) => (r.ok ? (r.json() as Promise<Progress>) : null))
-      .then((p) => p && setProgress(p))
-      .catch(() => {});
-  }, [audioRef, bookRef, chapterRef, loadedRef]);
+  const savePosition = useCallback(
+    (force = false) => {
+      const audio = audioRef.current;
+      const b = bookRef.current;
+      // Nothing has been played yet (just browsing a book): don't record a position.
+      if (!audio || !b || !loadedRef.current || audio.src.startsWith("data:")) return;
+      const now = Date.now();
+      if (!force && now - lastSaved.current < 30000) return;
+      lastSaved.current = now;
+      const pos = { id: b.id, chapter: chapterRef.current, time: Math.floor(audio.currentTime) };
+      writeStore(POSITION_KEY, pos);
+      fetch("/api/progress", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pos),
+        keepalive: true,
+      })
+        .then((r) => (r.ok ? (r.json() as Promise<Progress>) : null))
+        .then((p) => p && setProgress(p))
+        .catch(() => {});
+    },
+    [audioRef, bookRef, chapterRef, loadedRef],
+  );
 
   // Save the place when the page goes away.
   useEffect(() => {

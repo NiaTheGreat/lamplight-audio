@@ -2,7 +2,10 @@ import { sanitizeLines, type Pron } from "./pronunciation";
 import { getObject, putObject } from "../storage/storage";
 
 export type PronList = { id: string; name: string; lines: Pron[] };
-export type PronLists = { lists: PronList[]; /** Copied into every new fic unless one is chosen. */ auto?: string };
+export type PronLists = {
+  lists: PronList[];
+  /** Copied into every new fic unless one is chosen. */ auto?: string;
+};
 
 const KEY = "pronlists.json";
 

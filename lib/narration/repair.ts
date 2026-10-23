@@ -13,10 +13,16 @@ import { BOOK_ID_RE, type Book, type LibraryEntry } from "../types";
  * (see lib/narration/mp3.ts). Costs no narration, only storage reads and one write per chapter. Fixes
  * chapters made before the stripping existed, where seeking jumped back to the start.
  */
-export async function repairBook(bookId: string, only?: number): Promise<{ rebuilt: number; skipped: number }> {
+export async function repairBook(
+  bookId: string,
+  only?: number,
+): Promise<{ rebuilt: number; skipped: number }> {
   if (!BOOK_ID_RE.test(bookId)) throw new PronunciationError("Bad book id.", 400);
   if (isJobActive(await getJob(bookId))) {
-    throw new PronunciationError("Narration is running for this book. Pause or cancel it first.", 409);
+    throw new PronunciationError(
+      "Narration is running for this book. Pause or cancel it first.",
+      409,
+    );
   }
   const raw = await getObject(`books/${bookId}.json`);
   if (!raw) throw new PronunciationError("Book not found.", 404);

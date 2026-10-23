@@ -37,7 +37,11 @@ async function seedBook() {
     title: `Chapter ${i + 1}`,
     text: `Chapter ${i + 1}. ${`Story words number ${i} `.repeat(30)}`,
   }));
-  await putObject(`books/${ID}.json`, JSON.stringify({ id: ID, title: "T", chapters }), "application/json");
+  await putObject(
+    `books/${ID}.json`,
+    JSON.stringify({ id: ID, title: "T", chapters }),
+    "application/json",
+  );
   await putObject(
     `library/${ID}.json`,
     JSON.stringify({ id: ID, title: "T", chapterCount: 3, addedAt: 1 }),
@@ -89,8 +93,16 @@ describe("background narration job", () => {
       title: `Part ${i + 1}`,
       text: `Part ${i + 1}. ${`Range test words ${i} `.repeat(30)}`,
     }));
-    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "R", chapters }), "application/json");
-    await putObject(`library/${id}.json`, JSON.stringify({ id, title: "R", chapterCount: 4, addedAt: 1 }), "application/json");
+    await putObject(
+      `books/${id}.json`,
+      JSON.stringify({ id, title: "R", chapters }),
+      "application/json",
+    );
+    await putObject(
+      `library/${id}.json`,
+      JSON.stringify({ id, title: "R", chapterCount: 4, addedAt: 1 }),
+      "application/json",
+    );
 
     const before = calls;
     await startJob(id, 4, { from: 1, to: 2 });
@@ -113,14 +125,29 @@ describe("background narration job", () => {
   });
 
   it("pauses without being overwritten, then continues from the same place", async () => {
-    const { startJob, pauseJob, resumeJob, runJob, getJob, listQueue } = await import("@/lib/narration/narration");
+    const { startJob, pauseJob, resumeJob, runJob, getJob, listQueue } =
+      await import("@/lib/narration/narration");
     const { deleteObject, putObject } = await import("@/lib/storage/storage");
     const id = "0011223344556677";
-    const chapters = [0, 1, 2].map((i) => ({ index: i, title: `P${i}`, text: `P${i}. ${`Pause words ${i} `.repeat(30)}` }));
-    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "Pz", chapters }), "application/json");
+    const chapters = [0, 1, 2].map((i) => ({
+      index: i,
+      title: `P${i}`,
+      text: `P${i}. ${`Pause words ${i} `.repeat(30)}`,
+    }));
+    await putObject(
+      `books/${id}.json`,
+      JSON.stringify({ id, title: "Pz", chapters }),
+      "application/json",
+    );
     await putObject(
       `library/${id}.json`,
-      JSON.stringify({ id, title: "Pz", chapterCount: 3, addedAt: 1, chars: chapters.map((c) => c.text.length) }),
+      JSON.stringify({
+        id,
+        title: "Pz",
+        chapterCount: 3,
+        addedAt: 1,
+        chars: chapters.map((c) => c.text.length),
+      }),
       "application/json",
     );
 
@@ -151,8 +178,14 @@ describe("background narration job", () => {
     const { startJob, pauseJob, runJob, getJob } = await import("@/lib/narration/narration");
     const { deleteObject, putObject } = await import("@/lib/storage/storage");
     const id = "8899aabbccddeeff";
-    const text = Array.from({ length: 12 }, (_, i) => `Sentence number ${i} of a long chapter. `.repeat(40)).join("\n\n");
-    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "L", chapters: [{ index: 0, title: "L", text }] }), "application/json");
+    const text = Array.from({ length: 12 }, (_, i) =>
+      `Sentence number ${i} of a long chapter. `.repeat(40),
+    ).join("\n\n");
+    await putObject(
+      `books/${id}.json`,
+      JSON.stringify({ id, title: "L", chapters: [{ index: 0, title: "L", text }] }),
+      "application/json",
+    );
     await startJob(id, 1);
     const callsBefore = calls;
     // Pause as soon as the first provider call is seen.
@@ -171,16 +204,32 @@ describe("background narration job", () => {
     const { startJob, runJob, getJob, listQueue } = await import("@/lib/narration/narration");
     const { putObject, getObject, deleteObject } = await import("@/lib/storage/storage");
     const id = "1212343456567878";
-    const chapters = [0, 1, 2, 3, 4].map((i) => ({ index: i, title: `L${i}`, text: `L${i}. ${`List test words ${i} `.repeat(30)}` }));
-    await putObject(`books/${id}.json`, JSON.stringify({ id, title: "Li", chapters }), "application/json");
+    const chapters = [0, 1, 2, 3, 4].map((i) => ({
+      index: i,
+      title: `L${i}`,
+      text: `L${i}. ${`List test words ${i} `.repeat(30)}`,
+    }));
+    await putObject(
+      `books/${id}.json`,
+      JSON.stringify({ id, title: "Li", chapters }),
+      "application/json",
+    );
     await putObject(
       `library/${id}.json`,
-      JSON.stringify({ id, title: "Li", chapterCount: 5, addedAt: 1, chars: chapters.map((c) => c.text.length) }),
+      JSON.stringify({
+        id,
+        title: "Li",
+        chapterCount: 5,
+        addedAt: 1,
+        chars: chapters.map((c) => c.text.length),
+      }),
       "application/json",
     );
     const job = await startJob(id, 5, undefined, [4, 1, 1, 99, -2]);
     expect(job.chapters).toEqual([1, 4]);
-    expect((await listQueue()).find((q) => q.id === id)?.remainingChars).toBe(chapters[1].text.length + chapters[4].text.length);
+    expect((await listQueue()).find((q) => q.id === id)?.remainingChars).toBe(
+      chapters[1].text.length + chapters[4].text.length,
+    );
 
     const before = calls;
     const result = await runJob(id, { budgetMs: 60_000, reserveMs: 0 });
@@ -201,9 +250,15 @@ describe("pressing play through the job queue", () => {
     await seedBook();
     await deleteObject(`jobs/${ID}.json`);
     const post = (body: unknown) =>
-      POST(new Request(`http://x/api/books/${ID}/narrate`, { method: "POST", body: JSON.stringify(body) }), {
-        params: Promise.resolve({ id: ID }),
-      });
+      POST(
+        new Request(`http://x/api/books/${ID}/narrate`, {
+          method: "POST",
+          body: JSON.stringify(body),
+        }),
+        {
+          params: Promise.resolve({ id: ID }),
+        },
+      );
 
     await startJob(ID, 3, { from: 0, to: 2 }); // a "Read it all" is running
     const busy = await post({ chapters: [2], onlyIfIdle: true });

@@ -1,0 +1,10 @@
+.next
+.cache
+.e2e-cache
+.e2e-results
+playwright-report
+node_modules
+package-lock.json
+next-env.d.ts
+*.md
+*.css

@@ -25,7 +25,9 @@ export async function GET(req: Request) {
       await putObject(key, audio, "audio/mpeg");
       await flushUsage();
     } catch (err) {
-      return new Response(err instanceof Error ? err.message : "Couldn't make that.", { status: 502 });
+      return new Response(err instanceof Error ? err.message : "Couldn't make that.", {
+        status: 502,
+      });
     }
   }
   return serveBytes(req, audio, "audio/mpeg");

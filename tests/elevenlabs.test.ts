@@ -7,7 +7,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 const cacheDir = mkdtempSync(path.join(tmpdir(), "abg-test-"));
 process.env.CACHE_DIR = cacheDir;
 
-type Seen = { url: string; key: string | undefined; auth: string | undefined; body: Record<string, unknown> };
+type Seen = {
+  url: string;
+  key: string | undefined;
+  auth: string | undefined;
+  body: Record<string, unknown>;
+};
 let server: Server;
 const seen: Seen[] = [];
 const RACHEL = "elevenlabs:flash:21m00Tcm4TlvDq8ikWAM";
@@ -41,8 +46,13 @@ afterAll(() => {
 
 describe("ElevenLabs narrators", () => {
   it("parses, labels, prices and sanitizes ElevenLabs ids", async () => {
-    const { parseNarrator, sanitizeNarrator, narratorLabel, providerOf, costUsd } = await import("@/lib/narrators-shared");
-    expect(parseNarrator(RACHEL)).toEqual({ provider: "elevenlabs", model: "flash", voice: "21m00Tcm4TlvDq8ikWAM" });
+    const { parseNarrator, sanitizeNarrator, narratorLabel, providerOf, costUsd } =
+      await import("@/lib/narrators-shared");
+    expect(parseNarrator(RACHEL)).toEqual({
+      provider: "elevenlabs",
+      model: "flash",
+      voice: "21m00Tcm4TlvDq8ikWAM",
+    });
     expect(sanitizeNarrator(RACHEL)).toBe(RACHEL);
     expect(sanitizeNarrator("elevenlabs:flash:nope")).toBeUndefined();
     expect(providerOf(RACHEL)).toBe("elevenlabs");
@@ -58,16 +68,23 @@ describe("ElevenLabs narrators", () => {
     expect(seen[0].url).toBe("/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM?output_format=mp3_44100_128");
     expect(seen[0].key).toBe("eleven-test-key");
     expect(seen[0].auth).toBeUndefined();
-    expect(seen[0].body).toEqual({ text: "The quick brown fox jumps over the lazy dog.", model_id: "eleven_flash_v2_5" });
+    expect(seen[0].body).toEqual({
+      text: "The quick brown fox jumps over the lazy dog.",
+      model_id: "eleven_flash_v2_5",
+    });
   });
 
   it("gets its own cache keys and names a missing key", async () => {
     const { audioKey, synthChunk } = await import("@/lib/narration/tts");
     expect(audioKey("Hello.", RACHEL)).toMatch(/^audio\/[0-9a-f]{64}\.mp3$/);
-    expect(audioKey("Hello.", RACHEL)).not.toBe(audioKey("Hello.", "elevenlabs:flash:XrExE9yKIg1WjnnlVkGX"));
+    expect(audioKey("Hello.", RACHEL)).not.toBe(
+      audioKey("Hello.", "elevenlabs:flash:XrExE9yKIg1WjnnlVkGX"),
+    );
     expect(audioKey("Hello.", RACHEL)).not.toBe(audioKey("Hello.", "ballad"));
     delete process.env.ELEVENLABS_API_KEY;
-    await expect(synthChunk("Some text to read.", RACHEL)).rejects.toThrow("ELEVENLABS_API_KEY is not set.");
+    await expect(synthChunk("Some text to read.", RACHEL)).rejects.toThrow(
+      "ELEVENLABS_API_KEY is not set.",
+    );
     process.env.ELEVENLABS_API_KEY = "eleven-test-key";
   });
 });

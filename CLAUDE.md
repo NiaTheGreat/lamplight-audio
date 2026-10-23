@@ -45,7 +45,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 
 ## Working rules
 
-- Run `npm test` and `npm run typecheck` before pushing. Add a test when fixing a parser bug.
+- Run `npm test`, `npm run typecheck`, `npm run lint` and `npm run format:check` before pushing (`npm run format` fixes formatting; CONTRIBUTING.md has the full list and the env var table). Add a test when fixing a parser bug.
 - Never commit secrets. `.env.local` is gitignored; `.env.example` lists the variables.
 - Work on a branch and open a PR rather than pushing to `main`.
 - `tests/player.test.ts` runs the real `PlayerProvider` in jsdom (Testing Library) with a fake `fetch` and a stubbed audio element: playback, resume, the confirm-before-narrating flow, auto-advance, sleep timer, lock-screen controls and the background job. Run it after touching `components/PlayerProvider.tsx` or `components/player/`. It can't catch real-browser or iOS audio behavior.

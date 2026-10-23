@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import { getLists } from "@/lib/pronunciation/pronlists";
-import { getPronunciations, PronunciationError, renarrate, savePronunciations, updateFromList } from "@/lib/pronunciation/pronunciation-store";
+import {
+  getPronunciations,
+  PronunciationError,
+  renarrate,
+  savePronunciations,
+  updateFromList,
+} from "@/lib/pronunciation/pronunciation-store";
 
 export const runtime = "nodejs";
 
@@ -11,7 +17,8 @@ async function run(ctx: Ctx, fn: (id: string) => Promise<unknown>) {
   try {
     return NextResponse.json(await fn(id), { headers: { "Cache-Control": "no-store" } });
   } catch (err) {
-    if (err instanceof PronunciationError) return NextResponse.json({ error: err.message }, { status: err.status });
+    if (err instanceof PronunciationError)
+      return NextResponse.json({ error: err.message }, { status: err.status });
     return NextResponse.json({ error: "Couldn't use the pronunciation list." }, { status: 500 });
   }
 }
@@ -30,7 +37,10 @@ export async function PUT(req: Request, ctx: Ctx) {
  * otherwise re-read narrated chapters with the current lines. Body: `{ chapters?: number[] }` (none = all).
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const body = (await req.json().catch(() => null)) as { chapters?: unknown; action?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as {
+    chapters?: unknown;
+    action?: unknown;
+  } | null;
   if (body?.action === "updateFromList") {
     return run(ctx, async (id) => {
       const current = (await getPronunciations(id)).list;

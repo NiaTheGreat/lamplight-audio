@@ -63,9 +63,9 @@ describe("synthesizeChapter", () => {
     process.env.MONTHLY_CHAR_LIMIT = "10";
     const { synthesizeChapter } = await import("@/lib/narration/tts");
     const before = calls;
-    await expect(synthesizeChapter("A fresh chapter that was never narrated before, long enough.")).rejects.toThrow(
-      /Monthly narration limit/,
-    );
+    await expect(
+      synthesizeChapter("A fresh chapter that was never narrated before, long enough."),
+    ).rejects.toThrow(/Monthly narration limit/);
     expect(calls).toBe(before);
     delete process.env.MONTHLY_CHAR_LIMIT;
   });

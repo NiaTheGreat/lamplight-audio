@@ -28,7 +28,10 @@ async function loadBook(bookId: string): Promise<Book> {
 async function deleteAudio(book: Book, index: number) {
   const voice = voiceFor(book, index);
   const spoken = applyPronunciations(book.chapters[index].text, effectiveLines(book));
-  for (const key of [audioKey(spoken, voice), ...splitForTts(spoken).map((c) => audioKey(c, voice))]) {
+  for (const key of [
+    audioKey(spoken, voice),
+    ...splitForTts(spoken).map((c) => audioKey(c, voice)),
+  ]) {
     await deleteObject(key);
   }
 }
@@ -46,31 +49,46 @@ export async function rereadChapters(
 ): Promise<{ chapters: number[]; voice: string }> {
   if (!BOOK_ID_RE.test(bookId)) throw new PronunciationError("Bad book id.", 400);
   const wanted = Array.isArray(indices) ? [...new Set(indices)] : [];
-  if (wanted.length === 0 || !wanted.every((i) => typeof i === "number" && Number.isInteger(i) && i >= 0)) {
+  if (
+    wanted.length === 0 ||
+    !wanted.every((i) => typeof i === "number" && Number.isInteger(i) && i >= 0)
+  ) {
     throw new PronunciationError("Which chapters?", 400);
   }
   const chapters = (wanted as number[]).sort((a, b) => a - b);
   if (isJobActive(await getJob(bookId))) {
-    throw new PronunciationError("Narration is running for this book. Pause or cancel it first.", 409);
+    throw new PronunciationError(
+      "Narration is running for this book. Pause or cancel it first.",
+      409,
+    );
   }
   const first = await loadBook(bookId);
-  if (chapters.some((i) => !first.chapters[i])) throw new PronunciationError("Chapter not found.", 404);
+  if (chapters.some((i) => !first.chapters[i]))
+    throw new PronunciationError("Chapter not found.", 404);
 
   const entryRaw = await getObject(`library/${bookId}.json`);
   const entry = entryRaw ? (JSON.parse(entryRaw.toString("utf8")) as LibraryEntry) : null;
   if (!entry || chapters.some((i) => !entry.narrated?.includes(i))) {
-    throw new PronunciationError(chapters.length === 1 ? "That chapter isn't narrated yet." : "Those chapters aren't all narrated yet.", 409);
+    throw new PronunciationError(
+      chapters.length === 1
+        ? "That chapter isn't narrated yet."
+        : "Those chapters aren't all narrated yet.",
+      409,
+    );
   }
 
-  const voice = opts.voice === undefined || opts.voice === "" ? undefined : sanitizeNarrator(opts.voice);
-  if (opts.voice !== undefined && opts.voice !== "" && !voice) throw new PronunciationError("Unknown narrator.", 400);
+  const voice =
+    opts.voice === undefined || opts.voice === "" ? undefined : sanitizeNarrator(opts.voice);
+  if (opts.voice !== undefined && opts.voice !== "" && !voice)
+    throw new PronunciationError("Unknown narrator.", 400);
 
   // Remove what they were narrated as, before anything changes.
   for (const i of chapters) await deleteAudio(first, i);
 
   // A different list: copy it in (this pins every other narrated chapter to its current lines).
   if (typeof opts.listId === "string" && opts.listId !== "" && opts.listId !== "keep") {
-    const list = opts.listId === "none" ? null : (await getLists()).lists.find((l) => l.id === opts.listId);
+    const list =
+      opts.listId === "none" ? null : (await getLists()).lists.find((l) => l.id === opts.listId);
     if (list === undefined) throw new PronunciationError("That list no longer exists.", 404);
     await updateFromList(bookId, list);
   }
@@ -85,7 +103,8 @@ export async function rereadChapters(
     const pinned = { ...(book.chapterVoices ?? {}) };
     if (opts.voiceForBook === true) {
       // Everything else already narrated keeps the voice it has; the fic's voice changes for the rest.
-      for (const i of entry.narrated ?? []) if (!chapters.includes(i)) pinned[i] = voiceFor(book, i);
+      for (const i of entry.narrated ?? [])
+        if (!chapters.includes(i)) pinned[i] = voiceFor(book, i);
       book.voice = voice;
       for (const i of chapters) delete pinned[i];
     } else {

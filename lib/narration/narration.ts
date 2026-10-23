@@ -83,7 +83,14 @@ export type QueueItem = {
   remainingChars: number;
 };
 
-export type LiveItem = { id: string; title: string; author?: string; voice?: string; chapter: number; startedAt: number };
+export type LiveItem = {
+  id: string;
+  title: string;
+  author?: string;
+  voice?: string;
+  chapter: number;
+  startedAt: number;
+};
 
 /** Chapters being narrated because someone pressed play. */
 export async function listLiveItems(): Promise<LiveItem[]> {
@@ -92,7 +99,14 @@ export async function listLiveItems(): Promise<LiveItem[]> {
     const raw = await getObject(`library/${l.bookId}.json`);
     if (!raw) continue;
     const entry = JSON.parse(raw.toString("utf8")) as LibraryEntry;
-    out.push({ id: l.bookId, title: entry.title, author: entry.author, voice: entry.voice, chapter: l.chapter, startedAt: l.startedAt });
+    out.push({
+      id: l.bookId,
+      title: entry.title,
+      author: entry.author,
+      voice: entry.voice,
+      chapter: l.chapter,
+      startedAt: l.startedAt,
+    });
   }
   return out;
 }
@@ -111,28 +125,46 @@ export async function listQueue(): Promise<QueueItem[]> {
     const entry = JSON.parse(raw.toString("utf8")) as LibraryEntry;
     const done = new Set(entry.narrated ?? []);
     let remainingChars = 0;
-    for (const i of remainingChapters(job, entry.chapterCount)) if (!done.has(i)) remainingChars += entry.chars?.[i] ?? 0;
-    items.push({ id, title: entry.title, author: entry.author, voice: entry.voice, job, remainingChars });
+    for (const i of remainingChapters(job, entry.chapterCount))
+      if (!done.has(i)) remainingChars += entry.chars?.[i] ?? 0;
+    items.push({
+      id,
+      title: entry.title,
+      author: entry.author,
+      voice: entry.voice,
+      job,
+      remainingChars,
+    });
   }
   for (const id of stale) await setQueued(id, false);
   return items;
 }
 
 /** Keep a requested range inside the book, with from <= to. Missing ends mean the first/last chapter. */
-export function clampRange(total: number, from?: unknown, to?: unknown): { from: number; to: number } {
+export function clampRange(
+  total: number,
+  from?: unknown,
+  to?: unknown,
+): { from: number; to: number } {
   const last = Math.max(0, total - 1);
   const num = (v: unknown, fallback: number) =>
-    typeof v === "number" && Number.isFinite(v) ? Math.min(last, Math.max(0, Math.floor(v))) : fallback;
+    typeof v === "number" && Number.isFinite(v)
+      ? Math.min(last, Math.max(0, Math.floor(v)))
+      : fallback;
   const a = num(from, 0);
   const b = num(to, last);
   return { from: Math.min(a, b), to: Math.max(a, b) };
 }
 
 /** The chapters a job still has to do, in order (those before its pointer are done). */
-export function remainingChapters(job: Pick<Job, "chapter" | "to" | "chapters">, count: number): number[] {
+export function remainingChapters(
+  job: Pick<Job, "chapter" | "to" | "chapters">,
+  count: number,
+): number[] {
   if (job.chapters) return job.chapters.filter((c) => c >= job.chapter && c < count);
   const out: number[] = [];
-  for (let i = Math.max(job.chapter, 0); i <= Math.min(job.to ?? count - 1, count - 1); i++) out.push(i);
+  for (let i = Math.max(job.chapter, 0); i <= Math.min(job.to ?? count - 1, count - 1); i++)
+    out.push(i);
   return out;
 }
 
@@ -145,9 +177,13 @@ export async function startJob(
 ): Promise<Job> {
   const now = Date.now();
   const list = Array.isArray(chapters)
-    ? [...new Set(chapters.filter((c): c is number => Number.isInteger(c) && c >= 0 && c < total))].sort((a, b) => a - b)
+    ? [
+        ...new Set(chapters.filter((c): c is number => Number.isInteger(c) && c >= 0 && c < total)),
+      ].sort((a, b) => a - b)
     : [];
-  const { from, to } = list.length ? { from: list[0], to: list[list.length - 1] } : clampRange(total, range?.from, range?.to);
+  const { from, to } = list.length
+    ? { from: list[0], to: list[list.length - 1] }
+    : clampRange(total, range?.from, range?.to);
   const job: Job = {
     status: "running",
     chapter: from,
@@ -283,7 +319,11 @@ export async function runJob(
       await saveJob(bookId, job);
     }
 
-    const after = await leave(bookId, job, remainingChapters(job, book.chapters.length).length === 0);
+    const after = await leave(
+      bookId,
+      job,
+      remainingChapters(job, book.chapters.length).length === 0,
+    );
     await flushSpeed();
     return { finished: after.status !== "running" };
   } catch (err) {

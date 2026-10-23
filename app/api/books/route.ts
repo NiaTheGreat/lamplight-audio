@@ -29,7 +29,12 @@ export async function GET() {
         // Show a placeholder; opening the book rebuilds its entry.
         const id = key.replace(/^library\//, "").replace(/\.json$/, "");
         if (!BOOK_ID_RE.test(id)) return null;
-        return { id, title: "Couldn't read this book's details. Tap to repair.", chapterCount: 0, addedAt: 0 };
+        return {
+          id,
+          title: "Couldn't read this book's details. Tap to repair.",
+          chapterCount: 0,
+          addedAt: 0,
+        };
       }
     }),
   );
@@ -68,10 +73,16 @@ export async function POST(req: Request) {
     try {
       stored = await getObject(uploadKey);
     } catch {
-      return NextResponse.json({ error: "Couldn't read the uploaded file from storage." }, { status: 502 });
+      return NextResponse.json(
+        { error: "Couldn't read the uploaded file from storage." },
+        { status: 502 },
+      );
     }
     if (!stored) {
-      return NextResponse.json({ error: "The uploaded file wasn't found. Try uploading it again." }, { status: 404 });
+      return NextResponse.json(
+        { error: "The uploaded file wasn't found. Try uploading it again." },
+        { status: 404 },
+      );
     }
     buf = stored;
   } else {

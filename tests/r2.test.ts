@@ -69,14 +69,21 @@ beforeAll(async () => {
 
 afterAll(() => {
   server.close();
-  for (const k of ["R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET", "R2_ENDPOINT"]) {
+  for (const k of [
+    "R2_ACCOUNT_ID",
+    "R2_ACCESS_KEY_ID",
+    "R2_SECRET_ACCESS_KEY",
+    "R2_BUCKET",
+    "R2_ENDPOINT",
+  ]) {
     delete process.env[k];
   }
 });
 
 describe("R2 storage backend", () => {
   it("round-trips objects, reports missing ones, lists by prefix and deletes", async () => {
-    const { putObject, getObject, hasObject, listKeys, deleteObject } = await import("@/lib/storage/storage");
+    const { putObject, getObject, hasObject, listKeys, deleteObject } =
+      await import("@/lib/storage/storage");
     await putObject("library/aaaaaaaaaaaaaaaa.json", '{"a":1}', "application/json");
     await putObject("library/bbbbbbbbbbbbbbbb.json", "{}", "application/json");
     await putObject("books/cccccccccccccccc.json", "{}", "application/json");

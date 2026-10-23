@@ -57,7 +57,9 @@ export default function Settings() {
 
   return (
     <main className="screen">
-      <h1 className="display" style={{ marginTop: 0 }}>Settings</h1>
+      <h1 className="display" style={{ marginTop: 0 }}>
+        Settings
+      </h1>
 
       <section className="section" aria-label="Narrator">
         <div className="eyebrow">Narrator for new fics</div>
@@ -70,9 +72,21 @@ export default function Settings() {
           const shown = open ? ordered : ordered.slice(0, 4);
           return (
             <div key={g.provider} style={{ marginTop: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                <span className="serif" style={{ fontSize: 17 }}>{g.label}</span>
-                <span className="faint">about {formatUsd(g.pricePerMillion)} per million characters</span>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  gap: 12,
+                  flexWrap: "wrap",
+                }}
+              >
+                <span className="serif" style={{ fontSize: 17 }}>
+                  {g.label}
+                </span>
+                <span className="faint">
+                  about {formatUsd(g.pricePerMillion)} per million characters
+                </span>
               </div>
               {!g.configured ? (
                 <p className="faint" style={{ marginTop: 4, lineHeight: 1.5 }}>
@@ -88,17 +102,29 @@ export default function Settings() {
                     disabled={!g.configured}
                     onClick={() => void updateSettings({ voice: n.id })}
                   >
-                    <span className="slot">{n.id === settings.voice ? <Icon name="check" size={20} stroke={1.75} /> : null}</span>
+                    <span className="slot">
+                      {n.id === settings.voice ? (
+                        <Icon name="check" size={20} stroke={1.75} />
+                      ) : null}
+                    </span>
                     <span>{n.label}</span>
                   </button>
-                  <button className="hear" aria-label={`Hear ${n.label}`} disabled={!g.configured} onClick={() => hear(n.id)}>
+                  <button
+                    className="hear"
+                    aria-label={`Hear ${n.label}`}
+                    disabled={!g.configured}
+                    onClick={() => hear(n.id)}
+                  >
                     <Icon name="play" size={18} />
                     {hearing === n.id ? "Making a sample…" : "Hear"}
                   </button>
                 </div>
               ))}
               {g.narrators.length > 4 ? (
-                <button className="link-btn" onClick={() => setShowAll((v) => ({ ...v, [g.provider]: !open }))}>
+                <button
+                  className="link-btn"
+                  onClick={() => setShowAll((v) => ({ ...v, [g.provider]: !open }))}
+                >
                   {open ? "Show fewer voices" : `Show all ${g.narrators.length} voices`}
                   <Icon name="chevronDown" size={20} />
                 </button>
@@ -106,9 +132,14 @@ export default function Settings() {
             </div>
           );
         })}
-        {previewError ? <p className="error" role="alert">{previewError}</p> : null}
+        {previewError ? (
+          <p className="error" role="alert">
+            {previewError}
+          </p>
+        ) : null}
         <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
-          Each fic keeps the narrator it was added with, so a half-listened story never changes narrator.
+          Each fic keeps the narrator it was added with, so a half-listened story never changes
+          narrator.
         </p>
       </section>
 
@@ -117,14 +148,21 @@ export default function Settings() {
         <p className="faint" style={{ margin: "8px 0 12px", lineHeight: 1.5 }}>
           Named lists of how to say names and words. Copied into a fic when you add it.
         </p>
-        <Link href="/pronunciations" className="btn">Manage lists</Link>
+        <Link href="/pronunciations" className="btn">
+          Manage lists
+        </Link>
       </section>
 
       <section className="section" aria-label="Default speed">
         <div className="eyebrow">Default speed</div>
         <div className="seg" role="radiogroup" aria-label="Default speed">
           {SPEEDS.map((s) => (
-            <button key={s} role="radio" aria-checked={Math.abs(settings.speed - s) < 0.01} onClick={() => void updateSettings({ speed: s })}>
+            <button
+              key={s}
+              role="radio"
+              aria-checked={Math.abs(settings.speed - s) < 0.01}
+              onClick={() => void updateSettings({ speed: s })}
+            >
               {s}×
             </button>
           ))}
@@ -135,7 +173,12 @@ export default function Settings() {
         <div className="eyebrow">Default sleep timer</div>
         <div className="seg" role="radiogroup" aria-label="Default sleep timer">
           {SLEEP_OPTIONS.map((m) => (
-            <button key={m} role="radio" aria-checked={settings.sleep === m} onClick={() => void updateSettings({ sleep: m })}>
+            <button
+              key={m}
+              role="radio"
+              aria-checked={settings.sleep === m}
+              onClick={() => void updateSettings({ sleep: m })}
+            >
               {sleepLabel(m)}
             </button>
           ))}
@@ -148,7 +191,9 @@ export default function Settings() {
       <section className="section" aria-label="Screen dimming">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
           <span className="eyebrow">Screen dimming</span>
-          <span className="muted" style={{ fontVariantNumeric: "tabular-nums" }}>{p.dim}%</span>
+          <span className="muted" style={{ fontVariantNumeric: "tabular-nums" }}>
+            {p.dim}%
+          </span>
         </div>
         <input
           type="range"
@@ -174,8 +219,8 @@ export default function Settings() {
             <i style={{ width: `${Math.min(100, (usage.usd / usage.limitUsd) * 100)}%` }} />
           </div>
           <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
-            An estimate from each narrator&apos;s price per character. Narration stops at the limit; raise
-            MONTHLY_BUDGET_USD in Vercel to continue.
+            An estimate from each narrator&apos;s price per character. Narration stops at the limit;
+            raise MONTHLY_BUDGET_USD in Vercel to continue.
           </p>
         </section>
       ) : null}
@@ -185,10 +230,17 @@ export default function Settings() {
           <div className="grow">
             <div className="label">Ask before narrating a chapter</div>
             <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
-              Shows the cost and lets you cancel, so a stray tap doesn&apos;t spend money. Chapters already narrated play without asking.
+              Shows the cost and lets you cancel, so a stray tap doesn&apos;t spend money. Chapters
+              already narrated play without asking.
             </div>
           </div>
-          <button role="switch" aria-checked={p.confirmNarrate} aria-label="Ask before narrating a chapter" className="switch" onClick={() => p.setConfirmNarrate(!p.confirmNarrate)} />
+          <button
+            role="switch"
+            aria-checked={p.confirmNarrate}
+            aria-label="Ask before narrating a chapter"
+            className="switch"
+            onClick={() => p.setConfirmNarrate(!p.confirmNarrate)}
+          />
         </div>
       </section>
 
@@ -200,7 +252,13 @@ export default function Settings() {
               So the next chapter starts the moment this one ends. Turn off to spend less.
             </div>
           </div>
-          <button role="switch" aria-checked={p.autoNext} aria-label="Narrate the next chapter while I listen" className="switch" onClick={() => p.setAutoNext(!p.autoNext)} />
+          <button
+            role="switch"
+            aria-checked={p.autoNext}
+            aria-label="Narrate the next chapter while I listen"
+            className="switch"
+            onClick={() => p.setAutoNext(!p.autoNext)}
+          />
         </div>
       </section>
     </main>

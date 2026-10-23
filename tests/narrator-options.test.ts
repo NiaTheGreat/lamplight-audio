@@ -12,7 +12,13 @@ const groups = (configured: Record<string, boolean>): NarratorGroupInfo[] =>
   NARRATOR_GROUPS.map((g) => ({ ...g, configured: configured[g.provider] ?? true }));
 
 function options(props: Partial<Parameters<typeof NarratorOptions>[0]>, configured = {}) {
-  const view = render(createElement("select", null, createElement(NarratorOptions, { groups: groups(configured), ...props })));
+  const view = render(
+    createElement(
+      "select",
+      null,
+      createElement(NarratorOptions, { groups: groups(configured), ...props }),
+    ),
+  );
   return {
     groups: [...view.container.querySelectorAll("optgroup")],
     options: [...view.container.querySelectorAll("option")],
@@ -22,7 +28,9 @@ function options(props: Partial<Parameters<typeof NarratorOptions>[0]>, configur
 describe("NarratorOptions", () => {
   it("shows every provider with its price", () => {
     const { groups: g } = options({});
-    expect(g.map((x) => x.label)).toEqual(expect.arrayContaining([expect.stringContaining("per million characters")]));
+    expect(g.map((x) => x.label)).toEqual(
+      expect.arrayContaining([expect.stringContaining("per million characters")]),
+    );
     expect(g.length).toBe(NARRATOR_GROUPS.length);
   });
 
@@ -41,7 +49,9 @@ describe("NarratorOptions", () => {
 
   it("can hide the key hint", () => {
     const { options: o } = options({ hideKeyHint: true }, { deepinfra: false });
-    expect(o.find((x) => x.value.startsWith("deepinfra:"))!.textContent).not.toContain("needs a key");
+    expect(o.find((x) => x.value.startsWith("deepinfra:"))!.textContent).not.toContain(
+      "needs a key",
+    );
   });
 
   it("keeps the narrator in use selectable and can mark it current", () => {

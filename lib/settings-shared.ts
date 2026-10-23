@@ -33,4 +33,3 @@ export function sanitizeSettings(input: unknown, base: Settings = DEFAULT_SETTIN
     dim: Math.round(num(raw.dim, 0, 100, base.dim)),
   };
 }
-

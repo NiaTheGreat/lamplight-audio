@@ -10,7 +10,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { afterChapter, inRange, needsConfirm, shouldPrefetch, type ListenRange } from "@/lib/listening";
+import {
+  afterChapter,
+  inRange,
+  needsConfirm,
+  shouldPrefetch,
+  type ListenRange,
+} from "@/lib/listening";
 import { costUsd } from "@/lib/narrators-shared";
 import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
@@ -247,16 +253,22 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const { job, setJob, startBackground, stopBackground, pauseBackground, resumeBackground } = useBackgroundJob({
-    bookRef,
-    bookId: book?.id,
-    onLogin,
-    setError,
-    refreshBook,
-    refreshLibrary,
-  });
+  const { job, setJob, startBackground, stopBackground, pauseBackground, resumeBackground } =
+    useBackgroundJob({
+      bookRef,
+      bookId: book?.id,
+      onLogin,
+      setError,
+      refreshBook,
+      refreshLibrary,
+    });
 
-  const { progress, setProgress, savePosition } = useSavedPosition({ audioRef, bookRef, chapterRef, loadedRef });
+  const { progress, setProgress, savePosition } = useSavedPosition({
+    audioRef,
+    bookRef,
+    chapterRef,
+    loadedRef,
+  });
 
   useEffect(() => {
     if (onLogin) return;
@@ -400,7 +412,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const requestStart = useCallback(
     async (b: BookSummary, index: number, startAt: number, fresh: boolean) => {
       const ch = b.chapters[index];
-      if (ch && needsConfirm({ isReady: isReadyIdx(b, index), confirmSetting: confirmRef.current })) {
+      if (
+        ch &&
+        needsConfirm({ isReady: isReadyIdx(b, index), confirmSetting: confirmRef.current })
+      ) {
         setPending({
           bookId: b.id,
           index,
@@ -495,7 +510,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const nextChapter = useCallback(() => {
     const b = bookRef.current;
-    if (b && chapterRef.current < b.chapters.length - 1) void requestStart(b, chapterRef.current + 1, 0, false);
+    if (b && chapterRef.current < b.chapters.length - 1)
+      void requestStart(b, chapterRef.current + 1, 0, false);
   }, [requestStart]);
 
   const prevChapter = useCallback(() => {
@@ -618,7 +634,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ chapters: indices, ...opts }),
       }).catch(() => null);
       if (!re) return "Couldn't reach the server.";
-      if (!re.ok) return ((await re.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't do that.";
+      if (!re.ok)
+        return (
+          ((await re.json().catch(() => ({}))) as { error?: string }).error ?? "Couldn't do that."
+        );
       const run = await fetch(`/api/books/${bookId}/narrate`, {
         method: "POST",
         headers: json,
@@ -629,7 +648,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (bookRef.current?.id === bookId) void refreshBook(bookId);
       if (!run || !run.ok) {
         const data = (await run?.json().catch(() => ({}))) as { error?: string } | undefined;
-        return `The chapters were cleared, but narrating didn't start: ${data?.error ?? "try \"Read it all\" or play them."}`;
+        return `The chapters were cleared, but narrating didn't start: ${data?.error ?? 'try "Read it all" or play them.'}`;
       }
       if (bookRef.current?.id === bookId) setJob((await run.json()) as JobInfo);
       return null;
@@ -718,12 +737,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   const isChapterReady = (index: number) =>
-    Boolean(book && (readyRef.current.has(`${book.id}:${index}`) || book.narrated?.includes(index)));
+    Boolean(
+      book && (readyRef.current.has(`${book.id}:${index}`) || book.narrated?.includes(index)),
+    );
 
   const chapterState = (index: number): ChapterState => {
     if (!book) return "waiting";
     if (index === chapter && playing && isChapterReady(index)) return "playing";
-    if (failedChapter === index || (job?.status === "error" && job.chapter === index)) return "failed";
+    if (failedChapter === index || (job?.status === "error" && job.chapter === index))
+      return "failed";
     if (preparing?.chapter === index) return "reading";
     if (isChapterReady(index)) return "ready";
     if (job?.status === "running" && job.chapter === index) return "reading";

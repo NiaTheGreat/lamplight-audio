@@ -47,11 +47,18 @@ export function effectiveLines(book: Pick<Book, "pronunciations" | "pronList">):
 }
 
 /** The lines a chapter is read with: the ones it was narrated under if frozen, else the book's current ones. */
-export function linesFor(book: Pick<Book, "pronunciations" | "pronList" | "frozen">, index: number): Pron[] {
+export function linesFor(
+  book: Pick<Book, "pronunciations" | "pronList" | "frozen">,
+  index: number,
+): Pron[] {
   return book.frozen?.[index] ?? effectiveLines(book);
 }
 
 /** The text actually sent to the narrator for a chapter. */
-export function spokenText(book: Pick<Book, "pronunciations" | "pronList" | "frozen">, index: number, text: string): string {
+export function spokenText(
+  book: Pick<Book, "pronunciations" | "pronList" | "frozen">,
+  index: number,
+  text: string,
+): string {
   return applyPronunciations(text, linesFor(book, index));
 }
