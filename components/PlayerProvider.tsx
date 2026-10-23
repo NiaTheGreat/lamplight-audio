@@ -14,6 +14,7 @@ import { afterChapter, inRange, needsConfirm, shouldPrefetch, type ListenRange }
 import { costUsd } from "@/lib/narrators-shared";
 import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
+import { useBackgroundJob } from "./player/useBackgroundJob";
 import { narrateDirect, narrateViaQueue } from "./player/narration";
 import {
   AUTONEXT_KEY,
@@ -156,7 +157,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [libraryError, setLibraryError] = useState("");
   const [progress, setProgress] = useState<Progress>({ last: null, books: {} });
-  const [job, setJob] = useState<JobInfo | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [dim, setDim] = useState(DEFAULT_SETTINGS.dim);
   const [bedside, setBedside] = useState(false);
@@ -263,6 +263,15 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       /* try again next tick */
     }
   }, []);
+
+  const { job, setJob, startBackground, stopBackground, pauseBackground, resumeBackground } = useBackgroundJob({
+    bookRef,
+    bookId: book?.id,
+    onLogin,
+    setError,
+    refreshBook,
+    refreshLibrary,
+  });
 
   const savePosition = useCallback((force = false) => {
     const audio = audioRef.current;
@@ -639,48 +648,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [refreshLibrary],
   );
 
-  // ---------- Background narration job ----------
-
-  const startBackground = useCallback(async (range?: { from: number; to: number }, voice?: string) => {
-    const b = bookRef.current;
-    if (!b) return;
-    setError("");
-    const res = await fetch(`/api/books/${b.id}/narrate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...(range ?? {}), ...(voice ? { voice } : {}) }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(data.error ?? "Couldn't start background narration.");
-      return;
-    }
-    setJob((await res.json()) as JobInfo);
-  }, []);
-
-  const stopBackground = useCallback(async () => {
-    const b = bookRef.current;
-    if (!b) return;
-    await fetch(`/api/books/${b.id}/narrate`, { method: "DELETE" }).catch(() => {});
-    setJob(null);
-  }, []);
-
-  const actOnJob = useCallback(async (action: "pause" | "resume") => {
-    const b = bookRef.current;
-    if (!b) return;
-    setError("");
-    const res = await fetch(`/api/books/${b.id}/narrate`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    }).catch(() => null);
-    if (!res || !res.ok) {
-      const data = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-      setError(data?.error ?? `Couldn't ${action} narration.`);
-      return;
-    }
-    setJob((await res.json()) as JobInfo | null);
-  }, []);
   const rereadAndNarrate = useCallback(
     async (
       bookId: string,
@@ -740,42 +707,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [refreshBook, refreshLibrary],
   );
-
-  const pauseBackground = useCallback(() => actOnJob("pause"), [actOnJob]);
-  const resumeBackground = useCallback(() => actOnJob("resume"), [actOnJob]);
-
-  const bookId = book?.id;
-  useEffect(() => {
-    if (!bookId || onLogin) return;
-    let alive = true;
-    let lastStatus: string | undefined;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const poll = async () => {
-      let delay = 30_000; // idle: look rarely
-      try {
-        const res = await fetch(`/api/books/${bookId}/narrate`);
-        if (!res.ok || !alive) return;
-        const j = (await res.json()) as JobInfo | null;
-        setJob(j);
-        // Refresh the book and shelf only while a job runs and once when it changes state.
-        if (j?.status === "running") delay = 15_000;
-        if (j && (j.status === "running" || j.status !== lastStatus)) {
-          void refreshBook(bookId);
-          void refreshLibrary();
-        }
-        lastStatus = j?.status;
-      } catch {
-        /* try again next tick */
-      } finally {
-        if (alive) timer = setTimeout(poll, delay);
-      }
-    };
-    void poll();
-    return () => {
-      alive = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [bookId, onLogin, refreshBook, refreshLibrary]);
 
   // ---------- Audio element events ----------
 
