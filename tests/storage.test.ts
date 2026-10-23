@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { deleteObject, listKeys, putObject } from "@/lib/storage";
+import { deleteObject, listKeys, putObject } from "@/lib/storage/storage";
 
 const cacheDir = mkdtempSync(path.join(tmpdir(), "abg-test-"));
 process.env.CACHE_DIR = cacheDir;
@@ -25,18 +25,18 @@ describe("library storage", () => {
 
 describe("settings and progress", () => {
   it("clamps settings and remembers the last position", async () => {
-    const { sanitizeSettings } = await import("@/lib/settings");
+    const { sanitizeSettings } = await import("@/lib/storage/settings");
     expect(sanitizeSettings({ voice: "nope", speed: 9, sleep: 7, dim: 500 })).toEqual({
       voice: "ballad",
       speed: 2,
       sleep: 0,
       dim: 100,
     });
-    const { sanitizeVoice } = await import("@/lib/settings");
+    const { sanitizeVoice } = await import("@/lib/storage/settings");
     expect(sanitizeVoice("sage")).toBe("sage");
     expect(sanitizeVoice("../etc")).toBeUndefined();
     expect(sanitizeVoice(42)).toBeUndefined();
-    const { savePosition, getProgress } = await import("@/lib/progress");
+    const { savePosition, getProgress } = await import("@/lib/storage/progress");
     await savePosition("abcdef0123456789", 2, 91.7);
     const p = await getProgress();
     expect(p.last).toMatchObject({ id: "abcdef0123456789", chapter: 2, time: 91 });

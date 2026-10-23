@@ -76,7 +76,7 @@ afterAll(() => {
 
 describe("R2 storage backend", () => {
   it("round-trips objects, reports missing ones, lists by prefix and deletes", async () => {
-    const { putObject, getObject, hasObject, listKeys, deleteObject } = await import("@/lib/storage");
+    const { putObject, getObject, hasObject, listKeys, deleteObject } = await import("@/lib/storage/storage");
     await putObject("library/aaaaaaaaaaaaaaaa.json", '{"a":1}', "application/json");
     await putObject("library/bbbbbbbbbbbbbbbb.json", "{}", "application/json");
     await putObject("books/cccccccccccccccc.json", "{}", "application/json");
@@ -95,7 +95,7 @@ describe("R2 storage backend", () => {
   });
 
   it("caches chapter audio only briefly (it can be rebuilt under the same name), previews for a year, records never", async () => {
-    const { putObject } = await import("@/lib/storage");
+    const { putObject } = await import("@/lib/storage/storage");
     await putObject("audio/abc.mp3", Buffer.from([1, 2, 3]), "audio/mpeg");
     await putObject("settings.json", "{}", "application/json");
     await putObject("previews/p.mp3", Buffer.from([4]), "audio/mpeg");
@@ -106,15 +106,15 @@ describe("R2 storage backend", () => {
   });
 
   it("retries a busy storage server instead of treating it as missing", async () => {
-    const { putObject, getObject } = await import("@/lib/storage");
+    const { putObject, getObject } = await import("@/lib/storage/storage");
     await putObject("progress.json", "{}", "application/json");
     failNext = 2;
     expect((await getObject("progress.json"))?.toString()).toBe("{}");
   });
 
   it("hands out a signed address for the browser to upload a large file to", async () => {
-    const { getUploadUrl } = await import("@/lib/storage");
-    const { newUploadKey, isUploadKey } = await import("@/lib/uploads");
+    const { getUploadUrl } = await import("@/lib/storage/storage");
+    const { newUploadKey, isUploadKey } = await import("@/lib/storage/uploads");
     const key = newUploadKey();
     expect(isUploadKey(key)).toBe(true);
     expect(isUploadKey("books/abc.json")).toBe(false);
@@ -126,7 +126,7 @@ describe("R2 storage backend", () => {
   });
 
   it("hands out a signed, expiring address only for objects that exist", async () => {
-    const { getPublicUrl } = await import("@/lib/storage");
+    const { getPublicUrl } = await import("@/lib/storage/storage");
     const url = await getPublicUrl("audio/abc.mp3");
     expect(url).toContain("audio/abc.mp3");
     expect(url).toContain("X-Amz-Signature=");

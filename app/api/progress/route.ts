@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProgress, savePosition } from "@/lib/progress";
+import { getProgress, savePosition } from "@/lib/storage/progress";
 import { BOOK_ID_RE } from "@/lib/types";
 
 export const runtime = "nodejs";

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitForTts } from "@/lib/text";
+import { splitForTts } from "@/lib/narration/text";
 
 describe("splitForTts", () => {
   it("keeps short text in one chunk", () => {

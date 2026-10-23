@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
-import { applyPronunciations, effectiveLines, sanitizeLines } from "@/lib/pronunciation";
+import { applyPronunciations, effectiveLines, sanitizeLines } from "@/lib/pronunciation/pronunciation";
 
 const cacheDir = mkdtempSync(path.join(tmpdir(), "abg-pron-"));
 process.env.CACHE_DIR = cacheDir;
@@ -36,7 +36,7 @@ describe("applying pronunciations", () => {
 describe("saving pronunciations", () => {
   const ID = "aaaa111122223333";
   async function seed() {
-    const { putObject } = await import("@/lib/storage");
+    const { putObject } = await import("@/lib/storage/storage");
     const chapters = [
       { index: 0, title: "One", text: "Sirius ran." },
       { index: 1, title: "Two", text: "Sirius sat." },
@@ -51,9 +51,9 @@ describe("saving pronunciations", () => {
   }
 
   it("keeps narrated chapters on their old lines until they are re-narrated", async () => {
-    const { savePronunciations, renarrate, getPronunciations } = await import("@/lib/pronunciation-store");
-    const { getObject } = await import("@/lib/storage");
-    const { spokenText } = await import("@/lib/pronunciation");
+    const { savePronunciations, renarrate, getPronunciations } = await import("@/lib/pronunciation/pronunciation-store");
+    const { getObject } = await import("@/lib/storage/storage");
+    const { spokenText } = await import("@/lib/pronunciation/pronunciation");
     await seed();
 
     const saved = await savePronunciations(ID, [{ from: "Sirius", to: "SEER-ee-us" }]);
@@ -74,8 +74,8 @@ describe("saving pronunciations", () => {
   });
 
   it("refuses to change the list while narration is running", async () => {
-    const { savePronunciations } = await import("@/lib/pronunciation-store");
-    const { startJob } = await import("@/lib/narration");
+    const { savePronunciations } = await import("@/lib/pronunciation/pronunciation-store");
+    const { startJob } = await import("@/lib/narration/narration");
     await seed();
     await startJob(ID, 3);
     await expect(savePronunciations(ID, [])).rejects.toThrow(/running/);
@@ -92,9 +92,9 @@ describe("named lists", () => {
   });
 
   it("saves lists, copies the automatic one into new fics, and updates a copy on request", async () => {
-    const { saveLists, listForUpload } = await import("@/lib/pronlists");
-    const { updateFromList, getPronunciations } = await import("@/lib/pronunciation-store");
-    const { putObject } = await import("@/lib/storage");
+    const { saveLists, listForUpload } = await import("@/lib/pronunciation/pronlists");
+    const { updateFromList, getPronunciations } = await import("@/lib/pronunciation/pronunciation-store");
+    const { putObject } = await import("@/lib/storage/storage");
 
     const saved = await saveLists({ lists: [{ name: "HP", lines: [{ from: "Sirius", to: "SEER-ee-us" }] }], auto: "bogus" });
     expect(saved.auto).toBeUndefined(); // unknown id ignored
@@ -114,10 +114,10 @@ describe("named lists", () => {
 
 describe("re-reading one chapter", () => {
   it("removes that chapter's audio and un-narrates only it", async () => {
-    const { putObject, hasObject, getObject } = await import("@/lib/storage");
-    const { rereadChapter } = await import("@/lib/reread");
-    const { audioKey } = await import("@/lib/tts");
-    const { splitForTts } = await import("@/lib/text");
+    const { putObject, hasObject, getObject } = await import("@/lib/storage/storage");
+    const { rereadChapter } = await import("@/lib/narration/reread");
+    const { audioKey } = await import("@/lib/narration/tts");
+    const { splitForTts } = await import("@/lib/narration/text");
     const id = "cccc111122223333";
     const chapters = [0, 1].map((i) => ({ index: i, title: `C${i}`, text: `Chapter ${i} words here.` }));
     await putObject(`books/${id}.json`, JSON.stringify({ id, title: "T", voice: "ballad", chapters }), "application/json");
@@ -136,8 +136,8 @@ describe("re-reading one chapter", () => {
 
 describe("a crashed worker's job", () => {
   it("does not block re-reading once it has gone quiet", async () => {
-    const { putObject } = await import("@/lib/storage");
-    const { rereadChapter } = await import("@/lib/reread");
+    const { putObject } = await import("@/lib/storage/storage");
+    const { rereadChapter } = await import("@/lib/narration/reread");
     const id = "dddd111122223333";
     await putObject(`books/${id}.json`, JSON.stringify({ id, title: "T", voice: "ballad", chapters: [{ index: 0, title: "A", text: "Words." }] }), "application/json");
     await putObject(`library/${id}.json`, JSON.stringify({ id, title: "T", chapterCount: 1, addedAt: 1, narrated: [0] }), "application/json");
@@ -152,16 +152,16 @@ describe("a crashed worker's job", () => {
 describe("re-reading with another voice or list", () => {
   const id = "eeee111122223333";
   async function seed() {
-    const { putObject } = await import("@/lib/storage");
+    const { putObject } = await import("@/lib/storage/storage");
     const chapters = [0, 1, 2].map((i) => ({ index: i, title: `C${i}`, text: `Sirius chapter ${i} words.` }));
     await putObject(`books/${id}.json`, JSON.stringify({ id, title: "T", voice: "ballad", chapters }), "application/json");
     await putObject(`library/${id}.json`, JSON.stringify({ id, title: "T", chapterCount: 3, addedAt: 1, narrated: [0, 1, 2] }), "application/json");
   }
-  const read = async (key: string) => JSON.parse((await (await import("@/lib/storage")).getObject(key))!.toString("utf8"));
+  const read = async (key: string) => JSON.parse((await (await import("@/lib/storage/storage")).getObject(key))!.toString("utf8"));
 
   it("a voice for one chapter leaves the fic's voice and other chapters alone", async () => {
-    const { rereadChapter } = await import("@/lib/reread");
-    const { voiceFor } = await import("@/lib/chaptervoice");
+    const { rereadChapter } = await import("@/lib/narration/reread");
+    const { voiceFor } = await import("@/lib/narration/chaptervoice");
     await seed();
     await rereadChapter(id, 1, { voice: "deepinfra:kokoro:af_bella" });
     const book = await read(`books/${id}.json`);
@@ -172,8 +172,8 @@ describe("re-reading with another voice or list", () => {
   });
 
   it("a voice for the whole fic pins the chapters already narrated to their voice", async () => {
-    const { rereadChapter } = await import("@/lib/reread");
-    const { voiceFor } = await import("@/lib/chaptervoice");
+    const { rereadChapter } = await import("@/lib/narration/reread");
+    const { voiceFor } = await import("@/lib/narration/chaptervoice");
     await seed();
     await rereadChapter(id, 1, { voice: "deepinfra:kokoro:af_bella", voiceForBook: true });
     const book = await read(`books/${id}.json`);
@@ -185,9 +185,9 @@ describe("re-reading with another voice or list", () => {
   });
 
   it("another list applies to the chapter but not to the others narrated", async () => {
-    const { rereadChapter } = await import("@/lib/reread");
-    const { saveLists } = await import("@/lib/pronlists");
-    const { spokenText } = await import("@/lib/pronunciation");
+    const { rereadChapter } = await import("@/lib/narration/reread");
+    const { saveLists } = await import("@/lib/pronunciation/pronlists");
+    const { spokenText } = await import("@/lib/pronunciation/pronunciation");
     await seed();
     const { lists } = await saveLists({ lists: [{ name: "L", lines: [{ from: "Sirius", to: "SEER-ee-us" }] }] });
     await rereadChapter(id, 0, { listId: lists[0].id });
@@ -202,9 +202,9 @@ describe("re-reading with another voice or list", () => {
 describe("re-reading several chapters at once", () => {
   const id = "ffff111122223333";
   it("applies one voice and list change to all the chosen chapters and leaves the rest", async () => {
-    const { putObject, getObject } = await import("@/lib/storage");
-    const { rereadChapters } = await import("@/lib/reread");
-    const { voiceFor } = await import("@/lib/chaptervoice");
+    const { putObject, getObject } = await import("@/lib/storage/storage");
+    const { rereadChapters } = await import("@/lib/narration/reread");
+    const { voiceFor } = await import("@/lib/narration/chaptervoice");
     const chapters = [0, 1, 2, 3].map((i) => ({ index: i, title: `M${i}`, text: `Regina chapter ${i} words.` }));
     await putObject(`books/${id}.json`, JSON.stringify({ id, title: "T", voice: "ballad", chapters }), "application/json");
     await putObject(`library/${id}.json`, JSON.stringify({ id, title: "T", chapterCount: 4, addedAt: 1, narrated: [0, 1, 2, 3] }), "application/json");

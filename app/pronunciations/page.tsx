@@ -7,7 +7,7 @@ import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
-import type { PronLists } from "@/lib/pronlists";
+import type { PronLists } from "@/lib/pronunciation/pronlists";
 import { getPronunciationLists, savePronunciationLists } from "@/lib/client/api";
 import { NarratorOptions } from "@/components/NarratorOptions";
 

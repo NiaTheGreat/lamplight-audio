@@ -31,7 +31,7 @@ describe("synthesizeChapter", () => {
   const text = Array.from({ length: 6 }, (_, i) => `${"word ".repeat(700)}${i}`).join("\n\n");
 
   it("returns progress when out of time, then resumes from cached chunks", async () => {
-    const { synthesizeChapter } = await import("@/lib/tts");
+    const { synthesizeChapter } = await import("@/lib/narration/tts");
     const partial = await synthesizeChapter(text, -1);
     expect(partial).toMatchObject({ done: false, ready: 0 });
     expect(calls).toBe(0);
@@ -47,9 +47,9 @@ describe("synthesizeChapter", () => {
   });
 
   it("regenerates a cached chunk that is empty or cut off", async () => {
-    const { synthesizeChapter, audioKey } = await import("@/lib/tts");
-    const { putObject } = await import("@/lib/storage");
-    const { splitForTts } = await import("@/lib/text");
+    const { synthesizeChapter, audioKey } = await import("@/lib/narration/tts");
+    const { putObject } = await import("@/lib/storage/storage");
+    const { splitForTts } = await import("@/lib/narration/text");
     const t = `${"damaged ".repeat(150)}.`;
     const [chunk] = splitForTts(t);
     await putObject(audioKey(chunk), Buffer.from("MP3"), "audio/mpeg");
@@ -61,7 +61,7 @@ describe("synthesizeChapter", () => {
 
   it("stops before calling OpenAI once the monthly cap is reached", async () => {
     process.env.MONTHLY_CHAR_LIMIT = "10";
-    const { synthesizeChapter } = await import("@/lib/tts");
+    const { synthesizeChapter } = await import("@/lib/narration/tts");
     const before = calls;
     await expect(synthesizeChapter("A fresh chapter that was never narrated before, long enough.")).rejects.toThrow(
       /Monthly narration limit/,
@@ -71,12 +71,12 @@ describe("synthesizeChapter", () => {
   });
 
   it("reports how many chunks are cached", async () => {
-    const { chapterProgress } = await import("@/lib/tts");
+    const { chapterProgress } = await import("@/lib/narration/tts");
     const other = Array.from({ length: 3 }, (_, i) => `${"other ".repeat(700)}${i}`).join("\n\n");
     const before = await chapterProgress(other);
     expect(before.ready).toBe(0);
     expect(before.total).toBeGreaterThan(1);
-    const { synthesizeChapter } = await import("@/lib/tts");
+    const { synthesizeChapter } = await import("@/lib/narration/tts");
     await synthesizeChapter(other);
     expect(await chapterProgress(other)).toEqual({ ready: before.total, total: before.total });
   });

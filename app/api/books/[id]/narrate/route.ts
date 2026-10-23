@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { tokenFor } from "@/lib/auth";
-import { setChapterVoice, NarratorChangeError } from "@/lib/narrator";
-import { cancelJob, clampRange, getJob, isJobActive, pauseJob, resumeJob, startJob } from "@/lib/narration";
-import { getObject } from "@/lib/storage";
+import { setChapterVoice, NarratorChangeError } from "@/lib/narration/narrator";
+import { cancelJob, clampRange, getJob, isJobActive, pauseJob, resumeJob, startJob } from "@/lib/narration/narration";
+import { getObject } from "@/lib/storage/storage";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
 export const runtime = "nodejs";

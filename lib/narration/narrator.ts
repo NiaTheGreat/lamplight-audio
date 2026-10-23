@@ -1,8 +1,8 @@
 import { voiceFor } from "./chaptervoice";
 import { getJob, isJobActive } from "./narration";
-import { getObject, putObject } from "./storage";
-import { sanitizeNarrator } from "./narrators-shared";
-import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
+import { getObject, putObject } from "../storage/storage";
+import { sanitizeNarrator } from "../narrators-shared";
+import { BOOK_ID_RE, type Book, type LibraryEntry } from "../types";
 
 export class NarratorChangeError extends Error {
   constructor(

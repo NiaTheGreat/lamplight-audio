@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getUploadUrl } from "@/lib/storage";
-import { newUploadKey } from "@/lib/uploads";
+import { getUploadUrl } from "@/lib/storage/storage";
+import { newUploadKey } from "@/lib/storage/uploads";
 
 export const runtime = "nodejs";
 

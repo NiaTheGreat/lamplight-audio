@@ -13,12 +13,12 @@ export type Book = {
   chapters: Chapter[];
   /**
    * Narrators for individual chapters that differ from `voice`: a chapter re-read in another
-   * voice, or chapters narrated before the whole fic switched voice. See lib/chaptervoice.ts.
+   * voice, or chapters narrated before the whole fic switched voice. See lib/narration/chaptervoice.ts.
    */
   chapterVoices?: Record<number, string>;
   /** A named list copied into the book at upload; later edits to the list don't reach the book. */
   pronList?: { id: string; name: string; lines: { from: string; to: string }[] };
-  /** How to say certain words, applied before narration (see lib/pronunciation.ts). */
+  /** How to say certain words, applied before narration (see lib/pronunciation/pronunciation.ts). */
   pronunciations?: { from: string; to: string }[];
   /**
    * Narrated chapters keep the lines they were narrated with when the list changes, so edits

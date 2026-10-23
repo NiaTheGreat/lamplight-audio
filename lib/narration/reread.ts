@@ -1,14 +1,14 @@
-import { clearKeys } from "./keys";
+import { clearKeys } from "../storage/keys";
 import { voiceFor } from "./chaptervoice";
 import { getJob, isJobActive } from "./narration";
-import { getLists } from "./pronlists";
-import { applyPronunciations, effectiveLines } from "./pronunciation";
-import { PronunciationError, updateFromList } from "./pronunciation-store";
-import { sanitizeNarrator } from "./narrators-shared";
-import { deleteObject, getObject, putObject } from "./storage";
+import { getLists } from "../pronunciation/pronlists";
+import { applyPronunciations, effectiveLines } from "../pronunciation/pronunciation";
+import { PronunciationError, updateFromList } from "../pronunciation/pronunciation-store";
+import { sanitizeNarrator } from "../narrators-shared";
+import { deleteObject, getObject, putObject } from "../storage/storage";
 import { audioKey } from "./tts";
 import { splitForTts } from "./text";
-import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
+import { BOOK_ID_RE, type Book, type LibraryEntry } from "../types";
 
 export type RereadOptions = {
   /** "keep" or undefined leaves the fic's list; "none" drops it; otherwise a named list's id. */

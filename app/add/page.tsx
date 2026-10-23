@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import type { PronLists } from "@/lib/pronlists";
+import type { PronLists } from "@/lib/pronunciation/pronlists";
 import { pronunciationListsOrEmpty } from "@/lib/client/api";
 import { NarratorOptions } from "@/components/NarratorOptions";
 import { Icon } from "@/components/Icon";

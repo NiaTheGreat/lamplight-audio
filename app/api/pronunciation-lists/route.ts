@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLists, saveLists } from "@/lib/pronlists";
+import { getLists, saveLists } from "@/lib/pronunciation/pronlists";
 
 export const runtime = "nodejs";
 

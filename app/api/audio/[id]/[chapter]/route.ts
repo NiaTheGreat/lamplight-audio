@@ -1,17 +1,17 @@
-import { serveBytes } from "@/lib/http";
-import { getKeys, setKey } from "@/lib/keys";
-import { markNarrated } from "@/lib/library";
-import { getObject, getPublicUrl, hasObject, putObject } from "@/lib/storage";
-import { inspectMp3 } from "@/lib/mp3";
-import { voiceFor } from "@/lib/chaptervoice";
-import { setLive } from "@/lib/live";
-import { spokenText } from "@/lib/pronunciation";
+import { serveBytes } from "@/lib/narration/http";
+import { getKeys, setKey } from "@/lib/storage/keys";
+import { markNarrated } from "@/lib/storage/library";
+import { getObject, getPublicUrl, hasObject, putObject } from "@/lib/storage/storage";
+import { inspectMp3 } from "@/lib/narration/mp3";
+import { voiceFor } from "@/lib/narration/chaptervoice";
+import { setLive } from "@/lib/storage/live";
+import { spokenText } from "@/lib/pronunciation/pronunciation";
 import {
   audioKey,
   chapterProgress,
   synthesizeChapter,
   type ChapterProgress,
-} from "@/lib/tts";
+} from "@/lib/narration/tts";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
 export const runtime = "nodejs";

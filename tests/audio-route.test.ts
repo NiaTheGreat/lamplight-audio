@@ -16,9 +16,9 @@ const call = async (qs: string) => {
 
 describe("playing a narrated chapter", () => {
   it("backfills the audio's address once, then plays without reading the book", async () => {
-    const { putObject, deleteObject, getObject } = await import("@/lib/storage");
-    const { audioKey } = await import("@/lib/tts");
-    const { getKeys } = await import("@/lib/keys");
+    const { putObject, deleteObject, getObject } = await import("@/lib/storage/storage");
+    const { audioKey } = await import("@/lib/narration/tts");
+    const { getKeys } = await import("@/lib/storage/keys");
     const text = "Chapter one. It was a dark night.";
     await putObject(`books/${ID}.json`, JSON.stringify({ id: ID, title: "T", voice: "ballad", chapters: [{ index: 0, title: "One", text }] }), "application/json");
     await putObject(`library/${ID}.json`, JSON.stringify({ id: ID, title: "T", chapterCount: 1, addedAt: 1 }), "application/json");
@@ -39,7 +39,7 @@ describe("playing a narrated chapter", () => {
   });
 
   it("forgets a chapter's address when it is re-read, so the new narration is found", async () => {
-    const { clearKeys, getKeys, setKey } = await import("@/lib/keys");
+    const { clearKeys, getKeys, setKey } = await import("@/lib/storage/keys");
     await setKey(ID, 3, "audio/x.mp3");
     expect((await getKeys(ID))["3"]).toBe("audio/x.mp3");
     await clearKeys(ID, [3]);

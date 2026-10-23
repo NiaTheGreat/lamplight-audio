@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { deleteObject, getObject, putObject } from "@/lib/storage";
+import { deleteObject, getObject, putObject } from "@/lib/storage/storage";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
 
 export const runtime = "nodejs";

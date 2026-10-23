@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cleanMp3, inspectMp3, joinMp3 } from "@/lib/mp3";
+import { cleanMp3, inspectMp3, joinMp3 } from "@/lib/narration/mp3";
 
 // MPEG1 layer III, 128 kbps, 44.1 kHz, stereo, no CRC: 417-byte frames.
 const header = Buffer.from([0xff, 0xfb, 0x90, 0x00]);

@@ -9,10 +9,10 @@
  * Type-only imports from server files are fine here: they are erased at build time.
  */
 import type { SpeedStats } from "../eta";
-import type { LiveItem, QueueItem } from "../narration";
-import type { Pron } from "../pronunciation";
-import type { StaleChapter } from "../pronunciation-store";
-import type { PronLists } from "../pronlists";
+import type { LiveItem, QueueItem } from "../narration/narration";
+import type { Pron } from "../pronunciation/pronunciation";
+import type { StaleChapter } from "../pronunciation/pronunciation-store";
+import type { PronLists } from "../pronunciation/pronlists";
 import type { NarratorGroupInfo } from "@/components/useNarrators";
 import type { Progress } from "@/components/player/types";
 import type { Settings } from "../settings-shared";

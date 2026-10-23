@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { changeNarrator, NarratorChangeError } from "@/lib/narrator";
+import { changeNarrator, NarratorChangeError } from "@/lib/narration/narrator";
 
 export const runtime = "nodejs";
 
