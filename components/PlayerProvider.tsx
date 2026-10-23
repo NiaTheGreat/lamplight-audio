@@ -14,6 +14,8 @@ import { afterChapter, inRange, needsConfirm, shouldPrefetch, type ListenRange }
 import { costUsd } from "@/lib/narrators-shared";
 import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
+import { useMediaSession } from "./player/useMediaSession";
+import { useSleepTimer } from "./player/useSleepTimer";
 import { useBackgroundJob } from "./player/useBackgroundJob";
 import { narrateDirect, narrateViaQueue } from "./player/narration";
 import {
@@ -136,7 +138,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const loadToken = useRef(0);
   const lastSaved = useRef(0);
   const readyRef = useRef(new Set<string>());
-  const sleepRef = useRef<Sleep>({ kind: "off" });
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
 
   const [book, setBook] = useState<BookSummary | null>(null);
@@ -148,7 +149,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [failedChapter, setFailedChapter] = useState<number | null>(null);
   const [rate, setRate] = useState(1);
-  const [sleep, setSleepState] = useState<Sleep>({ kind: "off" });
+  const { sleep, sleepRef, setSleep, setSleepMinutes, cycleSleep } = useSleepTimer();
   const [autoNext, setAutoNextState] = useState(true);
   const [confirmNarrate, setConfirmNarrateState] = useState(true);
   const [pendingNarration, setPendingState] = useState<PendingNarration | null>(null);
@@ -325,20 +326,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [onLogin, refreshLibrary]);
 
   // ---------- Playback ----------
-
-  const setSleep = useCallback((value: Sleep) => {
-    sleepRef.current = value;
-    setSleepState(value);
-  }, []);
-
-  const setSleepMinutes = useCallback(
-    (minutes: number) => {
-      if (minutes === 0) setSleep({ kind: "off" });
-      else if (minutes === -1) setSleep({ kind: "chapter" });
-      else setSleep({ kind: "minutes", minutes, endsAt: Date.now() + minutes * 60_000 });
-    },
-    [setSleep],
-  );
 
   const applyRate = useCallback((value: number) => {
     rateRef.current = value;
@@ -571,14 +558,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     applyRate(SPEEDS[(i + 1) % SPEEDS.length]);
   }, [applyRate]);
 
-  const cycleSleep = useCallback(() => {
-    const order = [0, 15, 30, 60, -1];
-    const cur = sleepRef.current;
-    const curVal = cur.kind === "off" ? 0 : cur.kind === "chapter" ? -1 : cur.minutes;
-    const i = order.indexOf(curVal);
-    setSleepMinutes(order[(i + 1) % order.length]);
-  }, [setSleepMinutes]);
-
   const cycleDim = useCallback(() => {
     setDim((d) => {
       const i = DIM_LEVELS.findIndex((l) => l > d);
@@ -779,23 +758,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     prefetch(b, next + 1);
   }
 
-  // Lock-screen / headphone controls.
-  useEffect(() => {
-    if (!book || !("mediaSession" in navigator)) return;
-    const ms = navigator.mediaSession;
-    ms.metadata = new MediaMetadata({
-      title: book.chapters[chapter]?.title ?? `Chapter ${chapter + 1}`,
-      artist: book.author ?? "",
-      album: book.title,
-    });
-    const audio = audioRef.current;
-    ms.setActionHandler("play", () => void audio?.play());
-    ms.setActionHandler("pause", () => audio?.pause());
-    ms.setActionHandler("previoustrack", () => prevChapter());
-    ms.setActionHandler("nexttrack", () => nextChapter());
-    ms.setActionHandler("seekbackward", () => skip(-15));
-    ms.setActionHandler("seekforward", () => skip(15));
-  }, [book, chapter, prevChapter, nextChapter, skip]);
+  useMediaSession({ audioRef, book, chapter, prevChapter, nextChapter, skip });
 
   // Save the place when the page goes away.
   useEffect(() => {
