@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useDialog } from "@/components/Dialog";
 import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
@@ -211,56 +211,60 @@ export default function Player() {
           const state = p.chapterState(c.index);
           const now = c.index === p.chapter;
           const ready = state === "ready" || state === "playing";
+          const why = state === "failed" ? p.error || p.job?.error || "" : "";
           return (
-            <div
-              key={c.index}
-              className={`chrow ${now ? "now" : ""} ${state}`}
-              style={{ paddingRight: 0 }}
-            >
-              <button
-                className="play-area"
-                onClick={() => void p.playChapter(c.index)}
-                aria-label={`Play ${c.title}`}
-              >
-                {state === "ready" ? <PlayDot /> : <StateGlyph state={state} />}
-                <span className="nm">{c.title}</span>
-                <span className="st">
-                  {ready
-                    ? `${p.chapterMinutes(c.chars)} min`
-                    : state === "failed"
-                      ? "Failed"
-                      : state === "reading"
-                        ? "Reading aloud"
-                        : "Read on play"}
-                </span>
-              </button>
-              {ready ? (
+            <Fragment key={c.index}>
+              <div className={`chrow ${now ? "now" : ""} ${state}`} style={{ paddingRight: 0 }}>
                 <button
-                  className="dl"
-                  aria-label={`Re-read ${c.title}`}
-                  onClick={() =>
-                    dialog.reread({
-                      bookId: book.id,
-                      items: [{ index: c.index, title: c.title, chars: c.chars }],
-                    })
-                  }
+                  className="play-area"
+                  onClick={() => void p.playChapter(c.index)}
+                  aria-label={`Play ${c.title}`}
                 >
-                  <Icon name="retry" size={20} />
+                  {state === "ready" ? <PlayDot /> : <StateGlyph state={state} />}
+                  <span className="nm">{c.title}</span>
+                  <span className="st">
+                    {ready
+                      ? `${p.chapterMinutes(c.chars)} min`
+                      : state === "failed"
+                        ? "Failed"
+                        : state === "reading"
+                          ? "Reading aloud"
+                          : "Read on play"}
+                  </span>
                 </button>
+                {ready ? (
+                  <button
+                    className="dl"
+                    aria-label={`Re-read ${c.title}`}
+                    onClick={() =>
+                      dialog.reread({
+                        bookId: book.id,
+                        items: [{ index: c.index, title: c.title, chars: c.chars }],
+                      })
+                    }
+                  >
+                    <Icon name="retry" size={20} />
+                  </button>
+                ) : null}
+                {ready ? (
+                  <a
+                    className="dl"
+                    href={`/api/audio/${book.id}/${c.index}?download=1`}
+                    download
+                    aria-label={`Download ${c.title}`}
+                  >
+                    <Icon name="download" size={22} />
+                  </a>
+                ) : (
+                  <span className="dl spacer" />
+                )}
+              </div>
+              {why ? (
+                <p className="error" role="alert" style={{ margin: "0 0 10px" }}>
+                  {why}
+                </p>
               ) : null}
-              {ready ? (
-                <a
-                  className="dl"
-                  href={`/api/audio/${book.id}/${c.index}?download=1`}
-                  download
-                  aria-label={`Download ${c.title}`}
-                >
-                  <Icon name="download" size={22} />
-                </a>
-              ) : (
-                <span className="dl spacer" />
-              )}
-            </div>
+            </Fragment>
           );
         })}
       </section>
