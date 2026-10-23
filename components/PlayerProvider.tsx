@@ -18,6 +18,7 @@ import { useSavedPosition } from "./player/useSavedPosition";
 import { useLibrary } from "./player/useLibrary";
 import { useMediaSession } from "./player/useMediaSession";
 import { useSleepTimer } from "./player/useSleepTimer";
+import { getBook, getProgress, getSettings, saveSettings } from "@/lib/client/api";
 import { useBackgroundJob } from "./player/useBackgroundJob";
 import { narrateDirect, narrateViaQueue } from "./player/narration";
 import {
@@ -236,9 +237,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   const refreshBook = useCallback(async (id: string) => {
     try {
-      const res = await fetch(`/api/books/${id}`);
-      if (!res.ok) return;
-      const fresh = (await res.json()) as BookSummary;
+      const fresh = await getBook(id);
+      if (!fresh) return;
       if (bookRef.current?.id !== id) return;
       bookRef.current = fresh;
       setBook(fresh);
@@ -269,12 +269,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setAutoNextState(savedAuto);
 
     void refreshLibrary();
-    fetch("/api/progress")
-      .then((r) => (r.ok ? (r.json() as Promise<Progress>) : null))
-      .then((p) => p && setProgress(p))
-      .catch(() => {});
-    fetch("/api/settings")
-      .then((r) => (r.ok ? (r.json() as Promise<Settings>) : null))
+    void getProgress().then((p) => p && setProgress(p));
+    void getSettings()
       .then((s) => {
         if (!s) return;
         settingsRef.current = s;
@@ -368,9 +364,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     async (id: string): Promise<BookSummary | null> => {
       if (bookRef.current?.id === id) return bookRef.current;
       try {
-        const res = await fetch(`/api/books/${id}`);
-        if (!res.ok) return null;
-        const b = (await res.json()) as BookSummary;
+        const b = await getBook(id);
+        if (!b) return null;
         const audio = audioRef.current;
         if (audio && !audio.paused) audio.pause();
         const saved = progress.books[id];
@@ -555,19 +550,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       rateRef.current = patch.speed;
       setRate(patch.speed);
     }
-    try {
-      const res = await fetch("/api/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(next),
-      });
-      if (res.ok) {
-        const saved = (await res.json()) as Settings;
-        settingsRef.current = saved;
-        setSettings(saved);
-      }
-    } catch {
-      /* keep the optimistic value */
+    // If the server can't be reached, keep the optimistic value.
+    const saved = await saveSettings(next);
+    if (saved) {
+      settingsRef.current = saved;
+      setSettings(saved);
     }
   }, []);
 

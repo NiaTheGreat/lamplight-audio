@@ -8,10 +8,11 @@ import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
+import { changeBookPronunciation, getBookPronunciation, type BookPronunciation } from "@/lib/client/api";
 import type { Pron } from "@/lib/pronunciation";
 import type { StaleChapter } from "@/lib/pronunciation-store";
 
-type Data = { lines: Pron[]; list: { id: string; name: string; lines: Pron[] } | null; stale: StaleChapter[] };
+type Data = BookPronunciation;
 
 export default function PronunciationPage() {
   const { id } = useParams<{ id: string }>();
@@ -35,10 +36,8 @@ export default function PronunciationPage() {
   }, []);
 
   useEffect(() => {
-    fetch(`/api/books/${id}/pronunciation`)
-      .then(async (r) => {
-        const d = (await r.json()) as Data & { error?: string };
-        if (!r.ok) throw new Error(d.error ?? "Couldn't load the list.");
+    getBookPronunciation(id)
+      .then((d) => {
         apply(d);
         setLoaded(true);
       })
@@ -50,14 +49,7 @@ export default function PronunciationPage() {
     setError("");
     setMessage("");
     try {
-      const r = await fetch(`/api/books/${id}/pronunciation`, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const d = (await r.json()) as Data & { error?: string };
-      if (!r.ok) throw new Error(d.error ?? "That didn't work.");
-      apply(d);
+      apply(await changeBookPronunciation(id, method, body));
       setMessage(done);
       await p.refreshLibrary();
       await p.refreshBook(id);

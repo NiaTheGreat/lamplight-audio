@@ -38,6 +38,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - `components/PlayerProvider.tsx` the one persistent `<audio>` element and all playback logic (chapter loading, auto-advance, sleep timer, resume, lock-screen controls, background-job polling). It lives in the root layout so audio keeps playing while screens change. Pieces that don't need the audio element live in `components/player/`: `types.ts`, `store.ts` (device-local settings), `narration.ts` (requests to narrate a chapter, no React), and the hooks `useBackgroundJob`, `useSleepTimer`, `useMediaSession`, `useLibrary`, `useSavedPosition`. Chapter loading, auto-advance and the audio events still live in `PlayerProvider` because they share its refs.
 - `components/AppChrome.tsx` the bottom dock (mini player stacked on the tab bar, one fixed bar as wide as the page), mini player, dim layer and bedside mode. `components/Icon.tsx` is the line-icon set.
 - Screens: `app/page.tsx` library, `app/add`, `app/book/[id]` player, `app/book/[id]/narrating`, `app/settings`. The look is called Lamplight (tokens in `app/globals.css`): warm near-black, cream text, candle amber, Fraunces + Hanken Grotesk. No purple, no pure white, no emoji icons.
+- `lib/client/api.ts` the browser's typed calls to the server's JSON API (`ApiError` carries the server's own message; "soft" functions return null or a default instead of throwing). Prefer adding a function there over a new inline `fetch`. The player's narration and job calls are in `components/player/`, and the audio element's URLs are built where it is used. `components/NarratorOptions.tsx` is the one place that lists narrators inside a `<select>` (price, "needs a key", current).
 - `lib/settings.ts` / `lib/settings-shared.ts` (server vs client-safe) and `lib/progress.ts` are small server-side records (settings, listening position). Each book stores its own `voice`, fixed when first added.
 
 ## Working rules
@@ -46,6 +47,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - Never commit secrets. `.env.local` is gitignored; `.env.example` lists the variables.
 - Work on a branch and open a PR rather than pushing to `main`.
 - `tests/player.test.ts` runs the real `PlayerProvider` in jsdom (Testing Library) with a fake `fetch` and a stubbed audio element: playback, resume, the confirm-before-narrating flow, auto-advance, sleep timer, lock-screen controls and the background job. Run it after touching `components/PlayerProvider.tsx` or `components/player/`. It can't catch real-browser or iOS audio behavior.
+- `npm run test:e2e` (Playwright, `e2e/`) builds the app, starts it with a fake OpenAI server (`e2e/fake-openai.mjs`, silent MP3s) and an empty cache, and clicks through settings, add, shelf, narrating, queue, pronunciation and the player on a phone-sized Chromium. Locally set `E2E_CHROMIUM` to a Chromium binary if `playwright install` isn't possible. `.github/workflows/ci.yml` runs typecheck, unit tests and the browser tests on every PR. Add a spec in `e2e/app.spec.ts` when you add a screen.
 - Never call the real OpenAI API in tests. Point `OPENAI_BASE_URL` at a local mock.
 - Keep the UI usable one-handed on a phone: big tap targets, dark theme, no horizontal scrolling.
 
@@ -59,7 +61,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - Paste-an-AO3-link is a disabled placeholder (scraping is a standing decision to avoid).
 - Background narration (self-chaining worker) works locally against a mock but hasn't run on real Vercel. Check that the worker can call its own production URL (Deployment Protection off) and that a >250s book hops correctly.
 - Note-stripping has been checked against one real AO3 download ("Download > EPUB"). AO3 builds its EPUBs with Calibre, so they turn note headings into plain `<p>` labels and name the files `*_split_000.xhtml` instead of preface/afterword. Other AO3 works may differ (series, anonymous works, many chapters). If an EPUB leaks notes into the narration, fix `lib/epub.ts` and add that case to `tests/epub.test.ts`.
-- iOS lock-screen playback and auto-advance between chapters haven't been tested on a real phone.
+- iOS lock-screen playback was checked on a real phone (2026-10-23: plays with the screen locked). Auto-advance between chapters and the sleep timer on a phone are still unchecked.
 - Chapter narration can take a minute or more the first time. Long chapters are narrated chunk by chunk (`synthesizeChapter` in `lib/tts.ts`): each chunk is cached on its own, and if the ~200s budget runs out the audio route returns `202 {ready,total}` and the player retries, resuming where it stopped. The 202/retry flow hasn't been tried against real Vercel or a real phone.
 
 ## Queued work (not started; ask before building)

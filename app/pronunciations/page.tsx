@@ -8,6 +8,8 @@ import { useNarrators } from "@/components/useNarrators";
 import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
 import type { PronLists } from "@/lib/pronlists";
+import { getPronunciationLists, savePronunciationLists } from "@/lib/client/api";
+import { NarratorOptions } from "@/components/NarratorOptions";
 
 export default function PronunciationLists() {
   const dialog = useDialog();
@@ -22,8 +24,7 @@ export default function PronunciationLists() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/pronunciation-lists")
-      .then((r) => r.json())
+    getPronunciationLists()
       .then(setData)
       .catch(() => setError("Couldn't load your lists."));
   }, []);
@@ -41,16 +42,11 @@ export default function PronunciationLists() {
     set({ ...data, lists: data.lists.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
 
   async function save() {
+    if (!data) return;
     setBusy(true);
     setError("");
     try {
-      const r = await fetch("/api/pronunciation-lists", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!r.ok) throw new Error("Couldn't save.");
-      setData((await r.json()) as PronLists);
+      setData(await savePronunciationLists(data));
       setDirty(false);
       setMessage("Saved. Fics already added keep their own copy.");
     } catch (e) {
@@ -75,13 +71,7 @@ export default function PronunciationLists() {
 
       <label className="label" htmlFor="test-voice" style={{ display: "block", marginTop: 18 }}>Voice for the Hear buttons</label>
       <select id="test-voice" className="select wide" value={testVoice} onChange={(e) => setChosenVoice(e.target.value)}>
-        {groups.map((g) => (
-          <optgroup key={g.provider} label={g.label}>
-            {g.narrators.map((n) => (
-              <option key={n.id} value={n.id} disabled={!g.configured}>{n.label}</option>
-            ))}
-          </optgroup>
-        ))}
+        <NarratorOptions groups={groups} showPrice={false} hideKeyHint />
       </select>
 
       {data.lists.map((l, i) => (

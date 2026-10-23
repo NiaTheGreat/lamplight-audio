@@ -6,6 +6,7 @@ import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { formatUsd } from "@/lib/narrators-shared";
+import { getUsage } from "@/lib/client/api";
 import { SLEEP_OPTIONS, SPEEDS } from "@/lib/settings-shared";
 
 const sleepLabel = (m: number) => (m === 0 ? "Off" : m === -1 ? "Ch. end" : String(m));
@@ -23,10 +24,7 @@ export default function Settings() {
   useEffect(() => () => previewRef.current?.pause(), []);
 
   useEffect(() => {
-    fetch("/api/usage")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((u) => u && setUsage(u))
-      .catch(() => {});
+    void getUsage().then((u) => u && setUsage(u));
   }, []);
 
   async function hear(voice: string) {

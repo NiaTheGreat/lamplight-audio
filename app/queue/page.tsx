@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { useDialog } from "@/components/Dialog";
 import { STALE_MS } from "@/components/PlayerProvider";
-import { estimateMs, formatEta, type SpeedStats } from "@/lib/eta";
+import { estimateMs, formatEta } from "@/lib/eta";
 import { formatUsd, costUsd, providerOf } from "@/lib/narrators-shared";
-import type { LiveItem, QueueItem } from "@/lib/narration";
+import { getQueue, jobAction, type QueueState } from "@/lib/client/api";
 
-type Queue = { items: QueueItem[]; live: LiveItem[]; speed: SpeedStats };
+type Queue = QueueState;
 
 export default function QueuePage() {
   const dialog = useDialog();
@@ -17,10 +17,7 @@ export default function QueuePage() {
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch("/api/queue", { cache: "no-store" });
-      const data = (await res.json()) as Queue & { error?: string };
-      if (!res.ok) throw new Error(data.error ?? `Couldn't load the queue (${res.status}).`);
-      setQueue(data);
+      setQueue(await getQueue());
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't load the queue.");
@@ -40,12 +37,7 @@ export default function QueuePage() {
 
   async function act(id: string, action: "pause" | "resume" | "cancel") {
     if (action === "cancel" && !(await dialog.confirm({ title: "Cancel this job?", body: "Chapters already narrated are kept.", confirmLabel: "Cancel job", cancelLabel: "Keep going" }))) return;
-    const res = await fetch(`/api/books/${id}/narrate`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    }).catch(() => null);
-    if (!res || !res.ok) setError(`Couldn't ${action} that job.`);
+    await jobAction(id, action).catch(() => setError(`Couldn't ${action} that job.`));
     await load();
   }
 
