@@ -46,6 +46,17 @@ Narration is the only real cost, and it is paid once per chapter (replays come f
 
 Set `OPENAI_TTS_MODEL` to switch. `tts-1` has no tone instructions; `gpt-4o-mini-tts` does (`TTS_INSTRUCTIONS`).
 
+## Keeping your keys safe
+
+The app holds paid API keys, so set it up with these in mind:
+
+- **Spend caps.** Set a hard monthly limit in the OpenAI, DeepInfra and ElevenLabs dashboards. `MONTHLY_BUDGET_USD` is only the app's own estimate.
+- **Least privilege.** Use an OpenAI project key with a project budget, and an R2 token limited to the one bucket with Object Read & Write.
+- **Vercel env vars.** Mark every secret **Sensitive** (it can't be read back after saving), give it to **Production** only, and use separate keys for local development.
+- **Never commit `.env.local`.** It is gitignored; `.env.example` lists the variable names only. CI runs [gitleaks](https://github.com/gitleaks/gitleaks) on every PR and fails if a key-shaped string is committed. Also turn on GitHub's **secret scanning** and **push protection** in your repository settings.
+- **Rotating.** OpenAI, DeepInfra and ElevenLabs keys can only be rotated by hand in their dashboards: create a new key, update it in Vercel, redeploy, then delete the old one. Do this every few months, and straight away if a key was ever pasted or committed (removing it from git history is not enough).
+- **A strong `APP_PASSWORD`**, since anyone who gets in can spend your credits.
+
 ## Notes
 
 - The R2 bucket is private. Audio is streamed through short-lived (one hour) signed links that the password-protected app hands out.
