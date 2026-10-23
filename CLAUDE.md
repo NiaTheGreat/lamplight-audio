@@ -59,7 +59,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - Paste-an-AO3-link is a disabled placeholder (scraping is a standing decision to avoid).
 - Background narration (self-chaining worker) works locally against a mock but hasn't run on real Vercel. Check that the worker can call its own production URL (Deployment Protection off) and that a >250s book hops correctly.
 - Note-stripping has been checked against one real AO3 download ("Download > EPUB"). AO3 builds its EPUBs with Calibre, so they turn note headings into plain `<p>` labels and name the files `*_split_000.xhtml` instead of preface/afterword. Other AO3 works may differ (series, anonymous works, many chapters). If an EPUB leaks notes into the narration, fix `lib/epub.ts` and add that case to `tests/epub.test.ts`.
-- iOS lock-screen playback and auto-advance between chapters haven't been tested on a real phone.
+- iOS lock-screen playback was checked on a real phone (2026-10-23: plays with the screen locked). Auto-advance between chapters and the sleep timer on a phone are still unchecked.
 - Chapter narration can take a minute or more the first time. Long chapters are narrated chunk by chunk (`synthesizeChapter` in `lib/tts.ts`): each chunk is cached on its own, and if the ~200s budget runs out the audio route returns `202 {ready,total}` and the player retries, resuming where it stopped. The 202/retry flow hasn't been tried against real Vercel or a real phone.
 
 ## Queued work (not started; ask before building)
