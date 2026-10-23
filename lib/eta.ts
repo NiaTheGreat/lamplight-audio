@@ -1,6 +1,7 @@
 /** Narration speed, measured from real runs. Client-safe: no storage here. */
+import type { Provider } from "./narrators-shared";
 export type SpeedStat = { chars: number; ms: number };
-export type SpeedStats = Partial<Record<"openai" | "deepinfra", SpeedStat>>;
+export type SpeedStats = Partial<Record<Provider, SpeedStat>>;
 
 /** Below this many measured characters the average means nothing yet. */
 const MIN_SAMPLE_CHARS = 3000;
