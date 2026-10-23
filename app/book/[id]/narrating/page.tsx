@@ -9,6 +9,8 @@ import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { estimateMs, formatEta, type SpeedStats } from "@/lib/eta";
 import { startingPoint } from "@/lib/listening";
+import { changeNarrator, getSpeed, repairChapter } from "@/lib/client/api";
+import { NarratorOptions } from "@/components/NarratorOptions";
 import { costUsd, formatUsd, narratorLabel, PRICE_PER_MILLION_CHARS, PROVIDER_INFO, providerOf } from "@/lib/narrators-shared";
 import { Ticks } from "@/components/Ticks";
 
@@ -42,7 +44,7 @@ export default function Narrating() {
   }, [jobActive]);
   const [speed, setSpeed] = useState<SpeedStats>({});
   useEffect(() => {
-    fetch("/api/speed").then((r) => (r.ok ? r.json() : {})).then(setSpeed).catch(() => {});
+    void getSpeed().then(setSpeed);
   }, []);
   const groups = useNarrators();
   const [narratorError, setNarratorError] = useState("");
@@ -104,14 +106,9 @@ export default function Narrating() {
     let failed = 0;
     for (const [n, index] of todo.entries()) {
       setRepairMsg(`Fixing chapter ${n + 1} of ${todo.length}…`);
-      const res = await fetch(`/api/books/${book.id}/repair`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chapter: index }),
-      }).catch(() => null);
-      const data = res?.ok ? ((await res.json().catch(() => ({}))) as { rebuilt?: number }) : null;
-      if (data) rebuilt += data.rebuilt ?? 0;
-      else failed++;
+      const n2 = await repairChapter(book.id, index);
+      if (n2 === null) failed++;
+      else rebuilt += n2;
     }
     setRepairMsg(`Fixed ${rebuilt} chapter${rebuilt === 1 ? "" : "s"}${failed ? `; ${failed} failed, try again` : ""}. Nothing was spent.`);
   }
@@ -180,30 +177,17 @@ export default function Narrating() {
             value={book.voice ?? ""}
             onChange={async (e) => {
               setNarratorError("");
-              const res = await fetch(`/api/books/${book.id}/narrator`, {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ narrator: e.target.value }),
-              });
-              if (!res.ok) {
-                const data = (await res.json().catch(() => ({}))) as { error?: string };
-                setNarratorError(data.error ?? "Couldn't change the narrator.");
+              try {
+                await changeNarrator(book.id, e.target.value);
+              } catch (err) {
+                setNarratorError(err instanceof Error ? err.message : "Couldn't change the narrator.");
                 return;
               }
               await p.refreshBook(book.id);
               await p.refreshLibrary();
             }}
           >
-            {groups.map((g) => (
-              <optgroup key={g.provider} label={`${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`}>
-                {g.narrators.map((n) => (
-                  <option key={n.id} value={n.id} disabled={!g.configured && n.id !== book.voice}>
-                    {n.label}
-                    {g.configured ? "" : " (needs a key)"}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
+            <NarratorOptions groups={groups} keep={book.voice} />
           </select>
         ) : (
           <div style={{ fontSize: 17 }} className="serif">
@@ -264,15 +248,7 @@ export default function Narrating() {
           <label className="label" htmlFor="batch-voice" style={{ display: "block", marginTop: 14 }}>Voice for these chapters</label>
           <select id="batch-voice" className="select wide" value={batchVoice} onChange={(e) => setBatchVoice(e.target.value)}>
             <option value="">{narratorLabel(book.voice)} (this fic&apos;s voice)</option>
-            {groups.map((g) => (
-              <optgroup key={g.provider} label={`${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`}>
-                {g.narrators.filter((n) => n.id !== book.voice).map((n) => (
-                  <option key={n.id} value={n.id} disabled={!g.configured}>
-                    {n.label}{g.configured ? "" : " (needs a key)"}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
+            <NarratorOptions groups={groups} exclude={book.voice} />
           </select>
           <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
             {rangeToDo === 0

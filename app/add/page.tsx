@@ -3,10 +3,11 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import type { PronLists } from "@/lib/pronlists";
+import { pronunciationListsOrEmpty } from "@/lib/client/api";
+import { NarratorOptions } from "@/components/NarratorOptions";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
-import { formatUsd } from "@/lib/narrators-shared";
 import type { BookSummary } from "@/lib/types";
 
 function describeFailure(status: number, serverMessage: string | undefined, body: string, file: File): string {
@@ -37,7 +38,7 @@ export default function AddFic() {
   const [lists, setLists] = useState<PronLists>({ lists: [] });
   const [listChoice, setListChoice] = useState("");
   useEffect(() => {
-    fetch("/api/pronunciation-lists").then((r) => (r.ok ? r.json() : { lists: [] })).then(setLists).catch(() => {});
+    void pronunciationListsOrEmpty().then(setLists);
   }, []);
   useEffect(() => {
     if (!voiceTouched.current) setVoice(p.settings.voice);
@@ -207,16 +208,7 @@ export default function AddFic() {
               setVoice(e.target.value);
             }}
           >
-            {groups.map((g) => (
-              <optgroup key={g.provider} label={`${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`}>
-                {g.narrators.map((n) => (
-                  <option key={n.id} value={n.id} disabled={!g.configured}>
-                    {n.label}
-                    {g.configured ? "" : " (needs a key)"}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
+            <NarratorOptions groups={groups} />
           </select>
         </div>
       </div>

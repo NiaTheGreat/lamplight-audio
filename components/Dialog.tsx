@@ -5,6 +5,8 @@ import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { costUsd, formatUsd, narratorLabel } from "@/lib/narrators-shared";
 import type { PronLists } from "@/lib/pronlists";
+import { pronunciationListsOrEmpty } from "@/lib/client/api";
+import { NarratorOptions } from "./NarratorOptions";
 
 type ConfirmOptions = { title: string; body?: string; confirmLabel?: string; cancelLabel?: string };
 export type RereadItem = { index: number; title: string; chars: number };
@@ -105,7 +107,7 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
   useEscape(() => !busy && close());
 
   useEffect(() => {
-    fetch("/api/pronunciation-lists").then((r) => (r.ok ? r.json() : { lists: [] })).then(setLists).catch(() => {});
+    void pronunciationListsOrEmpty().then(setLists);
   }, []);
 
   const price = formatUsd(costUsd(totalChars, voice));
@@ -148,15 +150,7 @@ function RereadModal({ req, close }: { req: RereadRequest; close: () => void }) 
 
         <label className="label" htmlFor="rr-voice" style={{ display: "block", marginTop: 14 }}>Voice</label>
         <select id="rr-voice" className="select wide" value={voice} onChange={(e) => setVoice(e.target.value)}>
-          {groups.map((g) => (
-            <optgroup key={g.provider} label={`${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`}>
-              {g.narrators.map((n) => (
-                <option key={n.id} value={n.id} disabled={!g.configured && n.id !== chapterVoice}>
-                  {n.label}{n.id === chapterVoice ? " (current)" : ""}{g.configured ? "" : " (needs a key)"}
-                </option>
-              ))}
-            </optgroup>
-          ))}
+          <NarratorOptions groups={groups} keep={chapterVoice} markKept />
         </select>
 
         {changedVoice ? (
