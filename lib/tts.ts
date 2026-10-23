@@ -19,6 +19,9 @@ const endPad = () => process.env.TTS_END_PAD ?? "\n\n…";
 const KOKORO_MODEL = "hexgrad/Kokoro-82M";
 const deepinfraBase = () => process.env.DEEPINFRA_BASE_URL || "https://api.deepinfra.com/v1/openai";
 
+const elevenLabsModel = () => process.env.ELEVENLABS_TTS_MODEL || "eleven_flash_v2_5";
+const elevenLabsBase = () => process.env.ELEVENLABS_BASE_URL || "https://api.elevenlabs.io";
+
 /** How long one speech request may take before it is abandoned and retried. */
 const REQUEST_TIMEOUT_MS = 120_000;
 
@@ -37,28 +40,40 @@ export function audioKey(text: string, narrator: string = defaultVoice()): strin
   const layout =
     parsed?.provider === "deepinfra"
       ? ["narrator-v1", "deepinfra", KOKORO_MODEL, parsed.voice, text]
-      : [model(), narrator, supportsInstructions() ? instructions() : "", endPad(), text];
+      : parsed?.provider === "elevenlabs"
+        ? ["narrator-v1", "elevenlabs", elevenLabsModel(), parsed.voice, text]
+        : [model(), narrator, supportsInstructions() ? instructions() : "", endPad(), text];
   return `audio/${createHash("sha256").update(layout.join("\u0000")).digest("hex")}.mp3`;
 }
 
 // Narrated speech is never smaller than this per character (a 1500-char chunk is
 // 80+ seconds of audio). Anything smaller is an empty or cut-off file.
-const MIN_BYTES_PER_CHAR: Record<Provider, number> = { openai: 50, deepinfra: 30 };
+const MIN_BYTES_PER_CHAR: Record<Provider, number> = { openai: 50, deepinfra: 30, elevenlabs: 30 };
 const looksComplete = (audio: Buffer, text: string, narrator: string) =>
   audio.length >= text.length * MIN_BYTES_PER_CHAR[providerOf(narrator)];
 
-const PROVIDER_NAME: Record<Provider, string> = { openai: "OpenAI", deepinfra: "DeepInfra" };
+const PROVIDER_NAME: Record<Provider, string> = { openai: "OpenAI", deepinfra: "DeepInfra", elevenlabs: "ElevenLabs" };
 
 /** The request for one chunk, per provider. Everything else (retries, checks, usage) is shared. */
-function buildRequest(input: string, narrator: string): { url: string; apiKey: string; body: Record<string, unknown>; provider: Provider } {
+function buildRequest(input: string, narrator: string): { url: string; apiKey: string; body: Record<string, unknown>; provider: Provider; headers: Record<string, string> } {
   const parsed = parseNarrator(narrator) ?? { provider: "openai" as const, voice: narrator };
   const keyName = PROVIDER_KEY_ENV[parsed.provider];
   const apiKey = process.env[keyName];
   if (!apiKey) throw new Error(`${keyName} is not set.`);
 
+  if (parsed.provider === "elevenlabs") {
+    return {
+      provider: "elevenlabs",
+      url: `${elevenLabsBase()}/v1/text-to-speech/${encodeURIComponent(parsed.voice)}?output_format=mp3_44100_128`,
+      apiKey,
+      headers: { "xi-api-key": apiKey },
+      body: { text: input, model_id: elevenLabsModel() },
+    };
+  }
   if (parsed.provider === "deepinfra") {
     return {
       provider: "deepinfra",
+      headers: { Authorization: `Bearer ${apiKey}` },
       url: `${deepinfraBase()}/audio/speech`,
       apiKey,
       // DeepInfra defaults to WAV; chapters are joined by concatenating MP3 frames.
@@ -74,6 +89,7 @@ function buildRequest(input: string, narrator: string): { url: string; apiKey: s
   if (supportsInstructions()) body.instructions = instructions();
   return {
     provider: "openai",
+    headers: { Authorization: `Bearer ${apiKey}` },
     url: `${process.env.OPENAI_BASE_URL || "https://api.openai.com/v1"}/audio/speech`,
     apiKey,
     body,
@@ -92,7 +108,7 @@ export async function synthChunk(input: string, narrator: string = defaultVoice(
       res = await fetch(req.url, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${req.apiKey}`,
+          ...req.headers,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(req.body),

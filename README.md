@@ -21,7 +21,7 @@ Open http://localhost:3000. Locally, audio is cached in `./.cache`.
 ## Deploy (Vercel)
 
 1. Import this repo at vercel.com/new.
-2. Add environment variables: `OPENAI_API_KEY` and `APP_PASSWORD` (the app refuses to run in production without a password). Optional: `DEEPINFRA_API_KEY` turns on the Kokoro narrators (about $1 per million characters, far cheaper than OpenAI's ~$16), and `MONTHLY_BUDGET_USD` (default 30) stops narration once the estimated month's spending reaches it.
+2. Add environment variables: `OPENAI_API_KEY` and `APP_PASSWORD` (the app refuses to run in production without a password). Optional: `DEEPINFRA_API_KEY` turns on the Kokoro narrators (about $1 per million characters, far cheaper than OpenAI's ~$16), `ELEVENLABS_API_KEY` turns on the ElevenLabs Flash narrators (female voices; about $60 per million characters, the priciest option), and `MONTHLY_BUDGET_USD` (default 30) stops narration once the estimated month's spending reaches it.
 3. Create a Cloudflare **R2** bucket for parsed books and cached audio: in the Cloudflare dashboard go to R2, create a bucket (private is fine), then **Manage R2 API Tokens** and create a token with **Object Read & Write** on that bucket. Add these variables in Vercel: `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`. 
    **One more bucket setting, for EPUBs over ~4 MB** (Vercel won't accept bigger request bodies, so the browser uploads them straight to R2): open the bucket's **Settings → CORS Policy → Add** and paste
    ```json

@@ -56,7 +56,22 @@ export const KOKORO_VOICES = [
   "bm_fable",
 ] as const;
 
-export type Provider = "openai" | "deepinfra";
+/**
+ * ElevenLabs premade female voices (name -> voice id). Ids are from ElevenLabs' premade
+ * library; if one is rejected, narration reports the provider's error.
+ */
+export const ELEVENLABS_VOICES = [
+  { id: "21m00Tcm4TlvDq8ikWAM", name: "Rachel", traits: "American, calm" },
+  { id: "EXAVITQu4vr4xnSDxMaL", name: "Sarah", traits: "American, soft" },
+  { id: "XrExE9yKIg1WjnnlVkGX", name: "Matilda", traits: "American, warm" },
+  { id: "MF3mGyEYCl7XYWbV9V6O", name: "Elli", traits: "American, young" },
+  { id: "AZnzlk1XvdvUeBnXmlld", name: "Domi", traits: "American, strong" },
+  { id: "ThT5KcBeYPX3keUQqHPh", name: "Dorothy", traits: "British, pleasant" },
+  { id: "XB0fDUnXU5powFXDhCwa", name: "Charlotte", traits: "English-Swedish, seductive" },
+  { id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", traits: "British, confident" },
+] as const;
+
+export type Provider = "openai" | "deepinfra" | "elevenlabs";
 
 export type ParsedNarrator = {
   provider: Provider;
@@ -69,20 +84,25 @@ export type ParsedNarrator = {
 export const PRICE_PER_MILLION_CHARS: Record<Provider, number> = {
   openai: 16,
   deepinfra: 0.99,
+  // Flash v2.5 API list price (about $0.06 per 1,000 characters); plan credits differ.
+  elevenlabs: 60,
 };
 
 export const PROVIDER_LABEL: Record<Provider, string> = {
   openai: "OpenAI",
   deepinfra: "Kokoro (DeepInfra)",
+  elevenlabs: "ElevenLabs",
 };
 
 /** Environment variable that must be set for a provider to work. */
 export const PROVIDER_KEY_ENV: Record<Provider, string> = {
   openai: "OPENAI_API_KEY",
   deepinfra: "DEEPINFRA_API_KEY",
+  elevenlabs: "ELEVENLABS_API_KEY",
 };
 
 export const kokoroId = (voice: string) => `deepinfra:kokoro:${voice}`;
+export const elevenLabsId = (voiceId: string) => `elevenlabs:flash:${voiceId}`;
 
 /** Understand a narrator id, or null if it isn't one we know how to run. */
 export function parseNarrator(id: unknown): ParsedNarrator | null {
@@ -91,6 +111,7 @@ export function parseNarrator(id: unknown): ParsedNarrator | null {
   const [provider, model, voice, ...rest] = id.split(":");
   if (rest.length || !voice) return null;
   if (provider === "deepinfra" && model === "kokoro") return { provider: "deepinfra", model, voice };
+  if (provider === "elevenlabs" && model === "flash") return { provider: "elevenlabs", model, voice };
   return null;
 }
 
@@ -99,6 +120,7 @@ export function sanitizeNarrator(id: unknown): string | undefined {
   const parsed = parseNarrator(id);
   if (!parsed || typeof id !== "string") return undefined;
   if (parsed.provider === "openai") return (VOICES as readonly string[]).includes(id) ? id : undefined;
+  if (parsed.provider === "elevenlabs") return ELEVENLABS_VOICES.some((v) => v.id === parsed.voice) ? id : undefined;
   return (KOKORO_VOICES as readonly string[]).includes(parsed.voice) ? id : undefined;
 }
 
@@ -133,6 +155,9 @@ export function kokoroTraits(voice: string): string {
 export function narratorLabel(id: string | undefined): string {
   const parsed = parseNarrator(id);
   if (!parsed) return id ?? "";
+  if (parsed.provider === "elevenlabs") {
+    return `${ELEVENLABS_VOICES.find((v) => v.id === parsed.voice)?.name ?? "Voice"} (ElevenLabs)`;
+  }
   return parsed.provider === "openai" ? prettyVoice(parsed.voice) : `${prettyVoice(parsed.voice)} (Kokoro)`;
 }
 
@@ -156,5 +181,11 @@ export const NARRATOR_GROUPS: NarratorGroup[] = [
     label: PROVIDER_LABEL.deepinfra,
     pricePerMillion: PRICE_PER_MILLION_CHARS.deepinfra,
     narrators: KOKORO_VOICES.map((v) => ({ id: kokoroId(v), label: `${prettyVoice(v)} · ${kokoroTraits(v)}` })),
+  },
+  {
+    provider: "elevenlabs",
+    label: PROVIDER_LABEL.elevenlabs,
+    pricePerMillion: PRICE_PER_MILLION_CHARS.elevenlabs,
+    narrators: ELEVENLABS_VOICES.map((v) => ({ id: elevenLabsId(v.id), label: `${v.name} · ${v.traits}` })),
   },
 ];
