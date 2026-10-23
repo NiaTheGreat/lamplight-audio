@@ -9,7 +9,7 @@ import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { estimateMs, formatEta, type SpeedStats } from "@/lib/eta";
 import { startingPoint } from "@/lib/listening";
-import { costUsd, formatUsd, narratorLabel, PRICE_PER_MILLION_CHARS, providerOf } from "@/lib/narrators-shared";
+import { costUsd, formatUsd, narratorLabel, PRICE_PER_MILLION_CHARS, PROVIDER_INFO, providerOf } from "@/lib/narrators-shared";
 import { Ticks } from "@/components/Ticks";
 
 const LABELS = {
@@ -282,7 +282,7 @@ export default function Narrating() {
         </section>
       ) : null}
 
-      {providerOf(book.voice) === "deepinfra" && p.readyCount > 0 && !running ? (
+      {PROVIDER_INFO[providerOf(book.voice)].needsMp3Repair && p.readyCount > 0 && !running ? (
         <div style={{ marginTop: 16 }}>
           <button className="btn" onClick={() => void repair()}>Fix seeking in finished chapters</button>
           <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>

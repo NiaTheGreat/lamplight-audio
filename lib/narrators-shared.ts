@@ -71,7 +71,45 @@ export const ELEVENLABS_VOICES = [
   { id: "Xb7hH8MSUJpSbSDYk0k2", name: "Alice", traits: "British, confident" },
 ] as const;
 
-export type Provider = "openai" | "deepinfra" | "elevenlabs";
+/**
+ * Everything about a provider that the browser may see (no keys, no request code; that
+ * lives in lib/providers). A new provider starts as one row here.
+ */
+export const PROVIDER_INFO = {
+  openai: {
+    /** Name used in error messages. */
+    name: "OpenAI",
+    label: "OpenAI",
+    keyEnv: "OPENAI_API_KEY",
+    // Estimate: gpt-4o-mini-tts bills by token.
+    pricePerMillion: 16,
+    // Narrated speech is never smaller than this per character; smaller is an empty or cut-off file.
+    minBytesPerChar: 50,
+    needsMp3Repair: false,
+  },
+  deepinfra: {
+    /** Name used in error messages. */
+    name: "DeepInfra",
+    label: "Kokoro (DeepInfra)",
+    keyEnv: "DEEPINFRA_API_KEY",
+    pricePerMillion: 0.99,
+    minBytesPerChar: 30,
+    // Kokoro puts an ID3 tag and Xing frame at the start of every sentence stream.
+    needsMp3Repair: true,
+  },
+  elevenlabs: {
+    /** Name used in error messages. */
+    name: "ElevenLabs",
+    label: "ElevenLabs",
+    keyEnv: "ELEVENLABS_API_KEY",
+    // Flash v2.5 API list price (about $0.06 per 1,000 characters); plan credits differ.
+    pricePerMillion: 60,
+    minBytesPerChar: 30,
+    needsMp3Repair: false,
+  },
+} as const;
+
+export type Provider = keyof typeof PROVIDER_INFO;
 
 export type ParsedNarrator = {
   provider: Provider;
@@ -80,26 +118,19 @@ export type ParsedNarrator = {
   voice: string;
 };
 
-/** Estimated USD per million characters. OpenAI is an estimate (gpt-4o-mini-tts bills by token). */
-export const PRICE_PER_MILLION_CHARS: Record<Provider, number> = {
-  openai: 16,
-  deepinfra: 0.99,
-  // Flash v2.5 API list price (about $0.06 per 1,000 characters); plan credits differ.
-  elevenlabs: 60,
-};
+/** Estimated USD per million characters. */
+export const PRICE_PER_MILLION_CHARS = Object.fromEntries(
+  Object.entries(PROVIDER_INFO).map(([k, v]) => [k, v.pricePerMillion]),
+) as Record<Provider, number>;
 
-export const PROVIDER_LABEL: Record<Provider, string> = {
-  openai: "OpenAI",
-  deepinfra: "Kokoro (DeepInfra)",
-  elevenlabs: "ElevenLabs",
-};
+export const PROVIDER_LABEL = Object.fromEntries(
+  Object.entries(PROVIDER_INFO).map(([k, v]) => [k, v.label]),
+) as Record<Provider, string>;
 
 /** Environment variable that must be set for a provider to work. */
-export const PROVIDER_KEY_ENV: Record<Provider, string> = {
-  openai: "OPENAI_API_KEY",
-  deepinfra: "DEEPINFRA_API_KEY",
-  elevenlabs: "ELEVENLABS_API_KEY",
-};
+export const PROVIDER_KEY_ENV = Object.fromEntries(
+  Object.entries(PROVIDER_INFO).map(([k, v]) => [k, v.keyEnv]),
+) as Record<Provider, string>;
 
 export const kokoroId = (voice: string) => `deepinfra:kokoro:${voice}`;
 export const elevenLabsId = (voiceId: string) => `elevenlabs:flash:${voiceId}`;
