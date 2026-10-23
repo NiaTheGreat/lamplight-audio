@@ -55,6 +55,8 @@ Set `OPENAI_TTS_MODEL` to switch. `tts-1` has no tone instructions; `gpt-4o-mini
 ## Develop
 
 ```bash
-npm test         # parser, chunking, and range-serving tests
-npm run typecheck
+npm test         # unit tests
+npm run lint
+npm run format:check
+npm run typecheck   # see CONTRIBUTING.md for the full list
 ```
