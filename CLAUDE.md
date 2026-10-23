@@ -47,6 +47,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - Never commit secrets. `.env.local` is gitignored; `.env.example` lists the variables.
 - Work on a branch and open a PR rather than pushing to `main`.
 - `tests/player.test.ts` runs the real `PlayerProvider` in jsdom (Testing Library) with a fake `fetch` and a stubbed audio element: playback, resume, the confirm-before-narrating flow, auto-advance, sleep timer, lock-screen controls and the background job. Run it after touching `components/PlayerProvider.tsx` or `components/player/`. It can't catch real-browser or iOS audio behavior.
+- `npm run test:e2e` (Playwright, `e2e/`) builds the app, starts it with a fake OpenAI server (`e2e/fake-openai.mjs`, silent MP3s) and an empty cache, and clicks through settings, add, shelf, narrating, queue, pronunciation and the player on a phone-sized Chromium. Locally set `E2E_CHROMIUM` to a Chromium binary if `playwright install` isn't possible. `.github/workflows/ci.yml` runs typecheck, unit tests and the browser tests on every PR. Add a spec in `e2e/app.spec.ts` when you add a screen.
 - Never call the real OpenAI API in tests. Point `OPENAI_BASE_URL` at a local mock.
 - Keep the UI usable one-handed on a phone: big tap targets, dark theme, no horizontal scrolling.
 
