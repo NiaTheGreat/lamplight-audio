@@ -14,72 +14,29 @@ import { afterChapter, inRange, needsConfirm, shouldPrefetch, type ListenRange }
 import { costUsd } from "@/lib/narrators-shared";
 import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
+import {
+  AUTONEXT_KEY,
+  CONFIRM_KEY,
+  CPM_KEY,
+  DIM_LEVELS,
+  POSITION_KEY,
+  RANGE_KEY,
+  SILENT_WAV,
+  readStore,
+  writeStore,
+} from "./player/store";
+import type {
+  ChapterState,
+  JobInfo,
+  OpenOptions,
+  PendingNarration,
+  Position,
+  Progress,
+  Sleep,
+} from "./player/types";
 
-export type JobInfo = {
-  status: "running" | "paused" | "done" | "cancelled" | "error";
-  chapter: number;
-  total: number;
-  from?: number;
-  to?: number;
-  updatedAt: number;
-  error?: string;
-};
-// A running job that hasn't saved progress for this long has probably lost its worker.
-export const STALE_MS = 8 * 60 * 1000;
-
-export type Position = { chapter: number; time: number; updatedAt: number };
-export type Progress = { last: ({ id: string } & Position) | null; books: Record<string, Position> };
-export type ChapterState = "ready" | "reading" | "waiting" | "playing" | "failed";
-export type Sleep = { kind: "off" } | { kind: "chapter" } | { kind: "minutes"; endsAt: number; minutes: number };
-
-const CPM_KEY = "abg:cpm";
-const AUTONEXT_KEY = "abg:autonext";
-const CONFIRM_KEY = "abg:confirm";
-const RANGE_KEY = "abg:range";
-const POSITION_KEY = "abg:last";
-const DIM_LEVELS = [0, 25, 50, 80];
-
-// A silent clip played on the first tap so iOS lets us start audio later,
-// after the (possibly slow) first-time narration finishes.
-const SILENT_WAV =
-  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
-
-function readStore<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStore(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* storage unavailable; fine */
-  }
-}
-
-/** A chapter the listener asked to start that would be narrated (and so cost money), waiting for a yes. */
-export type PendingNarration = {
-  bookId: string;
-  index: number;
-  startAt: number;
-  fresh: boolean;
-  title: string;
-  chars: number;
-  costUsd: number;
-  narrator: string | undefined;
-};
-
-export type OpenOptions = {
-  /** Start here instead of the saved spot. */
-  chapter?: number;
-  time?: number;
-  /** The chapters chosen to be read; narration and auto-advance stay inside it. */
-  range?: { from: number; to: number } | null;
-};
+export { STALE_MS } from "./player/types";
+export type { ChapterState, JobInfo, OpenOptions, PendingNarration, Position, Progress, Sleep };
 
 type Ctx = {
   // Playback
