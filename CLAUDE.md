@@ -45,6 +45,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - Run `npm test` and `npm run typecheck` before pushing. Add a test when fixing a parser bug.
 - Never commit secrets. `.env.local` is gitignored; `.env.example` lists the variables.
 - Work on a branch and open a PR rather than pushing to `main`.
+- `tests/player.test.ts` runs the real `PlayerProvider` in jsdom (Testing Library) with a fake `fetch` and a stubbed audio element: playback, resume, the confirm-before-narrating flow, auto-advance, sleep timer, lock-screen controls and the background job. Run it after touching `components/PlayerProvider.tsx` or `components/player/`. It can't catch real-browser or iOS audio behavior.
 - Never call the real OpenAI API in tests. Point `OPENAI_BASE_URL` at a local mock.
 - Keep the UI usable one-handed on a phone: big tap targets, dark theme, no horizontal scrolling.
 
