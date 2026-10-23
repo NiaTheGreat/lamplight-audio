@@ -37,13 +37,21 @@ export default function Player() {
         <Link href="/" className="icon-btn" aria-label="Back to shelf" style={{ marginLeft: -12 }}>
           <Icon name="back" />
         </Link>
-        <p className="empty">That book isn&apos;t stored any more. Add the EPUB again to bring it back.</p>
-        <Link href="/add" className="btn primary">Add a fic</Link>
+        <p className="empty">
+          That book isn&apos;t stored any more. Add the EPUB again to bring it back.
+        </p>
+        <Link href="/add" className="btn primary">
+          Add a fic
+        </Link>
       </main>
     );
   }
   if (!book || book.id !== id) {
-    return <main className="screen no-tabs"><p className="empty">Opening…</p></main>;
+    return (
+      <main className="screen no-tabs">
+        <p className="empty">Opening…</p>
+      </main>
+    );
   }
 
   const ch = book.chapters[p.chapter];
@@ -64,21 +72,34 @@ export default function Player() {
   return (
     <main className="screen no-tabs book player">
       <div className="topbar">
-        <Link href="/" className="icon-btn" aria-label="Back to shelf"><Icon name="back" /></Link>
+        <Link href="/" className="icon-btn" aria-label="Back to shelf">
+          <Icon name="back" />
+        </Link>
         <div className="name">{book.title}</div>
-        <button className="icon-btn amber" aria-label="Bedside mode" onClick={() => p.setBedside(true)}>
+        <button
+          className="icon-btn amber"
+          aria-label="Bedside mode"
+          onClick={() => p.setBedside(true)}
+        >
           <Icon name="moon" />
         </button>
       </div>
 
       <div>
         <div className="hero">
-          <div className="numeral" aria-hidden="true">{String(p.chapter + 1).padStart(2, "0")}</div>
+          <div className="numeral" aria-hidden="true">
+            {String(p.chapter + 1).padStart(2, "0")}
+          </div>
           <div className="eyebrow amber" style={{ position: "relative" }}>
-            {preparing ? "Getting it ready" : "Now reading"} · {p.chapter + 1} of {book.chapters.length}
+            {preparing ? "Getting it ready" : "Now reading"} · {p.chapter + 1} of{" "}
+            {book.chapters.length}
           </div>
           <h1 style={{ position: "relative" }}>{ch?.title}</h1>
-          {book.author ? <div className="muted" style={{ position: "relative", marginTop: 8 }}>{book.author}</div> : null}
+          {book.author ? (
+            <div className="muted" style={{ position: "relative", marginTop: 8 }}>
+              {book.author}
+            </div>
+          ) : null}
         </div>
 
         {preparing ? (
@@ -90,7 +111,8 @@ export default function Player() {
           <div className="banner bad" role="alert">
             <span className="grow">{p.error}</span>
             <button className="btn" onClick={() => void p.playChapter(p.chapter)}>
-              <Icon name="retry" size={18} />Try again
+              <Icon name="retry" size={18} />
+              Try again
             </button>
           </div>
         ) : null}
@@ -102,7 +124,9 @@ export default function Player() {
             min={0}
             max={Math.max(1, Math.floor(total))}
             value={Math.min(p.position, Math.max(1, Math.floor(total)))}
-            style={{ ["--pct" as string]: `${total ? (Math.min(p.position, total) / total) * 100 : 0}%` }}
+            style={{
+              ["--pct" as string]: `${total ? (Math.min(p.position, total) / total) * 100 : 0}%`,
+            }}
             onChange={(e) => p.seek(Number(e.target.value))}
           />
           <div className="times">
@@ -112,37 +136,68 @@ export default function Player() {
         </div>
 
         <div className="controls">
-          <button className="sm" aria-label="Previous chapter" onClick={p.prevChapter}><Icon name="prev" size={28} /></button>
-          <button className="md" aria-label="Back 15 seconds" onClick={() => p.skip(-15)}><Icon name="back15" size={36} stroke={1.4} /></button>
-          <button className="play" aria-label={p.playing ? "Pause" : "Play"} disabled={Boolean(preparing)} onClick={() => void p.togglePlay()}>
+          <button className="sm" aria-label="Previous chapter" onClick={p.prevChapter}>
+            <Icon name="prev" size={28} />
+          </button>
+          <button className="md" aria-label="Back 15 seconds" onClick={() => p.skip(-15)}>
+            <Icon name="back15" size={36} stroke={1.4} />
+          </button>
+          <button
+            className="play"
+            aria-label={p.playing ? "Pause" : "Play"}
+            disabled={Boolean(preparing)}
+            onClick={() => void p.togglePlay()}
+          >
             <Icon name={p.playing ? "pause" : "play"} size={38} stroke={p.playing ? 2.6 : 1.5} />
           </button>
-          <button className="md" aria-label="Forward 15 seconds" onClick={() => p.skip(15)}><Icon name="fwd15" size={36} stroke={1.4} /></button>
-          <button className="sm" aria-label="Next chapter" onClick={p.nextChapter}><Icon name="next" size={28} /></button>
+          <button className="md" aria-label="Forward 15 seconds" onClick={() => p.skip(15)}>
+            <Icon name="fwd15" size={36} stroke={1.4} />
+          </button>
+          <button className="sm" aria-label="Next chapter" onClick={p.nextChapter}>
+            <Icon name="next" size={28} />
+          </button>
         </div>
 
         <div className="pills">
-          <button className="btn" onClick={p.cycleRate} aria-label={`Speed ${p.rate}×, tap to change`}>
-            <Icon name="speed" size={20} />{p.rate}×
+          <button
+            className="btn"
+            onClick={p.cycleRate}
+            aria-label={`Speed ${p.rate}×, tap to change`}
+          >
+            <Icon name="speed" size={20} />
+            {p.rate}×
           </button>
-          <button className={`btn ${p.sleep.kind !== "off" ? "on" : ""}`} style={{ flex: 1.5 }} onClick={p.cycleSleep} aria-label="Sleep timer, tap to change">
-            <Icon name="moon" size={20} />{sleepLabel}
+          <button
+            className={`btn ${p.sleep.kind !== "off" ? "on" : ""}`}
+            style={{ flex: 1.5 }}
+            onClick={p.cycleSleep}
+            aria-label="Sleep timer, tap to change"
+          >
+            <Icon name="moon" size={20} />
+            {sleepLabel}
           </button>
-          <button className={`btn ${p.dim > 0 ? "on" : ""}`} onClick={p.cycleDim} aria-label="Screen dimming, tap to change">
-            <Icon name="sun" size={20} />Dim
+          <button
+            className={`btn ${p.dim > 0 ? "on" : ""}`}
+            onClick={p.cycleDim}
+            aria-label="Screen dimming, tap to change"
+          >
+            <Icon name="sun" size={20} />
+            Dim
           </button>
         </div>
-      {unfinished ? (
-        <div className="banner">
-          <span className="grow">
-            {p.readyCount === 0
-              ? "Nothing is narrated yet."
-              : `${p.readyCount} of ${book.chapters.length} chapters are narrated.`}{" "}
-            About {formatUsd(costUsd(unreadChars, book.voice))} for the rest.
-          </span>
-          <Link className="btn" href={`/book/${book.id}/narrating`}>Choose chapters</Link>
-        </div>
-      ) : null}
+        {unfinished ? (
+          <div className="banner">
+            <span className="grow">
+              {p.readyCount === 0
+                ? "Nothing is narrated yet."
+                : `${p.readyCount} of ${book.chapters.length} chapters are narrated.`}{" "}
+              About {formatUsd(costUsd(unreadChars, book.voice))} for the rest.
+            </span>
+            <Link className="btn" href={`/book/${book.id}/narrating`}>
+              Choose chapters
+            </Link>
+          </div>
+        ) : null}
       </div>
 
       <section className="sheet" aria-label="Chapters">
@@ -157,21 +212,49 @@ export default function Player() {
           const now = c.index === p.chapter;
           const ready = state === "ready" || state === "playing";
           return (
-            <div key={c.index} className={`chrow ${now ? "now" : ""} ${state}`} style={{ paddingRight: 0 }}>
-              <button className="play-area" onClick={() => void p.playChapter(c.index)} aria-label={`Play ${c.title}`}>
+            <div
+              key={c.index}
+              className={`chrow ${now ? "now" : ""} ${state}`}
+              style={{ paddingRight: 0 }}
+            >
+              <button
+                className="play-area"
+                onClick={() => void p.playChapter(c.index)}
+                aria-label={`Play ${c.title}`}
+              >
                 {state === "ready" ? <PlayDot /> : <StateGlyph state={state} />}
                 <span className="nm">{c.title}</span>
                 <span className="st">
-                  {ready ? `${p.chapterMinutes(c.chars)} min` : state === "failed" ? "Failed" : state === "reading" ? "Reading aloud" : "Read on play"}
+                  {ready
+                    ? `${p.chapterMinutes(c.chars)} min`
+                    : state === "failed"
+                      ? "Failed"
+                      : state === "reading"
+                        ? "Reading aloud"
+                        : "Read on play"}
                 </span>
               </button>
               {ready ? (
-                <button className="dl" aria-label={`Re-read ${c.title}`} onClick={() => dialog.reread({ bookId: book.id, items: [{ index: c.index, title: c.title, chars: c.chars }] })}>
+                <button
+                  className="dl"
+                  aria-label={`Re-read ${c.title}`}
+                  onClick={() =>
+                    dialog.reread({
+                      bookId: book.id,
+                      items: [{ index: c.index, title: c.title, chars: c.chars }],
+                    })
+                  }
+                >
                   <Icon name="retry" size={20} />
                 </button>
               ) : null}
               {ready ? (
-                <a className="dl" href={`/api/audio/${book.id}/${c.index}?download=1`} download aria-label={`Download ${c.title}`}>
+                <a
+                  className="dl"
+                  href={`/api/audio/${book.id}/${c.index}?download=1`}
+                  download
+                  aria-label={`Download ${c.title}`}
+                >
                   <Icon name="download" size={22} />
                 </a>
               ) : (

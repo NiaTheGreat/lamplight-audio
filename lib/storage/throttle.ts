@@ -32,5 +32,10 @@ export async function recordFailure(ip: string): Promise<void> {
 }
 
 export async function clearFailures(ip: string): Promise<void> {
-  if (await read(ip)) await putObject(keyFor(ip), JSON.stringify({ fails: 0, since: Date.now() }), "application/json");
+  if (await read(ip))
+    await putObject(
+      keyFor(ip),
+      JSON.stringify({ fails: 0, since: Date.now() }),
+      "application/json",
+    );
 }

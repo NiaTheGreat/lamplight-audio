@@ -11,7 +11,10 @@ const infoFrame = () => {
   return f;
 };
 const id3 = (bodySize: number) =>
-  Buffer.concat([Buffer.from("ID3\x04\x00\x00\x00\x00\x00" + String.fromCharCode(bodySize), "latin1"), Buffer.alloc(bodySize)]);
+  Buffer.concat([
+    Buffer.from("ID3\x04\x00\x00\x00\x00\x00" + String.fromCharCode(bodySize), "latin1"),
+    Buffer.alloc(bodySize),
+  ]);
 
 describe("cleanMp3", () => {
   it("leaves bare audio frames alone", () => {
@@ -41,7 +44,11 @@ describe("inspectMp3", () => {
     const r = inspectMp3(joined);
     expect(r.frames).toBe(6);
     expect(r.infoFramesAt).toEqual([0, 3 * 417]);
-    expect(r.firstFrame).toMatchObject({ mpegVersion: "MPEG1", bitrateKbps: 128, sampleRate: 44100 });
+    expect(r.firstFrame).toMatchObject({
+      mpegVersion: "MPEG1",
+      bitrateKbps: 128,
+      sampleRate: 44100,
+    });
     expect(r.seconds).toBeCloseTo((4 * 1152) / 44100, 1);
     const clean = inspectMp3(Buffer.concat([cleanMp3(piece), cleanMp3(piece)]));
     expect(clean.infoFramesAt).toEqual([]);
@@ -57,7 +64,10 @@ describe("inspectMp3", () => {
 const v2 = (bitrateIdx: number, fill: number) => {
   const kbps = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160][bitrateIdx];
   const len = Math.floor((72 * kbps * 1000) / 24000);
-  return Buffer.concat([Buffer.from([0xff, 0xf3, (bitrateIdx << 4) | 0x04, 0xc4]), Buffer.alloc(len - 4, fill)]);
+  return Buffer.concat([
+    Buffer.from([0xff, 0xf3, (bitrateIdx << 4) | 0x04, 0xc4]),
+    Buffer.alloc(len - 4, fill),
+  ]);
 };
 const v2Info = () => {
   const f = v2(6, 0); // 48 kbps: 144 bytes

@@ -25,7 +25,9 @@ export default function QueuePage() {
   }, []);
 
   // Look every 15 s while something is running; otherwise just once on opening.
-  const anyRunning = (queue?.items.some((i) => i.job.status === "running") || (queue?.live.length ?? 0) > 0) ?? false;
+  const anyRunning =
+    (queue?.items.some((i) => i.job.status === "running") || (queue?.live.length ?? 0) > 0) ??
+    false;
   useEffect(() => {
     void load();
   }, [load]);
@@ -36,7 +38,16 @@ export default function QueuePage() {
   }, [anyRunning, load]);
 
   async function act(id: string, action: "pause" | "resume" | "cancel") {
-    if (action === "cancel" && !(await dialog.confirm({ title: "Cancel this job?", body: "Chapters already narrated are kept.", confirmLabel: "Cancel job", cancelLabel: "Keep going" }))) return;
+    if (
+      action === "cancel" &&
+      !(await dialog.confirm({
+        title: "Cancel this job?",
+        body: "Chapters already narrated are kept.",
+        confirmLabel: "Cancel job",
+        cancelLabel: "Keep going",
+      }))
+    )
+      return;
     await jobAction(id, action).catch(() => setError(`Couldn't ${action} that job.`));
     await load();
   }
@@ -46,9 +57,16 @@ export default function QueuePage() {
       <div className="eyebrow">In the background</div>
       <h1 className="display">Queue</h1>
 
-      {error ? <p className="error" role="alert">{error}</p> : null}
+      {error ? (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      ) : null}
       {queue && queue.items.length === 0 && queue.live.length === 0 ? (
-        <p className="empty">Nothing is being narrated right now. Anything being read aloud shows up here, whether you pressed play or started &ldquo;Read it all&rdquo;.</p>
+        <p className="empty">
+          Nothing is being narrated right now. Anything being read aloud shows up here, whether you
+          pressed play or started &ldquo;Read it all&rdquo;.
+        </p>
       ) : null}
 
       <div className="queue">
@@ -56,7 +74,11 @@ export default function QueuePage() {
           <div key={`${l.id}:${l.chapter}`} className="continue">
             <Link href={`/book/${l.id}`} style={{ textDecoration: "none" }}>
               <div className="name">{l.title}</div>
-              {l.author ? <div className="muted" style={{ marginTop: 4 }}>{l.author}</div> : null}
+              {l.author ? (
+                <div className="muted" style={{ marginTop: 4 }}>
+                  {l.author}
+                </div>
+              ) : null}
               <div className="faint" style={{ marginTop: 10, fontSize: 13 }}>
                 Reading chapter {l.chapter + 1} aloud now · started by pressing play
               </div>
@@ -82,8 +104,15 @@ export default function QueuePage() {
             <div key={id} className="continue">
               <Link href={`/book/${id}/narrating`} style={{ textDecoration: "none" }}>
                 <div className="name">{title}</div>
-                {author ? <div className="muted" style={{ marginTop: 4 }}>{author}</div> : null}
-                <div className={job.status === "error" ? "error" : "faint"} style={{ marginTop: 10, fontSize: 13 }}>
+                {author ? (
+                  <div className="muted" style={{ marginTop: 4 }}>
+                    {author}
+                  </div>
+                ) : null}
+                <div
+                  className={job.status === "error" ? "error" : "faint"}
+                  style={{ marginTop: 10, fontSize: 13 }}
+                >
                   {state}
                 </div>
               </Link>
@@ -92,17 +121,23 @@ export default function QueuePage() {
               </div>
               <div className="faint" style={{ marginTop: 8, fontSize: 13 }}>
                 {doneCount} of {count} chapters · {job.status === "paused" ? "paused, " : ""}
-                {remainingChars > 0 ? `${eta === null ? "time left not known yet" : `${formatEta(eta)} left`} · about ${formatUsd(costUsd(remainingChars, voice))} to go` : "nearly done"}
+                {remainingChars > 0
+                  ? `${eta === null ? "time left not known yet" : `${formatEta(eta)} left`} · about ${formatUsd(costUsd(remainingChars, voice))} to go`
+                  : "nearly done"}
               </div>
               <div className="qbtns">
                 {job.status === "running" && !stalled ? (
-                  <button className="btn" onClick={() => void act(id, "pause")}>Pause</button>
+                  <button className="btn" onClick={() => void act(id, "pause")}>
+                    Pause
+                  </button>
                 ) : (
                   <button className="btn" onClick={() => void act(id, "resume")}>
                     {job.status === "paused" ? "Continue" : "Resume"}
                   </button>
                 )}
-                <button className="btn" onClick={() => void act(id, "cancel")}>Cancel</button>
+                <button className="btn" onClick={() => void act(id, "cancel")}>
+                  Cancel
+                </button>
               </div>
             </div>
           );

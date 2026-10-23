@@ -25,7 +25,10 @@ async function loadBookAndEntry(bookId: string) {
 
 async function assertIdle(bookId: string) {
   if (isJobActive(await getJob(bookId))) {
-    throw new NarratorChangeError("Narration is running for this book. Pause or cancel it first.", 409);
+    throw new NarratorChangeError(
+      "Narration is running for this book. Pause or cancel it first.",
+      409,
+    );
   }
 }
 
@@ -61,7 +64,11 @@ export async function changeNarrator(bookId: string, narratorId: unknown): Promi
  * Narrate these chapters in another voice, leaving the fic's own voice alone. Only chapters not
  * narrated yet are affected; narrated ones keep the voice they have.
  */
-export async function setChapterVoice(bookId: string, indices: number[], narratorId: unknown): Promise<void> {
+export async function setChapterVoice(
+  bookId: string,
+  indices: number[],
+  narratorId: unknown,
+): Promise<void> {
   if (!BOOK_ID_RE.test(bookId)) throw new NarratorChangeError("Bad book id.", 400);
   const narrator = sanitizeNarrator(narratorId);
   if (!narrator) throw new NarratorChangeError("Unknown narrator.", 400);

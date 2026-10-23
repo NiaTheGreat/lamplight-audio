@@ -13,7 +13,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   try {
     return NextResponse.json(await repairBook(id, only));
   } catch (err) {
-    if (err instanceof PronunciationError) return NextResponse.json({ error: err.message }, { status: err.status });
+    if (err instanceof PronunciationError)
+      return NextResponse.json({ error: err.message }, { status: err.status });
     return NextResponse.json({ error: "Couldn't repair this book." }, { status: 500 });
   }
 }

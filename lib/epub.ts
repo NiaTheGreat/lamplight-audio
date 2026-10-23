@@ -34,18 +34,14 @@ const isChapterHeading = (line: string) =>
   !NOTE_HEADING.test(line);
 
 // Files that are never story text.
-const ALWAYS_SKIP_FILE =
-  /(^|\/)(cover|nav|toc|titlepage|title[-_]?page|colophon|copyright)[^/]*$/i;
+const ALWAYS_SKIP_FILE = /(^|\/)(cover|nav|toc|titlepage|title[-_]?page|colophon|copyright)[^/]*$/i;
 // AO3 puts the work summary/tags in preface.xhtml and end notes in afterword.xhtml.
 const NOTE_FILE = /(^|\/)(preface|afterword)[^/]*$/i;
 
 const BR = "\u0001";
 const BLOCK = "\u0002";
 
-export function extractChapter(
-  html: string,
-  skipNotes: boolean,
-): { title: string; text: string } {
+export function extractChapter(html: string, skipNotes: boolean): { title: string; text: string } {
   const $ = cheerio.load(html);
 
   // Work out the chapter title before anything is removed.
@@ -110,7 +106,10 @@ function normalize(raw: string): string {
     .map((line) => line.trim())
     // Scene-break lines like "* * *" have nothing to read; keep them as a pause.
     .map((line) => (/[\p{L}\p{N}]/u.test(line) ? line : ""));
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return lines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 type RawFile = { title: string; text: string };
@@ -134,7 +133,11 @@ export function regroupByHeadings(
   files: RawFile[],
   opts: { skipNotes: boolean; announceTitles: boolean },
 ): Chapter[] {
-  const paraOf = (f: RawFile) => f.text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  const paraOf = (f: RawFile) =>
+    f.text
+      .split(/\n{2,}/)
+      .map((p) => p.trim())
+      .filter(Boolean);
   const startsWithHeading = files.map((f) => isChapterHeading(paraOf(f)[0] ?? ""));
   const headingFiles = files.map((f) => paraOf(f).some(isChapterHeading));
 

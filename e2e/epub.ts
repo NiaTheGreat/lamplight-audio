@@ -27,7 +27,9 @@ export async function buildEpub(title = "E2E Fic"): Promise<Buffer> {
   for (const n of [1, 2, 3]) {
     zip.file(
       `OEBPS/chapter_${n}.xhtml`,
-      xhtml(`<h2>Chapter ${n}: Part ${n}</h2><p>${paragraph.repeat(6)}</p><p>${paragraph.repeat(4)}</p>`),
+      xhtml(
+        `<h2>Chapter ${n}: Part ${n}</h2><p>${paragraph.repeat(6)}</p><p>${paragraph.repeat(4)}</p>`,
+      ),
     );
   }
   return zip.generateAsync({ type: "nodebuffer" });

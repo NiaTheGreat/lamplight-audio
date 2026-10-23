@@ -14,7 +14,9 @@ export function HearButton({ text, voice }: { text: string; voice?: string }) {
     setError("");
     setState("loading");
     try {
-      const res = await fetch(`/api/pronounce?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice ?? "")}`);
+      const res = await fetch(
+        `/api/pronounce?text=${encodeURIComponent(text)}&voice=${encodeURIComponent(voice ?? "")}`,
+      );
       if (!res.ok) throw new Error((await res.text()) || "Couldn't make that.");
       const a = new Audio(URL.createObjectURL(await res.blob()));
       audio.current = a;
@@ -29,10 +31,20 @@ export function HearButton({ text, voice }: { text: string; voice?: string }) {
 
   return (
     <>
-      <button className="btn" style={{ minWidth: 0, padding: "0 14px" }} disabled={!text.trim() || state === "loading"} onClick={() => void hear()} aria-label={`Hear ${text}`}>
+      <button
+        className="btn"
+        style={{ minWidth: 0, padding: "0 14px" }}
+        disabled={!text.trim() || state === "loading"}
+        onClick={() => void hear()}
+        aria-label={`Hear ${text}`}
+      >
         {state === "loading" ? "…" : "Hear"}
       </button>
-      {error ? <span className="error" role="alert" style={{ gridColumn: "1 / -1" }}>{error}</span> : null}
+      {error ? (
+        <span className="error" role="alert" style={{ gridColumn: "1 / -1" }}>
+          {error}
+        </span>
+      ) : null}
     </>
   );
 }

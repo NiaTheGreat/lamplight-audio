@@ -10,7 +10,8 @@ afterAll(() => rmSync(cacheDir, { recursive: true, force: true }));
 describe("monthly spending cap", () => {
   it("allows narration under the limit and refuses once it would be passed", async () => {
     process.env.MONTHLY_CHAR_LIMIT = "100";
-    const { assertBudget, recordUsage, getUsage, BudgetError } = await import("@/lib/storage/usage");
+    const { assertBudget, recordUsage, getUsage, BudgetError } =
+      await import("@/lib/storage/usage");
     await assertBudget(60);
     await recordUsage(60);
     expect((await getUsage()).chars).toBe(60);
@@ -34,7 +35,9 @@ describe("batched usage counter", () => {
   const storedChars = async () => {
     const { getObject } = await import("@/lib/storage/storage");
     const raw = await getObject(monthFile());
-    return raw ? (JSON.parse(raw.toString()) as { chars: number; usd: number }) : { chars: 0, usd: 0 };
+    return raw
+      ? (JSON.parse(raw.toString()) as { chars: number; usd: number })
+      : { chars: 0, usd: 0 };
   };
 
   it("keeps counts in memory until flushed, but getUsage and the budget already include them", async () => {

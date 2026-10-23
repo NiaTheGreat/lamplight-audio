@@ -25,22 +25,25 @@ export function useBackgroundJob({
 }) {
   const [job, setJob] = useState<JobInfo | null>(null);
 
-  const startBackground = useCallback(async (range?: { from: number; to: number }, voice?: string) => {
-    const b = bookRef.current;
-    if (!b) return;
-    setError("");
-    const res = await fetch(`/api/books/${b.id}/narrate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...(range ?? {}), ...(voice ? { voice } : {}) }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(data.error ?? "Couldn't start background narration.");
-      return;
-    }
-    setJob((await res.json()) as JobInfo);
-  }, [bookRef, setError]);
+  const startBackground = useCallback(
+    async (range?: { from: number; to: number }, voice?: string) => {
+      const b = bookRef.current;
+      if (!b) return;
+      setError("");
+      const res = await fetch(`/api/books/${b.id}/narrate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...(range ?? {}), ...(voice ? { voice } : {}) }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setError(data.error ?? "Couldn't start background narration.");
+        return;
+      }
+      setJob((await res.json()) as JobInfo);
+    },
+    [bookRef, setError],
+  );
 
   const stopBackground = useCallback(async () => {
     const b = bookRef.current;
@@ -49,22 +52,25 @@ export function useBackgroundJob({
     setJob(null);
   }, [bookRef]);
 
-  const actOnJob = useCallback(async (action: "pause" | "resume") => {
-    const b = bookRef.current;
-    if (!b) return;
-    setError("");
-    const res = await fetch(`/api/books/${b.id}/narrate`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    }).catch(() => null);
-    if (!res || !res.ok) {
-      const data = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-      setError(data?.error ?? `Couldn't ${action} narration.`);
-      return;
-    }
-    setJob((await res.json()) as JobInfo | null);
-  }, [bookRef, setError]);
+  const actOnJob = useCallback(
+    async (action: "pause" | "resume") => {
+      const b = bookRef.current;
+      if (!b) return;
+      setError("");
+      const res = await fetch(`/api/books/${b.id}/narrate`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      }).catch(() => null);
+      if (!res || !res.ok) {
+        const data = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
+        setError(data?.error ?? `Couldn't ${action} narration.`);
+        return;
+      }
+      setJob((await res.json()) as JobInfo | null);
+    },
+    [bookRef, setError],
+  );
 
   const pauseBackground = useCallback(() => actOnJob("pause"), [actOnJob]);
   const resumeBackground = useCallback(() => actOnJob("resume"), [actOnJob]);

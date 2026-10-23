@@ -88,7 +88,9 @@ export async function narrateViaQueue(
       // Every few seconds, check the job itself so a failure shows up instead of waiting forever.
       if (Date.now() - lastJobCheck > 6000) {
         lastJobCheck = Date.now();
-        const j = await fetch(`/api/books/${bookId}/narrate`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+        const j = await fetch(`/api/books/${bookId}/narrate`)
+          .then((x) => (x.ok ? x.json() : null))
+          .catch(() => null);
         if (j && j.status === "error") throw new Error(j.error ?? "Narration failed.");
         if (j && j.status === "cancelled") return false;
       }

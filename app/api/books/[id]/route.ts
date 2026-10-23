@@ -4,10 +4,7 @@ import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types
 
 export const runtime = "nodejs";
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!BOOK_ID_RE.test(id)) {
     return NextResponse.json({ error: "Bad book id." }, { status: 400 });
@@ -26,7 +23,9 @@ export async function GET(
       // Entries made before chapter lengths were recorded get them now, so the shelf can show a cost.
       if (!entry.chars) {
         entry.chars = summary.chapters.map((c) => c.chars);
-        await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json").catch(() => {});
+        await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json").catch(
+          () => {},
+        );
       }
     } catch {
       /* a bad entry is rebuilt below */
@@ -44,16 +43,15 @@ export async function GET(
       narrated: [],
       chars: summary.chapters.map((c) => c.chars),
     };
-    await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json").catch(() => {});
+    await putObject(`library/${id}.json`, JSON.stringify(entry), "application/json").catch(
+      () => {},
+    );
   }
   return NextResponse.json(summary, { headers: { "Cache-Control": "no-store" } });
 }
 
 /** Remove a book from the library. Its cached audio is kept, so re-uploading is free. */
-export async function DELETE(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> },
-) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!BOOK_ID_RE.test(id)) {
     return NextResponse.json({ error: "Bad book id." }, { status: 400 });

@@ -39,7 +39,10 @@ function buildRequest(input: string, narrator: string) {
   return { provider: provider.id, ...provider.request(input, voice, apiKey) };
 }
 
-export async function synthChunk(input: string, narrator: string = defaultVoice()): Promise<Buffer> {
+export async function synthChunk(
+  input: string,
+  narrator: string = defaultVoice(),
+): Promise<Buffer> {
   const req = buildRequest(input, narrator);
   const name = PROVIDER_INFO[req.provider].name;
   await assertBudget(input.length, narrator);
@@ -103,8 +106,7 @@ async function mapLimit<T, R>(
 }
 
 export type ChapterProgress =
-  | { done: true; audio: Buffer }
-  | { done: false; ready: number; total: number };
+  { done: true; audio: Buffer } | { done: false; ready: number; total: number };
 
 /**
  * Narrate a chapter chunk by chunk. Every finished chunk is cached on its own,
@@ -150,7 +152,10 @@ export async function synthesizeChapter(
   const ready = parts.filter(Boolean).length;
   if (ready < chunks.length) return { done: false, ready, total: chunks.length };
   // MP3 frames can simply be concatenated.
-  return { done: true, audio: joinMp3(parts as Buffer[], { repair: PROVIDER_INFO[providerOf(voice)].needsMp3Repair }) };
+  return {
+    done: true,
+    audio: joinMp3(parts as Buffer[], { repair: PROVIDER_INFO[providerOf(voice)].needsMp3Repair }),
+  };
 }
 
 /** How many of a chapter's chunks are already cached (for the progress bar). */

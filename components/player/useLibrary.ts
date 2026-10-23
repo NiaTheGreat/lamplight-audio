@@ -17,7 +17,9 @@ export function useLibrary() {
         setLibraryLoaded(true);
         setLibraryError("");
       } else {
-        setLibraryError(`Couldn't load your shelf (${res.status}). ${(await res.text()).slice(0, 200)}`);
+        setLibraryError(
+          `Couldn't load your shelf (${res.status}). ${(await res.text()).slice(0, 200)}`,
+        );
       }
     } catch {
       /* offline: keep what we have */

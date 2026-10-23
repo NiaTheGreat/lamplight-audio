@@ -73,7 +73,11 @@ export async function GET(
         }
       } else {
         const url = await getPublicUrl(known);
-        if (url) return new Response(null, { status: 307, headers: { Location: url, "Cache-Control": "no-store" } });
+        if (url)
+          return new Response(null, {
+            status: 307,
+            headers: { Location: url, "Cache-Control": "no-store" },
+          });
         const audio = await getObject(known);
         if (audio) return serveBytes(req, audio, "audio/mpeg");
       }
@@ -93,7 +97,10 @@ export async function GET(
   if (query.get("inspect") === "1") {
     const audio = await getObject(key);
     if (!audio) return Response.json({ error: "Not narrated yet." }, { status: 404 });
-    return Response.json({ voice, key, ...inspectMp3(audio) }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json(
+      { voice, key, ...inspectMp3(audio) },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   }
 
   if (query.get("progress") === "1") {
@@ -148,7 +155,9 @@ export async function GET(
       if (!result.done) return notYet(result);
       return Response.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
     } catch (err) {
-      return new Response(err instanceof Error ? err.message : "Narration failed.", { status: 502 });
+      return new Response(err instanceof Error ? err.message : "Narration failed.", {
+        status: 502,
+      });
     }
   }
 
@@ -175,7 +184,9 @@ export async function GET(
       if (!result.done) return notYet(result);
       audio = result.audio;
     } catch (err) {
-      return new Response(err instanceof Error ? err.message : "Narration failed.", { status: 502 });
+      return new Response(err instanceof Error ? err.message : "Narration failed.", {
+        status: 502,
+      });
     }
   }
 

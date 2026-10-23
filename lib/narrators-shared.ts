@@ -141,8 +141,10 @@ export function parseNarrator(id: unknown): ParsedNarrator | null {
   if (!id.includes(":")) return { provider: "openai", voice: id }; // legacy plain voice
   const [provider, model, voice, ...rest] = id.split(":");
   if (rest.length || !voice) return null;
-  if (provider === "deepinfra" && model === "kokoro") return { provider: "deepinfra", model, voice };
-  if (provider === "elevenlabs" && model === "flash") return { provider: "elevenlabs", model, voice };
+  if (provider === "deepinfra" && model === "kokoro")
+    return { provider: "deepinfra", model, voice };
+  if (provider === "elevenlabs" && model === "flash")
+    return { provider: "elevenlabs", model, voice };
   return null;
 }
 
@@ -150,8 +152,10 @@ export function parseNarrator(id: unknown): ParsedNarrator | null {
 export function sanitizeNarrator(id: unknown): string | undefined {
   const parsed = parseNarrator(id);
   if (!parsed || typeof id !== "string") return undefined;
-  if (parsed.provider === "openai") return (VOICES as readonly string[]).includes(id) ? id : undefined;
-  if (parsed.provider === "elevenlabs") return ELEVENLABS_VOICES.some((v) => v.id === parsed.voice) ? id : undefined;
+  if (parsed.provider === "openai")
+    return (VOICES as readonly string[]).includes(id) ? id : undefined;
+  if (parsed.provider === "elevenlabs")
+    return ELEVENLABS_VOICES.some((v) => v.id === parsed.voice) ? id : undefined;
   return (KOKORO_VOICES as readonly string[]).includes(parsed.voice) ? id : undefined;
 }
 
@@ -189,7 +193,9 @@ export function narratorLabel(id: string | undefined): string {
   if (parsed.provider === "elevenlabs") {
     return `${ELEVENLABS_VOICES.find((v) => v.id === parsed.voice)?.name ?? "Voice"} (ElevenLabs)`;
   }
-  return parsed.provider === "openai" ? prettyVoice(parsed.voice) : `${prettyVoice(parsed.voice)} (Kokoro)`;
+  return parsed.provider === "openai"
+    ? prettyVoice(parsed.voice)
+    : `${prettyVoice(parsed.voice)} (Kokoro)`;
 }
 
 export type NarratorGroup = {
@@ -211,12 +217,18 @@ export const NARRATOR_GROUPS: NarratorGroup[] = [
     provider: "deepinfra",
     label: PROVIDER_LABEL.deepinfra,
     pricePerMillion: PRICE_PER_MILLION_CHARS.deepinfra,
-    narrators: KOKORO_VOICES.map((v) => ({ id: kokoroId(v), label: `${prettyVoice(v)} · ${kokoroTraits(v)}` })),
+    narrators: KOKORO_VOICES.map((v) => ({
+      id: kokoroId(v),
+      label: `${prettyVoice(v)} · ${kokoroTraits(v)}`,
+    })),
   },
   {
     provider: "elevenlabs",
     label: PROVIDER_LABEL.elevenlabs,
     pricePerMillion: PRICE_PER_MILLION_CHARS.elevenlabs,
-    narrators: ELEVENLABS_VOICES.map((v) => ({ id: elevenLabsId(v.id), label: `${v.name} · ${v.traits}` })),
+    narrators: ELEVENLABS_VOICES.map((v) => ({
+      id: elevenLabsId(v.id),
+      label: `${v.name} · ${v.traits}`,
+    })),
   },
 ];

@@ -8,7 +8,11 @@ import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
-import { changeBookPronunciation, getBookPronunciation, type BookPronunciation } from "@/lib/client/api";
+import {
+  changeBookPronunciation,
+  getBookPronunciation,
+  type BookPronunciation,
+} from "@/lib/client/api";
 import type { Pron } from "@/lib/pronunciation/pronunciation";
 import type { StaleChapter } from "@/lib/pronunciation/pronunciation-store";
 
@@ -72,23 +76,41 @@ export default function PronunciationPage() {
   return (
     <main className="screen no-tabs" style={{ paddingBottom: 140 }}>
       <div className="topbar">
-        <Link href={`/book/${id}/narrating`} className="icon-btn" aria-label="Back"><Icon name="back" /></Link>
+        <Link href={`/book/${id}/narrating`} className="icon-btn" aria-label="Back">
+          <Icon name="back" />
+        </Link>
       </div>
-      <div className="eyebrow" style={{ marginTop: 6 }}>This fic</div>
-      <h1 className="title" style={{ marginTop: 6 }}>How to say things</h1>
+      <div className="eyebrow" style={{ marginTop: 6 }}>
+        This fic
+      </div>
+      <h1 className="title" style={{ marginTop: 6 }}>
+        How to say things
+      </h1>
       <p className="lead" style={{ marginTop: 14 }}>
-        Add a name or word and how it should sound. Spell it the way you&apos;d want it read, like &ldquo;Sirius&rdquo; → &ldquo;SEER-ee-us&rdquo;.
-        New chapters use these; chapters already narrated keep the voice they have, so nothing is spent.
+        Add a name or word and how it should sound. Spell it the way you&apos;d want it read, like
+        &ldquo;Sirius&rdquo; → &ldquo;SEER-ee-us&rdquo;. New chapters use these; chapters already
+        narrated keep the voice they have, so nothing is spent.
       </p>
 
-      {error ? <p className="error" role="alert">{error}</p> : null}
-      {message ? <p className="faint" role="status">{message}</p> : null}
+      {error ? (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="faint" role="status">
+          {message}
+        </p>
+      ) : null}
 
       {list ? (
         <section className="section" aria-label="Copied list">
           <div className="eyebrow">List copied into this fic</div>
           <p className="serif" style={{ fontSize: 17, margin: "8px 0 4px" }}>
-            {list.name} <span className="faint">· {list.lines.length} line{list.lines.length === 1 ? "" : "s"}</span>
+            {list.name}{" "}
+            <span className="faint">
+              · {list.lines.length} line{list.lines.length === 1 ? "" : "s"}
+            </span>
           </p>
           <p className="faint" style={{ lineHeight: 1.5 }}>
             This is the copy made when the fic was added. Your own lines below win over it.
@@ -119,20 +141,48 @@ export default function PronunciationPage() {
           <div className="pron-rows">
             {lines.map((l, i) => (
               <div key={i} className="pron-row">
-                <input className="select" aria-label="Written as" placeholder="Written" value={l.from} onChange={(e) => edit(i, { from: e.target.value })} />
-                <input className="select" aria-label="Said as" placeholder="Said like" value={l.to} onChange={(e) => edit(i, { to: e.target.value })} />
+                <input
+                  className="select"
+                  aria-label="Written as"
+                  placeholder="Written"
+                  value={l.from}
+                  onChange={(e) => edit(i, { from: e.target.value })}
+                />
+                <input
+                  className="select"
+                  aria-label="Said as"
+                  placeholder="Said like"
+                  value={l.to}
+                  onChange={(e) => edit(i, { to: e.target.value })}
+                />
                 <HearButton text={l.to} voice={voice} />
-                <button className="icon-btn" aria-label="Remove line" onClick={() => { setLines(lines.filter((_, j) => j !== i)); setDirty(true); }}>
+                <button
+                  className="icon-btn"
+                  aria-label="Remove line"
+                  onClick={() => {
+                    setLines(lines.filter((_, j) => j !== i));
+                    setDirty(true);
+                  }}
+                >
                   <Icon name="trash" size={18} />
                 </button>
               </div>
             ))}
           </div>
-          <button className="btn" style={{ marginTop: 12 }} onClick={() => { setLines([...lines, { from: "", to: "" }]); setDirty(true); }}>
-            <Icon name="add" size={18} />Add a line
+          <button
+            className="btn"
+            style={{ marginTop: 12 }}
+            onClick={() => {
+              setLines([...lines, { from: "", to: "" }]);
+              setDirty(true);
+            }}
+          >
+            <Icon name="add" size={18} />
+            Add a line
           </button>
           <p className="faint" style={{ marginTop: 10, lineHeight: 1.5 }}>
-            Kokoro works best with one lowercase word and no hyphens or capitals, like <em>rejeena</em> for Regina. Use the Hear button to try it.
+            Kokoro works best with one lowercase word and no hyphens or capitals, like{" "}
+            <em>rejeena</em> for Regina. Use the Hear button to try it.
           </p>
         </section>
       ) : null}
@@ -141,8 +191,8 @@ export default function PronunciationPage() {
         <section className="section" aria-label="Chapters still using older pronunciations">
           <div className="eyebrow">Already narrated</div>
           <p className="faint" style={{ lineHeight: 1.5, marginTop: 8 }}>
-            These narrated chapters were read with older pronunciations. Tick the ones to read again; each costs money,
-            so skip the long ones if you like.
+            These narrated chapters were read with older pronunciations. Tick the ones to read
+            again; each costs money, so skip the long ones if you like.
           </p>
           <div className="rows">
             {stale.map((c) => (
@@ -167,18 +217,33 @@ export default function PronunciationPage() {
             style={{ marginTop: 12 }}
             disabled={busy || picked.length === 0}
             onClick={async () => {
-              if (await dialog.confirm({ title: `Re-read ${picked.length} chapter${picked.length === 1 ? "" : "s"}?`, body: `They'll be narrated again when you play them, about ${formatUsd(costUsd(staleChars, voice))}.`, confirmLabel: "Re-read" })) {
-                void call("POST", { chapters: picked.map((c) => c.index) }, "Those chapters will be read again with the new pronunciations when you play them.");
+              if (
+                await dialog.confirm({
+                  title: `Re-read ${picked.length} chapter${picked.length === 1 ? "" : "s"}?`,
+                  body: `They'll be narrated again when you play them, about ${formatUsd(costUsd(staleChars, voice))}.`,
+                  confirmLabel: "Re-read",
+                })
+              ) {
+                void call(
+                  "POST",
+                  { chapters: picked.map((c) => c.index) },
+                  "Those chapters will be read again with the new pronunciations when you play them.",
+                );
               }
             }}
           >
-            Re-read {picked.length} chapter{picked.length === 1 ? "" : "s"} · about {formatUsd(costUsd(staleChars, voice))}
+            Re-read {picked.length} chapter{picked.length === 1 ? "" : "s"} · about{" "}
+            {formatUsd(costUsd(staleChars, voice))}
           </button>
         </section>
       ) : null}
 
       <div className="sticky-actions">
-        <button className="btn primary" disabled={busy || !dirty} onClick={() => void call("PUT", { lines }, "Saved.")}>
+        <button
+          className="btn primary"
+          disabled={busy || !dirty}
+          onClick={() => void call("PUT", { lines }, "Saved.")}
+        >
           Save
         </button>
       </div>

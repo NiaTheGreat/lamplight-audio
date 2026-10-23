@@ -1,6 +1,12 @@
 import { clearKeys } from "../storage/keys";
 import { getJob, isJobActive } from "../narration/narration";
-import { applyPronunciations, effectiveLines, sanitizeLines, spokenText, type Pron } from "./pronunciation";
+import {
+  applyPronunciations,
+  effectiveLines,
+  sanitizeLines,
+  spokenText,
+  type Pron,
+} from "./pronunciation";
 import { getObject, putObject } from "../storage/storage";
 import { BOOK_ID_RE, type Book, type LibraryEntry } from "../types";
 
@@ -29,7 +35,10 @@ async function load(bookId: string): Promise<{ book: Book; entry: LibraryEntry |
 async function assertIdle(bookId: string) {
   const job = await getJob(bookId);
   if (isJobActive(job)) {
-    throw new PronunciationError("Narration is running for this book. Pause or cancel it first.", 409);
+    throw new PronunciationError(
+      "Narration is running for this book. Pause or cancel it first.",
+      409,
+    );
   }
 }
 
@@ -38,13 +47,20 @@ function stale(book: Book, entry: LibraryEntry | null): StaleChapter[] {
   const narrated = new Set(entry?.narrated ?? []);
   return book.chapters
     .filter((c) => narrated.has(c.index) && book.frozen?.[c.index])
-    .filter((c) => spokenText(book, c.index, c.text) !== applyPronunciations(c.text, effectiveLines(book)))
+    .filter(
+      (c) =>
+        spokenText(book, c.index, c.text) !== applyPronunciations(c.text, effectiveLines(book)),
+    )
     .map((c) => ({ index: c.index, title: c.title, chars: c.text.length }));
 }
 
 export async function getPronunciations(bookId: string) {
   const { book, entry } = await load(bookId);
-  return { lines: book.pronunciations ?? [], list: book.pronList ?? null, stale: stale(book, entry) };
+  return {
+    lines: book.pronunciations ?? [],
+    list: book.pronList ?? null,
+    stale: stale(book, entry),
+  };
 }
 
 /**
@@ -68,7 +84,11 @@ async function change(bookId: string, mutate: (book: Book) => void) {
     }
   }
   await putObject(`books/${bookId}.json`, JSON.stringify(book), "application/json");
-  return { lines: book.pronunciations ?? [], list: book.pronList ?? null, stale: stale(book, entry) };
+  return {
+    lines: book.pronunciations ?? [],
+    list: book.pronList ?? null,
+    stale: stale(book, entry),
+  };
 }
 
 /** Replace the book's own lines. */
@@ -80,7 +100,10 @@ export function savePronunciations(bookId: string, input: unknown) {
 }
 
 /** Re-copy the named list into the book (it changes only what's not narrated yet, until re-read). */
-export function updateFromList(bookId: string, list: { id: string; name: string; lines: Pron[] } | null) {
+export function updateFromList(
+  bookId: string,
+  list: { id: string; name: string; lines: Pron[] } | null,
+) {
   return change(bookId, (book) => {
     book.pronList = list ? { id: list.id, name: list.name, lines: list.lines } : undefined;
   });
@@ -94,9 +117,7 @@ export async function renarrate(bookId: string, chapters: unknown) {
   await assertIdle(bookId);
   const { book, entry } = await load(bookId);
   const staleIdx = stale(book, entry).map((c) => c.index);
-  const wanted = Array.isArray(chapters)
-    ? staleIdx.filter((i) => chapters.includes(i))
-    : staleIdx;
+  const wanted = Array.isArray(chapters) ? staleIdx.filter((i) => chapters.includes(i)) : staleIdx;
   for (const i of wanted) delete book.frozen?.[i];
   await clearKeys(bookId, wanted);
   if (book.frozen && Object.keys(book.frozen).length === 0) delete book.frozen;

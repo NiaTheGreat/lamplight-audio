@@ -13,7 +13,13 @@ const endPad = () => process.env.TTS_END_PAD ?? "\n\n…";
 export const openai: TtsProvider = {
   id: "openai",
   // The original layout: tests/cachekeys pins these keys.
-  cacheLayout: (text, narrator) => [model(), narrator, supportsInstructions() ? instructions() : "", endPad(), text],
+  cacheLayout: (text, narrator) => [
+    model(),
+    narrator,
+    supportsInstructions() ? instructions() : "",
+    endPad(),
+    text,
+  ],
   request(input, voice, apiKey) {
     const body: Record<string, unknown> = {
       model: model(),

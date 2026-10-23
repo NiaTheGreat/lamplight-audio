@@ -11,7 +11,9 @@ afterAll(() => rmSync(cacheDir, { recursive: true, force: true }));
 const ID = "9999aaaabbbbcccc";
 const call = async (qs: string) => {
   const { GET } = await import("@/app/api/audio/[id]/[chapter]/route");
-  return GET(new Request(`http://x/api/audio/${ID}/0${qs}`), { params: Promise.resolve({ id: ID, chapter: "0" }) });
+  return GET(new Request(`http://x/api/audio/${ID}/0${qs}`), {
+    params: Promise.resolve({ id: ID, chapter: "0" }),
+  });
 };
 
 describe("playing a narrated chapter", () => {
@@ -20,8 +22,21 @@ describe("playing a narrated chapter", () => {
     const { audioKey } = await import("@/lib/narration/tts");
     const { getKeys } = await import("@/lib/storage/keys");
     const text = "Chapter one. It was a dark night.";
-    await putObject(`books/${ID}.json`, JSON.stringify({ id: ID, title: "T", voice: "ballad", chapters: [{ index: 0, title: "One", text }] }), "application/json");
-    await putObject(`library/${ID}.json`, JSON.stringify({ id: ID, title: "T", chapterCount: 1, addedAt: 1 }), "application/json");
+    await putObject(
+      `books/${ID}.json`,
+      JSON.stringify({
+        id: ID,
+        title: "T",
+        voice: "ballad",
+        chapters: [{ index: 0, title: "One", text }],
+      }),
+      "application/json",
+    );
+    await putObject(
+      `library/${ID}.json`,
+      JSON.stringify({ id: ID, title: "T", chapterCount: 1, addedAt: 1 }),
+      "application/json",
+    );
     const key = audioKey(text, "ballad");
     await putObject(key, Buffer.alloc(5000, 1), "audio/mpeg");
 

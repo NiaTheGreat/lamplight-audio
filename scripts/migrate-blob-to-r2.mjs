@@ -9,7 +9,13 @@
 import { list } from "@vercel/blob";
 import { AwsClient } from "aws4fetch";
 
-const need = ["BLOB_READ_WRITE_TOKEN", "R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY", "R2_BUCKET"];
+const need = [
+  "BLOB_READ_WRITE_TOKEN",
+  "R2_ACCOUNT_ID",
+  "R2_ACCESS_KEY_ID",
+  "R2_SECRET_ACCESS_KEY",
+  "R2_BUCKET",
+];
 for (const n of need) if (!process.env[n]) throw new Error(`Set ${n}`);
 
 const base = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${process.env.R2_BUCKET}`;
@@ -22,18 +28,28 @@ const r2 = new AwsClient({
 const url = (key) => `${base}/${key.split("/").map(encodeURIComponent).join("/")}`;
 
 // Records that are only meaningful for a running job or a moment in time are not worth copying.
-const skip = (key) => key.startsWith("jobs/") || key.startsWith("usage/") || key.startsWith("throttle/");
+const skip = (key) =>
+  key.startsWith("jobs/") || key.startsWith("usage/") || key.startsWith("throttle/");
 
 let cursor;
-let copied = 0, skipped = 0, failed = 0, bytes = 0;
+let copied = 0,
+  skipped = 0,
+  failed = 0,
+  bytes = 0;
 do {
   const page = await list({ cursor, limit: 1000 });
   for (const blob of page.blobs) {
     const key = blob.pathname;
-    if (skip(key)) { skipped++; continue; }
+    if (skip(key)) {
+      skipped++;
+      continue;
+    }
     try {
       const head = await r2.fetch(url(key), { method: "HEAD" });
-      if (head.ok) { skipped++; continue; }
+      if (head.ok) {
+        skipped++;
+        continue;
+      }
       const src = await fetch(blob.url);
       if (!src.ok) throw new Error(`download ${src.status}`);
       const body = new Uint8Array(await src.arrayBuffer());
@@ -47,7 +63,8 @@ do {
         body,
       });
       if (!put.ok) throw new Error(`upload ${put.status}`);
-      copied++; bytes += body.length;
+      copied++;
+      bytes += body.length;
       console.log(`copied ${key} (${(body.length / 1e6).toFixed(1)} MB)`);
     } catch (err) {
       failed++;
@@ -57,5 +74,7 @@ do {
   cursor = page.hasMore ? page.cursor : undefined;
 } while (cursor);
 
-console.log(`\nDone. Copied ${copied} (${(bytes / 1e6).toFixed(0)} MB), skipped ${skipped}, failed ${failed}.`);
+console.log(
+  `\nDone. Copied ${copied} (${(bytes / 1e6).toFixed(0)} MB), skipped ${skipped}, failed ${failed}.`,
+);
 if (failed) process.exitCode = 1;

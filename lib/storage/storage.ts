@@ -15,7 +15,11 @@ import { AwsClient } from "aws4fetch";
 // same name, which is a hash of its text, not of its bytes), so it is only cached briefly.
 const isImmutable = (key: string) => key.startsWith("previews/");
 const cacheControl = (key: string) =>
-  isImmutable(key) ? "public, max-age=31536000, immutable" : key.startsWith("audio/") ? "private, max-age=600" : "no-store";
+  isImmutable(key)
+    ? "public, max-age=31536000, immutable"
+    : key.startsWith("audio/")
+      ? "private, max-age=600"
+      : "no-store";
 
 const r2 = () => {
   const accountId = process.env.R2_ACCOUNT_ID;
@@ -107,7 +111,10 @@ export async function putObject(
           "Content-Type": contentType,
           "Cache-Control": cacheControl(key),
         },
-        body: typeof data === "string" ? data : new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+        body:
+          typeof data === "string"
+            ? data
+            : new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
       });
       if (!res.ok) throw new Error(`Storage write failed (${res.status}) for ${key}`);
     });
@@ -230,7 +237,12 @@ export async function listKeys(prefix: string): Promise<string[]> {
 }
 
 const decodeXml = (s: string) =>
-  s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, "&");
+  s
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, "&");
 
 export async function deleteObject(key: string): Promise<void> {
   assertDurable();
@@ -238,7 +250,8 @@ export async function deleteObject(key: string): Promise<void> {
   if (store) {
     await withRetry(async () => {
       const res = await r2Fetch(store, objectUrl(store.base, key), { method: "DELETE" });
-      if (!res.ok && res.status !== 404) throw new Error(`Storage delete failed (${res.status}) for ${key}`);
+      if (!res.ok && res.status !== 404)
+        throw new Error(`Storage delete failed (${res.status}) for ${key}`);
     });
     return;
   }

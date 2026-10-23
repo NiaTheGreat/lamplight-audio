@@ -21,7 +21,11 @@ export async function setLive(bookId: string, chapter: number, on: boolean): Pro
     const rest = (await read()).filter(
       (l) => !(l.bookId === bookId && l.chapter === chapter) && now - l.startedAt < STALE_MS,
     );
-    await putObject(KEY, JSON.stringify(on ? [...rest, { bookId, chapter, startedAt: now }] : rest), "application/json");
+    await putObject(
+      KEY,
+      JSON.stringify(on ? [...rest, { bookId, chapter, startedAt: now }] : rest),
+      "application/json",
+    );
   } catch {
     /* the queue view is a convenience */
   }

@@ -30,7 +30,11 @@ export function NarratorOptions({
       {groups.map((g) => (
         <optgroup
           key={g.provider}
-          label={showPrice ? `${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters` : g.label}
+          label={
+            showPrice
+              ? `${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`
+              : g.label
+          }
         >
           {g.narrators
             .filter((n) => n.id !== exclude)

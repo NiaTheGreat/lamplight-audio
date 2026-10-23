@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import { buildEpub } from "./epub";
 
 // One shared library for the whole file: the first test adds a fic and the rest use it.
@@ -94,10 +94,14 @@ test("player: play an unnarrated chapter through the queue, then hear it", async
   await expect(page.getByRole("dialog", { name: "Read this chapter aloud?" })).toBeVisible();
   await page.getByRole("button", { name: "Read it aloud" }).click();
   // The fake narrator answers at once; the player then loads the audio.
-  await expect(page.getByRole("button", { name: "Pause" }).first()).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Pause" }).first()).toBeVisible({
+    timeout: 60_000,
+  });
   const audio = page.locator("audio");
   await expect(audio).toHaveAttribute("src", /\/api\/audio\/[a-f0-9]{16}\/0$/);
-  await expect.poll(() => audio.evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 20_000 }).toBeGreaterThan(0);
+  await expect
+    .poll(() => audio.evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 20_000 })
+    .toBeGreaterThan(0);
 
   // Pause and resume from the main button.
   await page.getByRole("button", { name: "Pause" }).first().click();

@@ -30,7 +30,11 @@ export default function PronunciationLists() {
   }, []);
 
   if (!data) {
-    return <main className="screen no-tabs">{error ? <p className="error">{error}</p> : <p className="empty">Opening…</p>}</main>;
+    return (
+      <main className="screen no-tabs">
+        {error ? <p className="error">{error}</p> : <p className="empty">Opening…</p>}
+      </main>
+    );
   }
 
   const set = (next: PronLists) => {
@@ -59,38 +63,83 @@ export default function PronunciationLists() {
   return (
     <main className="screen no-tabs" style={{ paddingBottom: 140 }}>
       <div className="topbar">
-        <Link href="/settings" className="icon-btn" aria-label="Back"><Icon name="back" /></Link>
+        <Link href="/settings" className="icon-btn" aria-label="Back">
+          <Icon name="back" />
+        </Link>
       </div>
-      <div className="eyebrow" style={{ marginTop: 6 }}>Settings</div>
-      <h1 className="title" style={{ marginTop: 6 }}>Pronunciation lists</h1>
+      <div className="eyebrow" style={{ marginTop: 6 }}>
+        Settings
+      </div>
+      <h1 className="title" style={{ marginTop: 6 }}>
+        Pronunciation lists
+      </h1>
       <p className="lead" style={{ marginTop: 14 }}>
-        Pick a list when you add a fic, or mark one automatic. The list is copied into the fic, so editing it here only affects fics you add afterwards.
+        Pick a list when you add a fic, or mark one automatic. The list is copied into the fic, so
+        editing it here only affects fics you add afterwards.
       </p>
-      {error ? <p className="error" role="alert">{error}</p> : null}
-      {message ? <p className="faint" role="status">{message}</p> : null}
+      {error ? (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="faint" role="status">
+          {message}
+        </p>
+      ) : null}
 
-      <label className="label" htmlFor="test-voice" style={{ display: "block", marginTop: 18 }}>Voice for the Hear buttons</label>
-      <select id="test-voice" className="select wide" value={testVoice} onChange={(e) => setChosenVoice(e.target.value)}>
+      <label className="label" htmlFor="test-voice" style={{ display: "block", marginTop: 18 }}>
+        Voice for the Hear buttons
+      </label>
+      <select
+        id="test-voice"
+        className="select wide"
+        value={testVoice}
+        onChange={(e) => setChosenVoice(e.target.value)}
+      >
         <NarratorOptions groups={groups} showPrice={false} hideKeyHint />
       </select>
 
       {data.lists.map((l, i) => (
         <section key={l.id} className="section" aria-label={l.name}>
           <div className="pron-row" style={{ gridTemplateColumns: "1fr 44px" }}>
-            <input className="select" aria-label="List name" value={l.name} onChange={(e) => update(i, { name: e.target.value })} />
+            <input
+              className="select"
+              aria-label="List name"
+              value={l.name}
+              onChange={(e) => update(i, { name: e.target.value })}
+            />
             <button
               className="icon-btn"
               aria-label={`Delete ${l.name}`}
               onClick={async () => {
-                if (await dialog.confirm({ title: `Delete "${l.name}"?`, body: "Fics that already copied it keep their copy.", confirmLabel: "Delete" })) {
-                  set({ lists: data.lists.filter((_, j) => j !== i), auto: data.auto === l.id ? undefined : data.auto });
+                if (
+                  await dialog.confirm({
+                    title: `Delete "${l.name}"?`,
+                    body: "Fics that already copied it keep their copy.",
+                    confirmLabel: "Delete",
+                  })
+                ) {
+                  set({
+                    lists: data.lists.filter((_, j) => j !== i),
+                    auto: data.auto === l.id ? undefined : data.auto,
+                  });
                 }
               }}
             >
               <Icon name="trash" size={18} />
             </button>
           </div>
-          <label className="faint" style={{ display: "flex", gap: 10, alignItems: "center", margin: "10px 0", minHeight: 44 }}>
+          <label
+            className="faint"
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              margin: "10px 0",
+              minHeight: 44,
+            }}
+          >
             <input
               type="checkbox"
               checked={data.auto === l.id}
@@ -101,22 +150,50 @@ export default function PronunciationLists() {
           <div className="pron-rows">
             {l.lines.map((line, k) => (
               <div key={k} className="pron-row">
-                <input className="select" aria-label="Written as" placeholder="Written" value={line.from}
-                  onChange={(e) => update(i, { lines: l.lines.map((x, j) => (j === k ? { ...x, from: e.target.value } : x)) })} />
-                <input className="select" aria-label="Said as" placeholder="Said like" value={line.to}
-                  onChange={(e) => update(i, { lines: l.lines.map((x, j) => (j === k ? { ...x, to: e.target.value } : x)) })} />
+                <input
+                  className="select"
+                  aria-label="Written as"
+                  placeholder="Written"
+                  value={line.from}
+                  onChange={(e) =>
+                    update(i, {
+                      lines: l.lines.map((x, j) => (j === k ? { ...x, from: e.target.value } : x)),
+                    })
+                  }
+                />
+                <input
+                  className="select"
+                  aria-label="Said as"
+                  placeholder="Said like"
+                  value={line.to}
+                  onChange={(e) =>
+                    update(i, {
+                      lines: l.lines.map((x, j) => (j === k ? { ...x, to: e.target.value } : x)),
+                    })
+                  }
+                />
                 <HearButton text={line.to} voice={testVoice} />
-                <button className="icon-btn" aria-label="Remove line" onClick={() => update(i, { lines: l.lines.filter((_, j) => j !== k) })}>
+                <button
+                  className="icon-btn"
+                  aria-label="Remove line"
+                  onClick={() => update(i, { lines: l.lines.filter((_, j) => j !== k) })}
+                >
                   <Icon name="trash" size={18} />
                 </button>
               </div>
             ))}
           </div>
-          <button className="btn" style={{ marginTop: 12 }} onClick={() => update(i, { lines: [...l.lines, { from: "", to: "" }] })}>
-            <Icon name="add" size={18} />Add a line
+          <button
+            className="btn"
+            style={{ marginTop: 12 }}
+            onClick={() => update(i, { lines: [...l.lines, { from: "", to: "" }] })}
+          >
+            <Icon name="add" size={18} />
+            Add a line
           </button>
           <p className="faint" style={{ marginTop: 10, lineHeight: 1.5 }}>
-            Kokoro works best with one lowercase word and no hyphens or capitals, like <em>rejeena</em> for Regina. Use the Hear button to try it.
+            Kokoro works best with one lowercase word and no hyphens or capitals, like{" "}
+            <em>rejeena</em> for Regina. Use the Hear button to try it.
           </p>
         </section>
       ))}
@@ -124,13 +201,18 @@ export default function PronunciationLists() {
       <button
         className="btn"
         style={{ marginTop: 22 }}
-        onClick={() => set({ ...data, lists: [...data.lists, { id: "", name: "New list", lines: [] }] })}
+        onClick={() =>
+          set({ ...data, lists: [...data.lists, { id: "", name: "New list", lines: [] }] })
+        }
       >
-        <Icon name="add" size={18} />New list
+        <Icon name="add" size={18} />
+        New list
       </button>
 
       <div className="sticky-actions">
-        <button className="btn primary" disabled={busy || !dirty} onClick={() => void save()}>Save</button>
+        <button className="btn primary" disabled={busy || !dirty} onClick={() => void save()}>
+          Save
+        </button>
       </div>
     </main>
   );

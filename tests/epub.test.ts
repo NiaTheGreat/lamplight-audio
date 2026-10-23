@@ -49,7 +49,10 @@ async function buildEpub(): Promise<Buffer> {
       `<h2>Chapter 2</h2><h3 class="landmark heading" id="work">Chapter Text</h3><h3>Notes</h3><blockquote><p>GENERICNOTE skip me.</p></blockquote><p>The second chapter has plenty of story in it.</p>`,
     ),
   );
-  zip.file("OEBPS/afterword.xhtml", xhtml(`<p>AFTERWORD skip me, this is long enough to count.</p>`));
+  zip.file(
+    "OEBPS/afterword.xhtml",
+    xhtml(`<p>AFTERWORD skip me, this is long enough to count.</p>`),
+  );
   return zip.generateAsync({ type: "nodebuffer" });
 }
 
@@ -65,7 +68,14 @@ describe("parseEpub", () => {
   it("strips summaries and author's notes", async () => {
     const book = await parseEpub(await buildEpub());
     const all = book.chapters.map((c) => c.text).join("\n");
-    for (const banned of ["WORKSUMMARY", "CHAPSUMMARY", "AUTHORNOTE", "ENDNOTE", "GENERICNOTE", "AFTERWORD"]) {
+    for (const banned of [
+      "WORKSUMMARY",
+      "CHAPSUMMARY",
+      "AUTHORNOTE",
+      "ENDNOTE",
+      "GENERICNOTE",
+      "AFTERWORD",
+    ]) {
       expect(all).not.toContain(banned);
     }
     expect(book.chapters[0].text).toContain("The rain fell softly on the old house.");
@@ -87,9 +97,20 @@ describe("parseEpub", () => {
 
   it("strips notes labelled with plain <p> (Calibre-converted AO3 EPUBs)", async () => {
     const zip = new JSZip();
-    zip.file("META-INF/container.xml", `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`);
-    zip.file("content.opf", `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>`);
-    zip.file("c.xhtml", xhtml(`<div id="chapters"><div><h2 class="heading">Chapter 5: Hard Talks</h2><p>Chapter Notes</p><blockquote class="userstuff"><p>CALIBRENOTE skip me.</p></blockquote></div><div class="userstuff2"><p>Notes</p><p>Regina only took her eyes off her son when he disappeared.</p></div></div>`));
+    zip.file(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`,
+    );
+    zip.file(
+      "content.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>`,
+    );
+    zip.file(
+      "c.xhtml",
+      xhtml(
+        `<div id="chapters"><div><h2 class="heading">Chapter 5: Hard Talks</h2><p>Chapter Notes</p><blockquote class="userstuff"><p>CALIBRENOTE skip me.</p></blockquote></div><div class="userstuff2"><p>Notes</p><p>Regina only took her eyes off her son when he disappeared.</p></div></div>`,
+      ),
+    );
     const book = await parseEpub(await zip.generateAsync({ type: "nodebuffer" }));
     expect(book.chapters[0].text).not.toContain("CALIBRENOTE");
     expect(book.chapters[0].text).not.toContain("Chapter Notes");
@@ -98,11 +119,32 @@ describe("parseEpub", () => {
 
   it("drops #preface/#afterword pages even when the file names are generic", async () => {
     const zip = new JSZip();
-    zip.file("META-INF/container.xml", `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`);
-    zip.file("content.opf", `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="a" href="s_000.xhtml" media-type="application/xhtml+xml"/><item id="b" href="s_001.xhtml" media-type="application/xhtml+xml"/><item id="c" href="s_002.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="a"/><itemref idref="b"/><itemref idref="c"/></spine></package>`);
-    zip.file("s_000.xhtml", xhtml(`<div id="preface"><h2>Preface</h2><p>PREFACETAGS Rating: Explicit and more words here.</p></div>`));
-    zip.file("s_001.xhtml", xhtml(`<div id="chapters"><h2>Chapter 1</h2><p>The only story text lives here, honestly.</p></div>`));
-    zip.file("s_002.xhtml", xhtml(`<div id="afterword"><h2>Afterword</h2><p>Please drop by the Archive and comment.</p></div>`));
+    zip.file(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`,
+    );
+    zip.file(
+      "content.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="a" href="s_000.xhtml" media-type="application/xhtml+xml"/><item id="b" href="s_001.xhtml" media-type="application/xhtml+xml"/><item id="c" href="s_002.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="a"/><itemref idref="b"/><itemref idref="c"/></spine></package>`,
+    );
+    zip.file(
+      "s_000.xhtml",
+      xhtml(
+        `<div id="preface"><h2>Preface</h2><p>PREFACETAGS Rating: Explicit and more words here.</p></div>`,
+      ),
+    );
+    zip.file(
+      "s_001.xhtml",
+      xhtml(
+        `<div id="chapters"><h2>Chapter 1</h2><p>The only story text lives here, honestly.</p></div>`,
+      ),
+    );
+    zip.file(
+      "s_002.xhtml",
+      xhtml(
+        `<div id="afterword"><h2>Afterword</h2><p>Please drop by the Archive and comment.</p></div>`,
+      ),
+    );
     const book = await parseEpub(await zip.generateAsync({ type: "nodebuffer" }));
     expect(book.chapters).toHaveLength(1);
     expect(book.chapters[0].title).toBe("Chapter 1");
@@ -121,9 +163,18 @@ describe("parseEpub", () => {
 
   it("never uses a converter's file path as a chapter title", async () => {
     const zip = new JSZip();
-    zip.file("META-INF/container.xml", `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`);
-    zip.file("content.opf", `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>`);
-    zip.file("c.xhtml", `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>/input/import-my-file/abc_story.pdf</title></head><body><p>There was once a story long enough to be read aloud.</p></body></html>`);
+    zip.file(
+      "META-INF/container.xml",
+      `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`,
+    );
+    zip.file(
+      "content.opf",
+      `<package xmlns="http://www.idpf.org/2007/opf"><manifest><item id="c" href="c.xhtml" media-type="application/xhtml+xml"/></manifest><spine><itemref idref="c"/></spine></package>`,
+    );
+    zip.file(
+      "c.xhtml",
+      `<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>/input/import-my-file/abc_story.pdf</title></head><body><p>There was once a story long enough to be read aloud.</p></body></html>`,
+    );
     const book = await parseEpub(await zip.generateAsync({ type: "nodebuffer" }));
     expect(book.chapters[0].title).toBe("Chapter 1");
     expect(book.chapters[0].text).not.toContain(".pdf");
@@ -146,10 +197,18 @@ describe("parseEpub", () => {
         `<p>Please drop by the Archive and comment.</p>`,
       ];
       const zip = new JSZip();
-      zip.file("META-INF/container.xml", `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`);
-      const items = pieces.map((_, i) => `<item id="p${i}" href="p${i}.xhtml" media-type="application/xhtml+xml"/>`).join("");
+      zip.file(
+        "META-INF/container.xml",
+        `<container xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="content.opf"/></rootfiles></container>`,
+      );
+      const items = pieces
+        .map((_, i) => `<item id="p${i}" href="p${i}.xhtml" media-type="application/xhtml+xml"/>`)
+        .join("");
       const refs = pieces.map((_, i) => `<itemref idref="p${i}"/>`).join("");
-      zip.file("content.opf", `<package xmlns="http://www.idpf.org/2007/opf"><manifest>${items}</manifest><spine>${refs}</spine></package>`);
+      zip.file(
+        "content.opf",
+        `<package xmlns="http://www.idpf.org/2007/opf"><manifest>${items}</manifest><spine>${refs}</spine></package>`,
+      );
       pieces.forEach((b, i) => zip.file(`p${i}.xhtml`, piece(b)));
       return parseEpub(await zip.generateAsync({ type: "nodebuffer" }), { skipNotes });
     }
@@ -168,7 +227,13 @@ describe("parseEpub", () => {
 
     it("drops the cover page, note pointers and stray note pieces", async () => {
       const all = (await build(true)).chapters.map((c) => c.text).join("\n");
-      for (const banned of ["Coming Home", "by someone", "See the end", "Thanks for reading", "Please drop by"]) {
+      for (const banned of [
+        "Coming Home",
+        "by someone",
+        "See the end",
+        "Thanks for reading",
+        "Please drop by",
+      ]) {
         expect(all).not.toContain(banned);
       }
     });

@@ -7,7 +7,11 @@
 
 const BITRATES_V1 = [0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320];
 const BITRATES_V2 = [0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160];
-const RATES: Record<number, number[]> = { 3: [44100, 48000, 32000], 2: [22050, 24000, 16000], 0: [11025, 12000, 8000] };
+const RATES: Record<number, number[]> = {
+  3: [44100, 48000, 32000],
+  2: [22050, 24000, 16000],
+  0: [11025, 12000, 8000],
+};
 
 type Frame = { length: number; tagAt: number };
 
@@ -41,7 +45,8 @@ type Walked = {
   first?: { b1: number; b2: number; b3: number; version: number };
 };
 
-const SIDE_INFO = (version: number, mono: boolean) => (version === 3 ? (mono ? 17 : 32) : mono ? 9 : 17);
+const SIDE_INFO = (version: number, mono: boolean) =>
+  version === 3 ? (mono ? 17 : 32) : mono ? 9 : 17;
 
 /**
  * Read an MP3 frame by frame, keeping only audio frames. Some encoders (Kokoro via DeepInfra) put a
@@ -55,7 +60,11 @@ function walk(input: Buffer): Walked {
   let first: Walked["first"];
   let at = 0;
   while (input.toString("latin1", at, at + 3) === "ID3" && at + 10 <= input.length) {
-    const size = ((input[at + 6] & 0x7f) << 21) | ((input[at + 7] & 0x7f) << 14) | ((input[at + 8] & 0x7f) << 7) | (input[at + 9] & 0x7f);
+    const size =
+      ((input[at + 6] & 0x7f) << 21) |
+      ((input[at + 7] & 0x7f) << 14) |
+      ((input[at + 8] & 0x7f) << 7) |
+      (input[at + 9] & 0x7f);
     at += 10 + size + (input[at + 5] & 0x10 ? 10 : 0);
   }
   // A frame counts only if the next one follows right after it (or it ends the data).
@@ -63,7 +72,8 @@ function walk(input: Buffer): Walked {
     const f = frameAt(input, pos);
     if (!f || pos + f.length > input.length) return null;
     const next = pos + f.length;
-    const trailer = input.length - next === 128 && input.toString("latin1", next, next + 3) === "TAG";
+    const trailer =
+      input.length - next === 128 && input.toString("latin1", next, next + 3) === "TAG";
     return next === input.length || trailer || frameAt(input, next) ? f : null;
   };
   while (at + 4 <= input.length) {
@@ -76,7 +86,12 @@ function walk(input: Buffer): Walked {
       kept.push(input.subarray(at, at + f.length));
       lengths.push(f.length);
       bitrateIdx.add((input[at + 2] >> 4) & 15);
-      first ??= { b1: input[at + 1], b2: input[at + 2], b3: input[at + 3], version: (input[at + 1] >> 3) & 3 };
+      first ??= {
+        b1: input[at + 1],
+        b2: input[at + 2],
+        b3: input[at + 3],
+        version: (input[at + 1] >> 3) & 3,
+      };
     }
     at += f.length;
   }
@@ -93,7 +108,11 @@ export function cleanMp3(input: Buffer): Buffer {
  * A Xing frame saying exactly how many frames and bytes follow, with a seek table, so a player
  * knows the true length of a variable-bitrate file and can jump to any point in it.
  */
-function xingFrame(first: NonNullable<Walked["first"]>, lengths: number[], audioBytes: number): Buffer {
+function xingFrame(
+  first: NonNullable<Walked["first"]>,
+  lengths: number[],
+  audioBytes: number,
+): Buffer {
   const { b1, b2, b3, version } = first;
   const mono = ((b3 >> 6) & 3) === 3;
   const tagAt = 4 + SIDE_INFO(version, mono);
@@ -101,7 +120,8 @@ function xingFrame(first: NonNullable<Walked["first"]>, lengths: number[], audio
   const table = version === 3 ? BITRATES_V1 : BITRATES_V2;
   const rate = RATES[version][(b2 >> 2) & 3];
   let idx = 1;
-  while (idx < 14 && Math.floor(((version === 3 ? 144 : 72) * table[idx] * 1000) / rate) < needed) idx++;
+  while (idx < 14 && Math.floor(((version === 3 ? 144 : 72) * table[idx] * 1000) / rate) < needed)
+    idx++;
   const length = Math.floor(((version === 3 ? 144 : 72) * table[idx] * 1000) / rate);
 
   const frame = Buffer.alloc(length);
@@ -171,7 +191,11 @@ export function inspectMp3(b: Buffer): Mp3Report {
   };
   let at = 0;
   while (b.toString("latin1", at, at + 3) === "ID3" && at + 10 <= b.length) {
-    const size = ((b[at + 6] & 0x7f) << 21) | ((b[at + 7] & 0x7f) << 14) | ((b[at + 8] & 0x7f) << 7) | (b[at + 9] & 0x7f);
+    const size =
+      ((b[at + 6] & 0x7f) << 21) |
+      ((b[at + 7] & 0x7f) << 14) |
+      ((b[at + 8] & 0x7f) << 7) |
+      (b[at + 9] & 0x7f);
     at += 10 + size;
     report.id3v2Bytes = at;
   }
@@ -179,7 +203,8 @@ export function inspectMp3(b: Buffer): Mp3Report {
   while (at + 4 <= b.length) {
     const f = frameAt(b, at);
     if (!f) {
-      if (b.toString("latin1", b.length - 128, b.length - 125) === "TAG" && at >= b.length - 128) break;
+      if (b.toString("latin1", b.length - 128, b.length - 125) === "TAG" && at >= b.length - 128)
+        break;
       report.lostSyncAt = at;
       break;
     }
