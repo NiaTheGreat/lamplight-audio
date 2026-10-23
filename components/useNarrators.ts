@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { NARRATOR_GROUPS, type NarratorGroup } from "@/lib/narrators-shared";
+import { getNarrators } from "@/lib/client/api";
 
 export type NarratorGroupInfo = NarratorGroup & { configured: boolean; keyName?: string };
 
@@ -15,10 +16,7 @@ export function useNarrators(): NarratorGroupInfo[] {
   );
   useEffect(() => {
     let alive = true;
-    fetch("/api/narrators")
-      .then((r) => (r.ok ? (r.json() as Promise<NarratorGroupInfo[]>) : null))
-      .then((g) => alive && g && setGroups(g))
-      .catch(() => {});
+    void getNarrators().then((g) => alive && g && setGroups(g));
     return () => {
       alive = false;
     };
