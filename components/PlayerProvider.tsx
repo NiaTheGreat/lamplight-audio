@@ -14,6 +14,7 @@ import { afterChapter, inRange, needsConfirm, shouldPrefetch, type ListenRange }
 import { costUsd } from "@/lib/narrators-shared";
 import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
+import { narrateDirect, narrateViaQueue } from "./player/narration";
 import {
   AUTONEXT_KEY,
   CONFIRM_KEY,
@@ -161,60 +162,28 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [bedside, setBedside] = useState(false);
   const [, setReadyTick] = useState(0);
 
-  const bumpReady = () => setReadyTick((n) => n + 1);
+  const markReady = (bookId: string, index: number) => {
+    readyRef.current.add(`${bookId}:${index}`);
+    setReadyTick((n) => n + 1);
+  };
 
   // ---------- Narration requests ----------
 
-  // Ask the server to narrate a chapter. Long chapters come back 202 with
-  // progress; each retry resumes where the last one stopped.
+  // Narrate through the client in ./player/narration; a chapter that finishes is marked ready here.
   const prepare = useCallback(
     async (
       b: BookSummary,
       index: number,
       onProgress?: (ready: number, total: number) => void,
-      cancelled: () => boolean = () => false,
+      cancelled?: () => boolean,
     ) => {
-      // The generate request is silent until it finishes, so ask separately
-      // how many chunks are cached so far.
-      const timer = onProgress
-        ? setInterval(async () => {
-            try {
-              const r = await fetch(`/api/audio/${b.id}/${index}?progress=1`);
-              if (r.ok && !cancelled()) {
-                const p = (await r.json()) as { ready: number; total: number };
-                onProgress(p.ready, p.total);
-              }
-            } catch {
-              /* progress is best-effort */
-            }
-          }, 2000)
-        : undefined;
-      try {
-        for (;;) {
-          const res = await fetch(`/api/audio/${b.id}/${index}?prepare=1`);
-          if (cancelled()) return false;
-          if (res.status === 202) {
-            const p = (await res.json()) as { ready: number; total: number };
-            onProgress?.(p.ready, p.total);
-            continue;
-          }
-          if (!res.ok) throw new Error((await res.text()) || `Request failed (${res.status})`);
-          readyRef.current.add(`${b.id}:${index}`);
-          bumpReady();
-          return true;
-        }
-      } finally {
-        clearInterval(timer);
-      }
+      const ok = await narrateDirect(b.id, index, onProgress, cancelled);
+      if (ok) markReady(b.id, index);
+      return ok;
     },
     [],
   );
 
-  /**
-   * Narrate a chapter through the background job system, then wait for it: the server does the
-   * work whether or not this tab stays open, and it shows in the Queue. If a job is already
-   * running for the book (or the job can't be started), narrate directly as before.
-   */
   const prepareViaQueue = useCallback(
     async (
       b: BookSummary,
@@ -222,52 +191,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       onProgress: (ready: number, total: number) => void,
       cancelled: () => boolean,
     ): Promise<boolean> => {
-      let started = false;
-      try {
-        const res = await fetch(`/api/books/${b.id}/narrate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chapters: [index], onlyIfIdle: true }),
-        });
-        started = res.ok;
-      } catch {
-        /* narrate directly instead */
-      }
-      if (!started) return prepare(b, index, onProgress, cancelled);
-
-      let lastJobCheck = 0;
-      for (;;) {
-        await new Promise((r) => setTimeout(r, 2000));
-        if (cancelled()) {
-          // They moved on: stop the work we started, so it doesn't keep spending.
-          void fetch(`/api/books/${b.id}/narrate`, { method: "DELETE" }).catch(() => {});
-          return false;
-        }
-        try {
-          const r = await fetch(`/api/audio/${b.id}/${index}?progress=1`);
-          if (r.ok) {
-            const p = (await r.json()) as { ready: number; total: number };
-            onProgress(p.ready, p.total);
-            if (p.total > 0 && p.ready >= p.total) {
-              readyRef.current.add(`${b.id}:${index}`);
-              bumpReady();
-              return true;
-            }
-          }
-          // Every few seconds, check the job itself so a failure shows up instead of waiting forever.
-          if (Date.now() - lastJobCheck > 6000) {
-            lastJobCheck = Date.now();
-            const j = await fetch(`/api/books/${b.id}/narrate`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
-            if (j && j.status === "error") throw new Error(j.error ?? "Narration failed.");
-            if (j && j.status === "cancelled") return false;
-          }
-        } catch (err) {
-          if (err instanceof Error && err.message && !/fetch|network/i.test(err.message)) throw err;
-          /* a dropped request: look again next time round */
-        }
-      }
+      const ok = await narrateViaQueue(b.id, index, onProgress, cancelled);
+      if (ok) markReady(b.id, index);
+      return ok;
     },
-    [prepare],
+    [],
   );
 
   const isReadyIdx = (b: BookSummary, i: number) =>
