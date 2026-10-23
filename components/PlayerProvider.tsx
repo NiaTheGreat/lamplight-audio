@@ -144,6 +144,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const listenRangeRef = useRef<ListenRange>(null);
   const pendingRef = useRef<PendingNarration | null>(null);
   const loadToken = useRef(0);
+  const startingRef = useRef(""); // "<bookId>:<chapter>" being narrated for a play right now
   const readyRef = useRef(new Set<string>());
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
 
@@ -296,6 +297,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       .catch(() => {});
   }, [onLogin, refreshLibrary]);
 
+  // A phone that was asleep, or a narration that finished in the background, leaves this screen
+  // out of date: look again when the app comes back to the front.
+  useEffect(() => {
+    if (onLogin) return;
+    const onShow = () => {
+      if (document.visibilityState !== "visible") return;
+      void refreshLibrary();
+      const id = bookRef.current?.id;
+      if (id) void refreshBook(id);
+    };
+    document.addEventListener("visibilitychange", onShow);
+    return () => document.removeEventListener("visibilitychange", onShow);
+  }, [onLogin, refreshLibrary, refreshBook]);
+
   // ---------- Playback ----------
 
   const applyRate = useCallback((value: number) => {
@@ -312,6 +327,10 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     async (b: BookSummary, index: number, startAt = 0, fresh = false) => {
       const audio = audioRef.current;
       if (!audio) return;
+      // A second tap on a chapter that is already being prepared must not start over: the new
+      // load would cancel the narration job the first one started.
+      const startKey = `${b.id}:${index}`;
+      if (startingRef.current === startKey && !isReadyIdx(b, index)) return;
       const token = ++loadToken.current;
 
       bookRef.current = b;
@@ -331,6 +350,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
       // A chapter that is already narrated needs no preparing: one request plays it.
       if (!isReadyIdx(b, index)) {
+        startingRef.current = startKey;
         try {
           const ok = await prepareViaQueue(
             b,
@@ -350,6 +370,8 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           setFailedChapter(index);
           setError(err instanceof Error ? err.message : "Couldn't prepare that chapter.");
           return;
+        } finally {
+          if (startingRef.current === startKey) startingRef.current = "";
         }
       }
       if (token !== loadToken.current) return;

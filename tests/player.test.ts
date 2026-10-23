@@ -224,6 +224,29 @@ describe("player: chapters that are not narrated yet", () => {
     expect(player.chapterState(2)).toBe("playing");
   });
 
+  it("does not start over or cancel the job when the same chapter is played twice", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+    localStorage.setItem("abg:confirm", "false");
+    await mount();
+    await act(async () => void (await player.selectBook("b1")));
+    // Neither call returns until the chapter is ready, so don't wait for them one by one.
+    let first: Promise<void> = Promise.resolve();
+    let second: Promise<void> = Promise.resolve();
+    await act(async () => {
+      first = Promise.resolve(player.playChapter(2));
+      await vi.advanceTimersByTimeAsync(10);
+      second = Promise.resolve(player.playChapter(2));
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    const posts = calls.filter((c) => c.method === "POST" && c.url === "/api/books/b1/narrate");
+    expect(posts).toHaveLength(1);
+    server.audioProgress = { ready: 2, total: 2 };
+    await act(async () => void (await vi.advanceTimersByTimeAsync(2100)));
+    await act(async () => void (await Promise.all([first, second])));
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    expect(audioPath()).toBe("/api/audio/b1/2");
+  });
+
   it("narrates directly when the book already has a job running", async () => {
     server.postNarrate = { ok: false };
     await mount();
