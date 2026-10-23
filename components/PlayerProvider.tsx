@@ -14,6 +14,8 @@ import { afterChapter, inRange, needsConfirm, shouldPrefetch, type ListenRange }
 import { costUsd } from "@/lib/narrators-shared";
 import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
+import { useSavedPosition } from "./player/useSavedPosition";
+import { useLibrary } from "./player/useLibrary";
 import { useMediaSession } from "./player/useMediaSession";
 import { useSleepTimer } from "./player/useSleepTimer";
 import { useBackgroundJob } from "./player/useBackgroundJob";
@@ -23,7 +25,6 @@ import {
   CONFIRM_KEY,
   CPM_KEY,
   DIM_LEVELS,
-  POSITION_KEY,
   RANGE_KEY,
   SILENT_WAV,
   readStore,
@@ -136,7 +137,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const listenRangeRef = useRef<ListenRange>(null);
   const pendingRef = useRef<PendingNarration | null>(null);
   const loadToken = useRef(0);
-  const lastSaved = useRef(0);
   const readyRef = useRef(new Set<string>());
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
 
@@ -154,10 +154,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [confirmNarrate, setConfirmNarrateState] = useState(true);
   const [pendingNarration, setPendingState] = useState<PendingNarration | null>(null);
   const [charsPerMin, setCharsPerMin] = useState(900);
-  const [library, setLibrary] = useState<LibraryEntry[]>([]);
-  const [libraryLoaded, setLibraryLoaded] = useState(false);
-  const [libraryError, setLibraryError] = useState("");
-  const [progress, setProgress] = useState<Progress>({ last: null, books: {} });
+  const { library, libraryLoaded, libraryError, refreshLibrary } = useLibrary();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [dim, setDim] = useState(DEFAULT_SETTINGS.dim);
   const [bedside, setBedside] = useState(false);
@@ -237,21 +234,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // ---------- Library, progress, settings ----------
 
-  const refreshLibrary = useCallback(async () => {
-    try {
-      const res = await fetch("/api/books");
-      if (res.ok) {
-        setLibrary((await res.json()) as LibraryEntry[]);
-        setLibraryLoaded(true);
-        setLibraryError("");
-      } else {
-        setLibraryError(`Couldn't load your shelf (${res.status}). ${(await res.text()).slice(0, 200)}`);
-      }
-    } catch {
-      /* offline: keep what we have */
-    }
-  }, []);
-
   const refreshBook = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/books/${id}`);
@@ -274,26 +256,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     refreshLibrary,
   });
 
-  const savePosition = useCallback((force = false) => {
-    const audio = audioRef.current;
-    const b = bookRef.current;
-    // Nothing has been played yet (just browsing a book): don't record a position.
-    if (!audio || !b || !loadedRef.current || audio.src.startsWith("data:")) return;
-    const now = Date.now();
-    if (!force && now - lastSaved.current < 30000) return;
-    lastSaved.current = now;
-    const pos = { id: b.id, chapter: chapterRef.current, time: Math.floor(audio.currentTime) };
-    writeStore(POSITION_KEY, pos);
-    fetch("/api/progress", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pos),
-      keepalive: true,
-    })
-      .then((r) => (r.ok ? (r.json() as Promise<Progress>) : null))
-      .then((p) => p && setProgress(p))
-      .catch(() => {});
-  }, []);
+  const { progress, setProgress, savePosition } = useSavedPosition({ audioRef, bookRef, chapterRef, loadedRef });
 
   useEffect(() => {
     if (onLogin) return;
@@ -759,13 +722,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }
 
   useMediaSession({ audioRef, book, chapter, prevChapter, nextChapter, skip });
-
-  // Save the place when the page goes away.
-  useEffect(() => {
-    const save = () => savePosition(true);
-    window.addEventListener("pagehide", save);
-    return () => window.removeEventListener("pagehide", save);
-  }, [savePosition]);
 
   // ---------- Derived ----------
 
