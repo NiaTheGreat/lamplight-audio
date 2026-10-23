@@ -6,7 +6,7 @@ test.describe.configure({ mode: "serial" });
 
 let bookUrl = "";
 
-async function bookId(page: Page): Promise<string> {
+async function bookId(): Promise<string> {
   return bookUrl.split("/book/")[1].split("/")[0];
 }
 
@@ -49,7 +49,7 @@ test("shelf: the new fic is listed", async ({ page }) => {
 });
 
 test("narrating: change the narrator and see the chapter range", async ({ page }) => {
-  await page.goto(`/book/${await bookId(page)}/narrating`);
+  await page.goto(`/book/${await bookId()}/narrating`);
   const narrator = page.locator('select[aria-label="Narrator"]');
   await expect(narrator).toBeVisible();
   await narrator.selectOption("nova");
@@ -82,13 +82,13 @@ test("pronunciation lists: add a list and keep it after a reload", async ({ page
 });
 
 test("book pronunciation: the page loads", async ({ page }) => {
-  await page.goto(`/book/${await bookId(page)}/pronunciation`);
+  await page.goto(`/book/${await bookId()}/pronunciation`);
   await expect(page.locator(".error")).toHaveCount(0);
   await expect(page.getByRole("heading").first()).toBeVisible();
 });
 
 test("player: play an unnarrated chapter through the queue, then hear it", async ({ page }) => {
-  await page.goto(`/book/${await bookId(page)}`);
+  await page.goto(`/book/${await bookId()}`);
   await page.getByRole("button", { name: /^Play Chapter 1/ }).click();
   // Narrating costs money, so it asks first.
   await expect(page.getByRole("dialog", { name: "Read this chapter aloud?" })).toBeVisible();
@@ -107,7 +107,7 @@ test("player: play an unnarrated chapter through the queue, then hear it", async
 });
 
 test("player: the sleep timer cycles and the speed changes", async ({ page }) => {
-  await page.goto(`/book/${await bookId(page)}`);
+  await page.goto(`/book/${await bookId()}`);
   const sleep = page.getByRole("button", { name: "Sleep timer, tap to change" });
   await sleep.click();
   await expect(sleep).toContainText("15");
@@ -118,7 +118,7 @@ test("player: the sleep timer cycles and the speed changes", async ({ page }) =>
 });
 
 test("player: the mini player and tabs show on other screens", async ({ page }) => {
-  await page.goto(`/book/${await bookId(page)}`);
+  await page.goto(`/book/${await bookId()}`);
   await page.getByRole("link", { name: "Back to shelf" }).first().click();
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
 });

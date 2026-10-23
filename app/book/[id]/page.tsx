@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useDialog } from "@/components/Dialog";
 import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
-import { STALE_MS, usePlayer } from "@/components/PlayerProvider";
+import { usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 
 function clock(seconds: number): string {

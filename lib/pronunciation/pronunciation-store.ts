@@ -1,6 +1,6 @@
 import { clearKeys } from "../storage/keys";
 import { getJob, isJobActive } from "../narration/narration";
-import { applyPronunciations, effectiveLines, linesFor, sanitizeLines, spokenText, type Pron } from "./pronunciation";
+import { applyPronunciations, effectiveLines, sanitizeLines, spokenText, type Pron } from "./pronunciation";
 import { getObject, putObject } from "../storage/storage";
 import { BOOK_ID_RE, type Book, type LibraryEntry } from "../types";
 
