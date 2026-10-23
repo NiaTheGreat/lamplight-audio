@@ -1,0 +1,94 @@
+/* ---------- Settings ---------- */
+
+.voice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  border-top: 1px solid var(--rule-soft);
+}
+
+.voice .pick {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  text-align: left;
+  font-family: var(--serif);
+  font-size: 19px;
+  color: var(--cream-2);
+}
+
+.voice.chosen .pick {
+  color: var(--amber);
+  font-weight: 500;
+}
+
+.voice .pick .slot {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--amber);
+}
+
+.voice .pick:disabled,
+.voice .hear:disabled {
+  opacity: 0.4;
+}
+
+.voice .hear {
+  min-width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--cream-2);
+  font-size: 13px;
+}
+
+.seg {
+  display: flex;
+  border: 1px solid var(--outline);
+  border-radius: 26px;
+  overflow: hidden;
+}
+
+.seg button {
+  flex: 1;
+  min-height: 48px;
+  border: 0;
+  background: transparent;
+  color: var(--cream-2);
+  font-size: 13px;
+  padding: 0;
+  min-width: 0;
+}
+
+.seg button[aria-checked="true"] {
+  background: var(--amber);
+  color: var(--amber-ink);
+  font-weight: 600;
+}
+
+.link-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-top: 1px solid var(--rule-soft);
+  background: transparent;
+  color: var(--amber);
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0;
+  text-align: left;
+}

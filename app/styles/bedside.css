@@ -1,0 +1,111 @@
+/* ---------- Bedside ---------- */
+
+.bedside {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bedside);
+  color: var(--ember);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: max(14px, env(safe-area-inset-top)) 24px calc(36px + env(safe-area-inset-bottom));
+}
+
+.bedside .bar {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bedside .bar span {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding-left: 8px;
+}
+
+.bedside .icon-btn {
+  color: var(--ember);
+}
+
+.bedside h1 {
+  font-family: var(--serif);
+  font-weight: 400;
+  font-size: 38px;
+  line-height: 1.08;
+  text-align: center;
+  margin-top: 72px;
+  font-variation-settings: "opsz" 144;
+  overflow-wrap: anywhere;
+}
+
+.bedside .sub {
+  margin-top: 10px;
+  font-size: 15px;
+  text-align: center;
+}
+
+.bedside .sleep {
+  margin-top: 36px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bedside .bigcontrols {
+  margin-top: auto;
+  margin-bottom: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+}
+
+.bedside .bigcontrols button {
+  border-radius: 50%;
+  border: 1px solid var(--ember-line);
+  background: transparent;
+  color: var(--ember);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 92px;
+  height: 92px;
+}
+
+.bedside .bigcontrols button.main {
+  width: 128px;
+  height: 128px;
+  border: 2px solid var(--ember);
+}
+
+.bedside .pair {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.bedside .pair button {
+  flex: 1;
+  min-height: 60px;
+  border: 1px solid var(--ember-line);
+  border-radius: 30px;
+  background: transparent;
+  color: var(--ember);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.bedside .note {
+  margin-top: 22px;
+  font-size: 13px;
+  text-align: center;
+  line-height: 1.5;
+}

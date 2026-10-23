@@ -1,0 +1,49 @@
+/* Chapters you can play now stand out; the rest are quiet. */
+.playdot {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--amber);
+  color: var(--ground);
+  margin: -3px;
+  box-sizing: content-box;
+}
+
+.chrow.ready .nm,
+.chrow.playing .nm {
+  color: var(--cream);
+}
+
+.chrow.waiting .nm,
+.chrow.failed .nm {
+  color: var(--cream-3);
+}
+
+.pron-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.pron-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 44px;
+  gap: 8px;
+  align-items: center;
+}
+
+.pron-row .select {
+  min-width: 0;
+  width: 100%;
+  border-radius: 8px;
+}
+
+.chrow button.dl {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin-right: 0;
+}
