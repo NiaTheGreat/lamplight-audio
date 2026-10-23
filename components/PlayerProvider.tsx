@@ -14,72 +14,34 @@ import { afterChapter, inRange, needsConfirm, shouldPrefetch, type ListenRange }
 import { costUsd } from "@/lib/narrators-shared";
 import { DEFAULT_SETTINGS, SPEEDS, type Settings } from "@/lib/settings-shared";
 import type { BookSummary, LibraryEntry } from "@/lib/types";
+import { useSavedPosition } from "./player/useSavedPosition";
+import { useLibrary } from "./player/useLibrary";
+import { useMediaSession } from "./player/useMediaSession";
+import { useSleepTimer } from "./player/useSleepTimer";
+import { useBackgroundJob } from "./player/useBackgroundJob";
+import { narrateDirect, narrateViaQueue } from "./player/narration";
+import {
+  AUTONEXT_KEY,
+  CONFIRM_KEY,
+  CPM_KEY,
+  DIM_LEVELS,
+  RANGE_KEY,
+  SILENT_WAV,
+  readStore,
+  writeStore,
+} from "./player/store";
+import type {
+  ChapterState,
+  JobInfo,
+  OpenOptions,
+  PendingNarration,
+  Position,
+  Progress,
+  Sleep,
+} from "./player/types";
 
-export type JobInfo = {
-  status: "running" | "paused" | "done" | "cancelled" | "error";
-  chapter: number;
-  total: number;
-  from?: number;
-  to?: number;
-  updatedAt: number;
-  error?: string;
-};
-// A running job that hasn't saved progress for this long has probably lost its worker.
-export const STALE_MS = 8 * 60 * 1000;
-
-export type Position = { chapter: number; time: number; updatedAt: number };
-export type Progress = { last: ({ id: string } & Position) | null; books: Record<string, Position> };
-export type ChapterState = "ready" | "reading" | "waiting" | "playing" | "failed";
-export type Sleep = { kind: "off" } | { kind: "chapter" } | { kind: "minutes"; endsAt: number; minutes: number };
-
-const CPM_KEY = "abg:cpm";
-const AUTONEXT_KEY = "abg:autonext";
-const CONFIRM_KEY = "abg:confirm";
-const RANGE_KEY = "abg:range";
-const POSITION_KEY = "abg:last";
-const DIM_LEVELS = [0, 25, 50, 80];
-
-// A silent clip played on the first tap so iOS lets us start audio later,
-// after the (possibly slow) first-time narration finishes.
-const SILENT_WAV =
-  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
-
-function readStore<T>(key: string, fallback: T): T {
-  try {
-    const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeStore(key: string, value: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* storage unavailable; fine */
-  }
-}
-
-/** A chapter the listener asked to start that would be narrated (and so cost money), waiting for a yes. */
-export type PendingNarration = {
-  bookId: string;
-  index: number;
-  startAt: number;
-  fresh: boolean;
-  title: string;
-  chars: number;
-  costUsd: number;
-  narrator: string | undefined;
-};
-
-export type OpenOptions = {
-  /** Start here instead of the saved spot. */
-  chapter?: number;
-  time?: number;
-  /** The chapters chosen to be read; narration and auto-advance stay inside it. */
-  range?: { from: number; to: number } | null;
-};
+export { STALE_MS } from "./player/types";
+export type { ChapterState, JobInfo, OpenOptions, PendingNarration, Position, Progress, Sleep };
 
 type Ctx = {
   // Playback
@@ -175,9 +137,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const listenRangeRef = useRef<ListenRange>(null);
   const pendingRef = useRef<PendingNarration | null>(null);
   const loadToken = useRef(0);
-  const lastSaved = useRef(0);
   const readyRef = useRef(new Set<string>());
-  const sleepRef = useRef<Sleep>({ kind: "off" });
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
 
   const [book, setBook] = useState<BookSummary | null>(null);
@@ -189,75 +149,39 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState("");
   const [failedChapter, setFailedChapter] = useState<number | null>(null);
   const [rate, setRate] = useState(1);
-  const [sleep, setSleepState] = useState<Sleep>({ kind: "off" });
+  const { sleep, sleepRef, setSleep, setSleepMinutes, cycleSleep } = useSleepTimer();
   const [autoNext, setAutoNextState] = useState(true);
   const [confirmNarrate, setConfirmNarrateState] = useState(true);
   const [pendingNarration, setPendingState] = useState<PendingNarration | null>(null);
   const [charsPerMin, setCharsPerMin] = useState(900);
-  const [library, setLibrary] = useState<LibraryEntry[]>([]);
-  const [libraryLoaded, setLibraryLoaded] = useState(false);
-  const [libraryError, setLibraryError] = useState("");
-  const [progress, setProgress] = useState<Progress>({ last: null, books: {} });
-  const [job, setJob] = useState<JobInfo | null>(null);
+  const { library, libraryLoaded, libraryError, refreshLibrary } = useLibrary();
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [dim, setDim] = useState(DEFAULT_SETTINGS.dim);
   const [bedside, setBedside] = useState(false);
   const [, setReadyTick] = useState(0);
 
-  const bumpReady = () => setReadyTick((n) => n + 1);
+  const markReady = (bookId: string, index: number) => {
+    readyRef.current.add(`${bookId}:${index}`);
+    setReadyTick((n) => n + 1);
+  };
 
   // ---------- Narration requests ----------
 
-  // Ask the server to narrate a chapter. Long chapters come back 202 with
-  // progress; each retry resumes where the last one stopped.
+  // Narrate through the client in ./player/narration; a chapter that finishes is marked ready here.
   const prepare = useCallback(
     async (
       b: BookSummary,
       index: number,
       onProgress?: (ready: number, total: number) => void,
-      cancelled: () => boolean = () => false,
+      cancelled?: () => boolean,
     ) => {
-      // The generate request is silent until it finishes, so ask separately
-      // how many chunks are cached so far.
-      const timer = onProgress
-        ? setInterval(async () => {
-            try {
-              const r = await fetch(`/api/audio/${b.id}/${index}?progress=1`);
-              if (r.ok && !cancelled()) {
-                const p = (await r.json()) as { ready: number; total: number };
-                onProgress(p.ready, p.total);
-              }
-            } catch {
-              /* progress is best-effort */
-            }
-          }, 2000)
-        : undefined;
-      try {
-        for (;;) {
-          const res = await fetch(`/api/audio/${b.id}/${index}?prepare=1`);
-          if (cancelled()) return false;
-          if (res.status === 202) {
-            const p = (await res.json()) as { ready: number; total: number };
-            onProgress?.(p.ready, p.total);
-            continue;
-          }
-          if (!res.ok) throw new Error((await res.text()) || `Request failed (${res.status})`);
-          readyRef.current.add(`${b.id}:${index}`);
-          bumpReady();
-          return true;
-        }
-      } finally {
-        clearInterval(timer);
-      }
+      const ok = await narrateDirect(b.id, index, onProgress, cancelled);
+      if (ok) markReady(b.id, index);
+      return ok;
     },
     [],
   );
 
-  /**
-   * Narrate a chapter through the background job system, then wait for it: the server does the
-   * work whether or not this tab stays open, and it shows in the Queue. If a job is already
-   * running for the book (or the job can't be started), narrate directly as before.
-   */
   const prepareViaQueue = useCallback(
     async (
       b: BookSummary,
@@ -265,52 +189,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       onProgress: (ready: number, total: number) => void,
       cancelled: () => boolean,
     ): Promise<boolean> => {
-      let started = false;
-      try {
-        const res = await fetch(`/api/books/${b.id}/narrate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chapters: [index], onlyIfIdle: true }),
-        });
-        started = res.ok;
-      } catch {
-        /* narrate directly instead */
-      }
-      if (!started) return prepare(b, index, onProgress, cancelled);
-
-      let lastJobCheck = 0;
-      for (;;) {
-        await new Promise((r) => setTimeout(r, 2000));
-        if (cancelled()) {
-          // They moved on: stop the work we started, so it doesn't keep spending.
-          void fetch(`/api/books/${b.id}/narrate`, { method: "DELETE" }).catch(() => {});
-          return false;
-        }
-        try {
-          const r = await fetch(`/api/audio/${b.id}/${index}?progress=1`);
-          if (r.ok) {
-            const p = (await r.json()) as { ready: number; total: number };
-            onProgress(p.ready, p.total);
-            if (p.total > 0 && p.ready >= p.total) {
-              readyRef.current.add(`${b.id}:${index}`);
-              bumpReady();
-              return true;
-            }
-          }
-          // Every few seconds, check the job itself so a failure shows up instead of waiting forever.
-          if (Date.now() - lastJobCheck > 6000) {
-            lastJobCheck = Date.now();
-            const j = await fetch(`/api/books/${b.id}/narrate`).then((x) => (x.ok ? x.json() : null)).catch(() => null);
-            if (j && j.status === "error") throw new Error(j.error ?? "Narration failed.");
-            if (j && j.status === "cancelled") return false;
-          }
-        } catch (err) {
-          if (err instanceof Error && err.message && !/fetch|network/i.test(err.message)) throw err;
-          /* a dropped request: look again next time round */
-        }
-      }
+      const ok = await narrateViaQueue(b.id, index, onProgress, cancelled);
+      if (ok) markReady(b.id, index);
+      return ok;
     },
-    [prepare],
+    [],
   );
 
   const isReadyIdx = (b: BookSummary, i: number) =>
@@ -351,21 +234,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // ---------- Library, progress, settings ----------
 
-  const refreshLibrary = useCallback(async () => {
-    try {
-      const res = await fetch("/api/books");
-      if (res.ok) {
-        setLibrary((await res.json()) as LibraryEntry[]);
-        setLibraryLoaded(true);
-        setLibraryError("");
-      } else {
-        setLibraryError(`Couldn't load your shelf (${res.status}). ${(await res.text()).slice(0, 200)}`);
-      }
-    } catch {
-      /* offline: keep what we have */
-    }
-  }, []);
-
   const refreshBook = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/books/${id}`);
@@ -379,26 +247,16 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const savePosition = useCallback((force = false) => {
-    const audio = audioRef.current;
-    const b = bookRef.current;
-    // Nothing has been played yet (just browsing a book): don't record a position.
-    if (!audio || !b || !loadedRef.current || audio.src.startsWith("data:")) return;
-    const now = Date.now();
-    if (!force && now - lastSaved.current < 30000) return;
-    lastSaved.current = now;
-    const pos = { id: b.id, chapter: chapterRef.current, time: Math.floor(audio.currentTime) };
-    writeStore(POSITION_KEY, pos);
-    fetch("/api/progress", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(pos),
-      keepalive: true,
-    })
-      .then((r) => (r.ok ? (r.json() as Promise<Progress>) : null))
-      .then((p) => p && setProgress(p))
-      .catch(() => {});
-  }, []);
+  const { job, setJob, startBackground, stopBackground, pauseBackground, resumeBackground } = useBackgroundJob({
+    bookRef,
+    bookId: book?.id,
+    onLogin,
+    setError,
+    refreshBook,
+    refreshLibrary,
+  });
+
+  const { progress, setProgress, savePosition } = useSavedPosition({ audioRef, bookRef, chapterRef, loadedRef });
 
   useEffect(() => {
     if (onLogin) return;
@@ -431,20 +289,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   }, [onLogin, refreshLibrary]);
 
   // ---------- Playback ----------
-
-  const setSleep = useCallback((value: Sleep) => {
-    sleepRef.current = value;
-    setSleepState(value);
-  }, []);
-
-  const setSleepMinutes = useCallback(
-    (minutes: number) => {
-      if (minutes === 0) setSleep({ kind: "off" });
-      else if (minutes === -1) setSleep({ kind: "chapter" });
-      else setSleep({ kind: "minutes", minutes, endsAt: Date.now() + minutes * 60_000 });
-    },
-    [setSleep],
-  );
 
   const applyRate = useCallback((value: number) => {
     rateRef.current = value;
@@ -677,14 +521,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     applyRate(SPEEDS[(i + 1) % SPEEDS.length]);
   }, [applyRate]);
 
-  const cycleSleep = useCallback(() => {
-    const order = [0, 15, 30, 60, -1];
-    const cur = sleepRef.current;
-    const curVal = cur.kind === "off" ? 0 : cur.kind === "chapter" ? -1 : cur.minutes;
-    const i = order.indexOf(curVal);
-    setSleepMinutes(order[(i + 1) % order.length]);
-  }, [setSleepMinutes]);
-
   const cycleDim = useCallback(() => {
     setDim((d) => {
       const i = DIM_LEVELS.findIndex((l) => l > d);
@@ -754,48 +590,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     [refreshLibrary],
   );
 
-  // ---------- Background narration job ----------
-
-  const startBackground = useCallback(async (range?: { from: number; to: number }, voice?: string) => {
-    const b = bookRef.current;
-    if (!b) return;
-    setError("");
-    const res = await fetch(`/api/books/${b.id}/narrate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...(range ?? {}), ...(voice ? { voice } : {}) }),
-    });
-    if (!res.ok) {
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(data.error ?? "Couldn't start background narration.");
-      return;
-    }
-    setJob((await res.json()) as JobInfo);
-  }, []);
-
-  const stopBackground = useCallback(async () => {
-    const b = bookRef.current;
-    if (!b) return;
-    await fetch(`/api/books/${b.id}/narrate`, { method: "DELETE" }).catch(() => {});
-    setJob(null);
-  }, []);
-
-  const actOnJob = useCallback(async (action: "pause" | "resume") => {
-    const b = bookRef.current;
-    if (!b) return;
-    setError("");
-    const res = await fetch(`/api/books/${b.id}/narrate`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action }),
-    }).catch(() => null);
-    if (!res || !res.ok) {
-      const data = (await res?.json().catch(() => ({}))) as { error?: string } | undefined;
-      setError(data?.error ?? `Couldn't ${action} narration.`);
-      return;
-    }
-    setJob((await res.json()) as JobInfo | null);
-  }, []);
   const rereadAndNarrate = useCallback(
     async (
       bookId: string,
@@ -855,42 +649,6 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     },
     [refreshBook, refreshLibrary],
   );
-
-  const pauseBackground = useCallback(() => actOnJob("pause"), [actOnJob]);
-  const resumeBackground = useCallback(() => actOnJob("resume"), [actOnJob]);
-
-  const bookId = book?.id;
-  useEffect(() => {
-    if (!bookId || onLogin) return;
-    let alive = true;
-    let lastStatus: string | undefined;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const poll = async () => {
-      let delay = 30_000; // idle: look rarely
-      try {
-        const res = await fetch(`/api/books/${bookId}/narrate`);
-        if (!res.ok || !alive) return;
-        const j = (await res.json()) as JobInfo | null;
-        setJob(j);
-        // Refresh the book and shelf only while a job runs and once when it changes state.
-        if (j?.status === "running") delay = 15_000;
-        if (j && (j.status === "running" || j.status !== lastStatus)) {
-          void refreshBook(bookId);
-          void refreshLibrary();
-        }
-        lastStatus = j?.status;
-      } catch {
-        /* try again next tick */
-      } finally {
-        if (alive) timer = setTimeout(poll, delay);
-      }
-    };
-    void poll();
-    return () => {
-      alive = false;
-      if (timer) clearTimeout(timer);
-    };
-  }, [bookId, onLogin, refreshBook, refreshLibrary]);
 
   // ---------- Audio element events ----------
 
@@ -963,30 +721,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     prefetch(b, next + 1);
   }
 
-  // Lock-screen / headphone controls.
-  useEffect(() => {
-    if (!book || !("mediaSession" in navigator)) return;
-    const ms = navigator.mediaSession;
-    ms.metadata = new MediaMetadata({
-      title: book.chapters[chapter]?.title ?? `Chapter ${chapter + 1}`,
-      artist: book.author ?? "",
-      album: book.title,
-    });
-    const audio = audioRef.current;
-    ms.setActionHandler("play", () => void audio?.play());
-    ms.setActionHandler("pause", () => audio?.pause());
-    ms.setActionHandler("previoustrack", () => prevChapter());
-    ms.setActionHandler("nexttrack", () => nextChapter());
-    ms.setActionHandler("seekbackward", () => skip(-15));
-    ms.setActionHandler("seekforward", () => skip(15));
-  }, [book, chapter, prevChapter, nextChapter, skip]);
-
-  // Save the place when the page goes away.
-  useEffect(() => {
-    const save = () => savePosition(true);
-    window.addEventListener("pagehide", save);
-    return () => window.removeEventListener("pagehide", save);
-  }, [savePosition]);
+  useMediaSession({ audioRef, book, chapter, prevChapter, nextChapter, skip });
 
   // ---------- Derived ----------
 
