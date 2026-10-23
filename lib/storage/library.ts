@@ -1,5 +1,5 @@
 import { getObject, putObject } from "./storage";
-import type { LibraryEntry } from "./types";
+import type { LibraryEntry } from "../types";
 
 /** Record that a chapter's narration is finished, so the library can show progress. */
 export async function markNarrated(bookId: string, chapter: number): Promise<void> {

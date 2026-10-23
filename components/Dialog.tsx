@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { costUsd, formatUsd, narratorLabel } from "@/lib/narrators-shared";
-import type { PronLists } from "@/lib/pronlists";
+import type { PronLists } from "@/lib/pronunciation/pronlists";
 import { pronunciationListsOrEmpty } from "@/lib/client/api";
 import { NarratorOptions } from "./NarratorOptions";
 

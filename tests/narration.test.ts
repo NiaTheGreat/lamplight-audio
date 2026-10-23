@@ -31,7 +31,7 @@ afterAll(() => {
 const ID = "abcdef0123456789";
 
 async function seedBook() {
-  const { putObject } = await import("@/lib/storage");
+  const { putObject } = await import("@/lib/storage/storage");
   const chapters = [0, 1, 2].map((i) => ({
     index: i,
     title: `Chapter ${i + 1}`,
@@ -47,8 +47,8 @@ async function seedBook() {
 
 describe("background narration job", () => {
   it("makes no progress without time, then finishes and records narrated chapters", async () => {
-    const { startJob, runJob, getJob } = await import("@/lib/narration");
-    const { getObject } = await import("@/lib/storage");
+    const { startJob, runJob, getJob } = await import("@/lib/narration/narration");
+    const { getObject } = await import("@/lib/storage/storage");
     await seedBook();
     await startJob(ID, 3);
 
@@ -67,7 +67,7 @@ describe("background narration job", () => {
   });
 
   it("skips chapters that are already narrated when restarted", async () => {
-    const { startJob, runJob } = await import("@/lib/narration");
+    const { startJob, runJob } = await import("@/lib/narration/narration");
     const before = calls;
     await startJob(ID, 3);
     const result = await runJob(ID, { budgetMs: 60_000, reserveMs: 0 });
@@ -76,8 +76,8 @@ describe("background narration job", () => {
   });
 
   it("narrates only the chapters in the chosen range", async () => {
-    const { startJob, runJob, getJob, clampRange } = await import("@/lib/narration");
-    const { putObject, getObject, deleteObject } = await import("@/lib/storage");
+    const { startJob, runJob, getJob, clampRange } = await import("@/lib/narration/narration");
+    const { putObject, getObject, deleteObject } = await import("@/lib/storage/storage");
     expect(clampRange(10, 22, 3)).toEqual({ from: 3, to: 9 }); // from beyond the end is pulled in, then ordered
     expect(clampRange(10, undefined, undefined)).toEqual({ from: 0, to: 9 });
     expect(clampRange(10, -4, 2)).toEqual({ from: 0, to: 2 });
@@ -104,7 +104,7 @@ describe("background narration job", () => {
   });
 
   it("stops when cancelled", async () => {
-    const { startJob, cancelJob, runJob, getJob } = await import("@/lib/narration");
+    const { startJob, cancelJob, runJob, getJob } = await import("@/lib/narration/narration");
     await startJob(ID, 3);
     await cancelJob(ID);
     const result = await runJob(ID, { budgetMs: 60_000, reserveMs: 0 });
@@ -113,8 +113,8 @@ describe("background narration job", () => {
   });
 
   it("pauses without being overwritten, then continues from the same place", async () => {
-    const { startJob, pauseJob, resumeJob, runJob, getJob, listQueue } = await import("@/lib/narration");
-    const { deleteObject, putObject } = await import("@/lib/storage");
+    const { startJob, pauseJob, resumeJob, runJob, getJob, listQueue } = await import("@/lib/narration/narration");
+    const { deleteObject, putObject } = await import("@/lib/storage/storage");
     const id = "0011223344556677";
     const chapters = [0, 1, 2].map((i) => ({ index: i, title: `P${i}`, text: `P${i}. ${`Pause words ${i} `.repeat(30)}` }));
     await putObject(`books/${id}.json`, JSON.stringify({ id, title: "Pz", chapters }), "application/json");
@@ -148,8 +148,8 @@ describe("background narration job", () => {
   });
 
   it("a pause that arrives mid-run holds the status and leaves the chapter for later", async () => {
-    const { startJob, pauseJob, runJob, getJob } = await import("@/lib/narration");
-    const { deleteObject, putObject } = await import("@/lib/storage");
+    const { startJob, pauseJob, runJob, getJob } = await import("@/lib/narration/narration");
+    const { deleteObject, putObject } = await import("@/lib/storage/storage");
     const id = "8899aabbccddeeff";
     const text = Array.from({ length: 12 }, (_, i) => `Sentence number ${i} of a long chapter. `.repeat(40)).join("\n\n");
     await putObject(`books/${id}.json`, JSON.stringify({ id, title: "L", chapters: [{ index: 0, title: "L", text }] }), "application/json");
@@ -168,8 +168,8 @@ describe("background narration job", () => {
   });
 
   it("narrates exactly the listed chapters and skips the gaps", async () => {
-    const { startJob, runJob, getJob, listQueue } = await import("@/lib/narration");
-    const { putObject, getObject, deleteObject } = await import("@/lib/storage");
+    const { startJob, runJob, getJob, listQueue } = await import("@/lib/narration/narration");
+    const { putObject, getObject, deleteObject } = await import("@/lib/storage/storage");
     const id = "1212343456567878";
     const chapters = [0, 1, 2, 3, 4].map((i) => ({ index: i, title: `L${i}`, text: `L${i}. ${`List test words ${i} `.repeat(30)}` }));
     await putObject(`books/${id}.json`, JSON.stringify({ id, title: "Li", chapters }), "application/json");
@@ -196,8 +196,8 @@ describe("background narration job", () => {
 describe("pressing play through the job queue", () => {
   it("won't replace a job that is already running for the book", async () => {
     const { POST } = await import("@/app/api/books/[id]/narrate/route");
-    const { startJob, getJob } = await import("@/lib/narration");
-    const { deleteObject } = await import("@/lib/storage");
+    const { startJob, getJob } = await import("@/lib/narration/narration");
+    const { deleteObject } = await import("@/lib/storage/storage");
     await seedBook();
     await deleteObject(`jobs/${ID}.json`);
     const post = (body: unknown) =>

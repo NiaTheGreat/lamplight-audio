@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { PronunciationError } from "@/lib/pronunciation-store";
-import { rereadChapter, rereadChapters, type RereadOptions } from "@/lib/reread";
+import { PronunciationError } from "@/lib/pronunciation/pronunciation-store";
+import { rereadChapter, rereadChapters, type RereadOptions } from "@/lib/narration/reread";
 
 export const runtime = "nodejs";
 

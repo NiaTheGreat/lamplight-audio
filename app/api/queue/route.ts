@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { listLiveItems, listQueue } from "@/lib/narration";
-import { getSpeed } from "@/lib/speed";
+import { listLiveItems, listQueue } from "@/lib/narration/narration";
+import { getSpeed } from "@/lib/storage/speed";
 
 export const runtime = "nodejs";
 

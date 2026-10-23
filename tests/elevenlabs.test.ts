@@ -51,7 +51,7 @@ describe("ElevenLabs narrators", () => {
   });
 
   it("sends a text-to-speech request with the xi-api-key header and the Flash model", async () => {
-    const { synthChunk } = await import("@/lib/tts");
+    const { synthChunk } = await import("@/lib/narration/tts");
     seen.length = 0;
     const audio = await synthChunk("The quick brown fox jumps over the lazy dog.", RACHEL);
     expect(audio.length).toBe(300_000);
@@ -62,7 +62,7 @@ describe("ElevenLabs narrators", () => {
   });
 
   it("gets its own cache keys and names a missing key", async () => {
-    const { audioKey, synthChunk } = await import("@/lib/tts");
+    const { audioKey, synthChunk } = await import("@/lib/narration/tts");
     expect(audioKey("Hello.", RACHEL)).toMatch(/^audio\/[0-9a-f]{64}\.mp3$/);
     expect(audioKey("Hello.", RACHEL)).not.toBe(audioKey("Hello.", "elevenlabs:flash:XrExE9yKIg1WjnnlVkGX"));
     expect(audioKey("Hello.", RACHEL)).not.toBe(audioKey("Hello.", "ballad"));

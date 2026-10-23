@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
-import { clearFailures, isBlocked, recordFailure } from "@/lib/throttle";
+import { clearFailures, isBlocked, recordFailure } from "@/lib/storage/throttle";
 
 export async function POST(req: Request) {
   const form = await req.formData();

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 /**
  * Golden values: the cache keys the app produced BEFORE narrators were introduced
- * (computed independently of lib/tts.ts). Audio already paid for lives under these
+ * (computed independently of lib/narration/tts.ts). Audio already paid for lives under these
  * keys, so they must never change. If this test fails, a refactor would make the
  * app re-narrate (and re-charge for) existing books.
  */
@@ -18,7 +18,7 @@ describe("existing OpenAI cache keys are unchanged", () => {
     delete process.env.OPENAI_TTS_MODEL;
     delete process.env.TTS_INSTRUCTIONS;
     delete process.env.TTS_END_PAD;
-    const { audioKey } = await import("@/lib/tts");
+    const { audioKey } = await import("@/lib/narration/tts");
     expect(audioKey("Hello world.", "ballad")).toBe(GOLDEN.miniBallad);
     // The default voice argument resolves the same way as an explicit "ballad".
     expect(audioKey("Hello world.")).toBe(GOLDEN.miniBallad);
@@ -27,7 +27,7 @@ describe("existing OpenAI cache keys are unchanged", () => {
   it("tts-1 / nova (no instructions in the key)", async () => {
     process.env.OPENAI_TTS_MODEL = "tts-1";
     try {
-      const { audioKey } = await import("@/lib/tts");
+      const { audioKey } = await import("@/lib/narration/tts");
       expect(audioKey("Hello world.", "nova")).toBe(GOLDEN.tts1Nova);
     } finally {
       delete process.env.OPENAI_TTS_MODEL;

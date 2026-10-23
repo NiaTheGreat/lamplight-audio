@@ -1,4 +1,4 @@
-import type { Book } from "./types";
+import type { Book } from "../types";
 
 /** "Hermione" → "her-MY-oh-nee": what to say instead of what's written. */
 export type Pron = { from: string; to: string };

@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { tokenFor } from "@/lib/auth";
-import { runJob } from "@/lib/narration";
+import { runJob } from "@/lib/narration/narration";
 import { BOOK_ID_RE } from "@/lib/types";
 
 export const runtime = "nodejs";

@@ -1,12 +1,12 @@
-import { setKey } from "./keys";
-import { listLive } from "./live";
+import { setKey } from "../storage/keys";
+import { listLive } from "../storage/live";
 import { voiceFor } from "./chaptervoice";
-import { spokenText } from "./pronunciation";
-import { markNarrated } from "./library";
-import { getObject, hasObject, putObject } from "./storage";
-import { recordSpeed, flushSpeed } from "./speed";
+import { spokenText } from "../pronunciation/pronunciation";
+import { markNarrated } from "../storage/library";
+import { getObject, hasObject, putObject } from "../storage/storage";
+import { recordSpeed, flushSpeed } from "../storage/speed";
 import { audioKey, charsSynthesized, synthesizeChapter } from "./tts";
-import type { Book, LibraryEntry } from "./types";
+import type { Book, LibraryEntry } from "../types";
 
 /**
  * Background narration of a whole book. A job is a small record in storage; a

@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { parseEpub } from "@/lib/epub";
-import { getSettings, sanitizeVoice } from "@/lib/settings";
-import { deleteObject, getObject, listKeys, putObject } from "@/lib/storage";
-import { listForUpload } from "@/lib/pronlists";
-import { isUploadKey } from "@/lib/uploads";
+import { getSettings, sanitizeVoice } from "@/lib/storage/settings";
+import { deleteObject, getObject, listKeys, putObject } from "@/lib/storage/storage";
+import { listForUpload } from "@/lib/pronunciation/pronlists";
+import { isUploadKey } from "@/lib/storage/uploads";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
 
 export const runtime = "nodejs";

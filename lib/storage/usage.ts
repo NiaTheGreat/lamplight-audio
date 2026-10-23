@@ -1,4 +1,4 @@
-import { costUsd } from "./narrators-shared";
+import { costUsd } from "../narrators-shared";
 import { getObject, putObject } from "./storage";
 
 /**

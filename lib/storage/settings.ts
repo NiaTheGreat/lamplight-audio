@@ -1,7 +1,7 @@
-import { DEFAULT_SETTINGS, sanitizeSettings, type Settings } from "./settings-shared";
+import { DEFAULT_SETTINGS, sanitizeSettings, type Settings } from "../settings-shared";
 import { getObject, putObject } from "./storage";
 
-export * from "./settings-shared";
+export * from "../settings-shared";
 
 export async function getSettings(): Promise<Settings> {
   const raw = await getObject("settings.json");

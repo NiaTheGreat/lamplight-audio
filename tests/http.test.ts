@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { serveBytes } from "@/lib/http";
+import { serveBytes } from "@/lib/narration/http";
 
 const data = Buffer.from("0123456789");
 const req = (range?: string) =>

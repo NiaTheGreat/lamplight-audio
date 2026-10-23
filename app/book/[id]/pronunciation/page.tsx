@@ -9,8 +9,8 @@ import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 import { changeBookPronunciation, getBookPronunciation, type BookPronunciation } from "@/lib/client/api";
-import type { Pron } from "@/lib/pronunciation";
-import type { StaleChapter } from "@/lib/pronunciation-store";
+import type { Pron } from "@/lib/pronunciation/pronunciation";
+import type { StaleChapter } from "@/lib/pronunciation/pronunciation-store";
 
 type Data = BookPronunciation;
 

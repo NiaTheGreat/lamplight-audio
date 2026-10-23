@@ -1,0 +1,120 @@
+/* ---------- Narration status / chapter rows ---------- */
+
+.rows {
+  border-top: 1px solid var(--rule);
+}
+
+.chrow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 52px;
+  border-bottom: 1px solid var(--rule-soft);
+  padding: 0;
+  background: transparent;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+  text-align: left;
+  color: var(--cream-2);
+  font-size: 16px;
+}
+
+.chrow .nm {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chrow .st {
+  font-size: 13px;
+  color: var(--cream-3);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.chrow.now {
+  background: var(--raised);
+  margin: 0 -24px;
+  padding: 0 24px;
+  min-height: 56px;
+  color: var(--amber);
+  font-weight: 500;
+}
+
+.chrow.reading {
+  color: var(--cream);
+}
+
+.chrow.reading .st {
+  color: var(--amber);
+}
+
+.chrow.ready .nm,
+.chrow.waiting .nm {
+  color: var(--cream-2);
+}
+
+.chrow.failed .st {
+  color: var(--rose);
+}
+
+.glyph {
+  flex-shrink: 0;
+}
+
+.glyph-ready,
+.glyph-reading,
+.glyph-playing {
+  color: var(--amber);
+}
+
+.glyph-waiting {
+  color: var(--cream-3);
+}
+
+.glyph-failed {
+  color: var(--rose);
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.chrow.reading .glyph {
+  animation: breathe 4.5s ease-in-out infinite;
+}
+
+.sticky-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 15;
+  padding: 16px 24px calc(24px + env(safe-area-inset-bottom));
+  background: linear-gradient(rgba(20, 16, 13, 0), var(--ground) 30%);
+  display: flex;
+  gap: 12px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.sticky-actions .btn.primary {
+  flex: 1;
+}
+
+.lead {
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 19px;
+  line-height: 1.4;
+}

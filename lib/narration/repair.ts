@@ -1,16 +1,16 @@
 import { getJob, isJobActive } from "./narration";
-import { PronunciationError } from "./pronunciation-store";
-import { spokenText } from "./pronunciation";
-import { getObject, putObject } from "./storage";
+import { PronunciationError } from "../pronunciation/pronunciation-store";
+import { spokenText } from "../pronunciation/pronunciation";
+import { getObject, putObject } from "../storage/storage";
 import { splitForTts } from "./text";
-import { PROVIDER_INFO, providerOf } from "./narrators-shared";
+import { PROVIDER_INFO, providerOf } from "../narrators-shared";
 import { voiceFor } from "./chaptervoice";
 import { audioKey, joinMp3 } from "./tts";
-import { BOOK_ID_RE, type Book, type LibraryEntry } from "./types";
+import { BOOK_ID_RE, type Book, type LibraryEntry } from "../types";
 
 /**
  * Re-join every narrated chapter from its saved pieces with the tags and length headers stripped
- * (see lib/mp3.ts). Costs no narration, only storage reads and one write per chapter. Fixes
+ * (see lib/narration/mp3.ts). Costs no narration, only storage reads and one write per chapter. Fixes
  * chapters made before the stripping existed, where seeking jumped back to the start.
  */
 export async function repairBook(bookId: string, only?: number): Promise<{ rebuilt: number; skipped: number }> {

@@ -9,7 +9,7 @@ export type SpeechRequest = {
 
 /**
  * What a narration provider has to supply on the server. Retries, the budget check,
- * the completeness check and caching are shared in lib/tts.ts; names, prices, key
+ * the completeness check and caching are shared in lib/narration/tts.ts; names, prices, key
  * names and size limits are in PROVIDER_INFO (lib/narrators-shared.ts).
  */
 export type TtsProvider = {

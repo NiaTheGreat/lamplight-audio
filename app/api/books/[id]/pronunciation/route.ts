@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { getLists } from "@/lib/pronlists";
-import { getPronunciations, PronunciationError, renarrate, savePronunciations, updateFromList } from "@/lib/pronunciation-store";
+import { getLists } from "@/lib/pronunciation/pronlists";
+import { getPronunciations, PronunciationError, renarrate, savePronunciations, updateFromList } from "@/lib/pronunciation/pronunciation-store";
 
 export const runtime = "nodejs";
 

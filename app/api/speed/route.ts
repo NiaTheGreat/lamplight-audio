@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getSpeed } from "@/lib/speed";
+import { getSpeed } from "@/lib/storage/speed";
 
 export const runtime = "nodejs";
 

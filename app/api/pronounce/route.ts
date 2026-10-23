@@ -1,8 +1,8 @@
-import { serveBytes } from "@/lib/http";
+import { serveBytes } from "@/lib/narration/http";
 import { sanitizeNarrator } from "@/lib/narrators-shared";
-import { getObject, putObject } from "@/lib/storage";
-import { audioKey, defaultVoice, synthChunk } from "@/lib/tts";
-import { flushUsage } from "@/lib/usage";
+import { getObject, putObject } from "@/lib/storage/storage";
+import { audioKey, defaultVoice, synthChunk } from "@/lib/narration/tts";
+import { flushUsage } from "@/lib/storage/usage";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;

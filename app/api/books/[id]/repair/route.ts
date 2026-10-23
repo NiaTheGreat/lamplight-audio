@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { PronunciationError } from "@/lib/pronunciation-store";
-import { repairBook } from "@/lib/repair";
+import { PronunciationError } from "@/lib/pronunciation/pronunciation-store";
+import { repairBook } from "@/lib/narration/repair";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;

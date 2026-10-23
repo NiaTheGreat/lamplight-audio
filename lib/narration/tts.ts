@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { joinMp3 } from "./mp3";
-import { PROVIDER_INFO, providerOf } from "./narrators-shared";
-import { resolveNarrator } from "./providers";
-import { getObject, hasObject, putObject } from "./storage";
-import { assertBudget, flushUsage, recordUsage } from "./usage";
+import { PROVIDER_INFO, providerOf } from "../narrators-shared";
+import { resolveNarrator } from "../providers";
+import { getObject, hasObject, putObject } from "../storage/storage";
+import { assertBudget, flushUsage, recordUsage } from "../storage/usage";
 import { splitForTts } from "./text";
 
 const defaultVoice = () => process.env.OPENAI_TTS_VOICE || "ballad";

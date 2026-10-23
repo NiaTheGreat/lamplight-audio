@@ -1,5 +1,5 @@
-import { addSample, type SpeedStats } from "./eta";
-import { providerOf, type Provider } from "./narrators-shared";
+import { addSample, type SpeedStats } from "../eta";
+import { providerOf, type Provider } from "../narrators-shared";
 import { getObject, putObject } from "./storage";
 
 const KEY = "stats/speed.json";

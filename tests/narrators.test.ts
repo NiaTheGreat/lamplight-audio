@@ -68,7 +68,7 @@ describe("narrator ids", () => {
 
 describe("cache keys", () => {
   it("never share audio between narrators, and keep the Kokoro layout stable", async () => {
-    const { audioKey } = await import("@/lib/tts");
+    const { audioKey } = await import("@/lib/narration/tts");
     const text = "Hello world.";
     const keys = new Set([
       audioKey(text, "ballad"),
@@ -78,14 +78,14 @@ describe("cache keys", () => {
     ]);
     expect(keys.size).toBe(4);
     expect(audioKey(text, "deepinfra:kokoro:af_bella")).toMatch(/^audio\/[0-9a-f]{64}\.mp3$/);
-    // Golden value for the new layout (computed independently of lib/tts.ts), so it can't drift later either.
+    // Golden value for the new layout (computed independently of lib/narration/tts.ts), so it can't drift later either.
     expect(audioKey(text, "deepinfra:kokoro:af_bella")).toBe("audio/9e046cdbfaf1ddcef30649617477a7c9d21ffc9ec9646771e95452c0a2463ed4.mp3");
   });
 });
 
 describe("Kokoro on DeepInfra", () => {
   it("sends an OpenAI-style speech request asking for MP3, with no OpenAI-only extras", async () => {
-    const { synthChunk } = await import("@/lib/tts");
+    const { synthChunk } = await import("@/lib/narration/tts");
     seen.length = 0;
     const audio = await synthChunk("The quick brown fox jumps over the lazy dog.", "deepinfra:kokoro:af_bella");
     expect(audio.length).toBe(300_000);
@@ -101,7 +101,7 @@ describe("Kokoro on DeepInfra", () => {
   });
 
   it("leaves the OpenAI request exactly as it was (model, pad and instructions)", async () => {
-    const { synthChunk } = await import("@/lib/tts");
+    const { synthChunk } = await import("@/lib/narration/tts");
     seen.length = 0;
     await synthChunk("Hello there, friend.", "ballad");
     expect(seen[0].auth).toBe("Bearer openai-test-key");
@@ -115,7 +115,7 @@ describe("Kokoro on DeepInfra", () => {
   });
 
   it("names the missing key when a provider isn't set up", async () => {
-    const { synthChunk } = await import("@/lib/tts");
+    const { synthChunk } = await import("@/lib/narration/tts");
     const saved = process.env.DEEPINFRA_API_KEY;
     delete process.env.DEEPINFRA_API_KEY;
     try {
@@ -128,8 +128,8 @@ describe("Kokoro on DeepInfra", () => {
   });
 
   it("records spending at Kokoro's price, not OpenAI's", async () => {
-    const { synthChunk } = await import("@/lib/tts");
-    const { getUsage } = await import("@/lib/usage");
+    const { synthChunk } = await import("@/lib/narration/tts");
+    const { getUsage } = await import("@/lib/storage/usage");
     const before = await getUsage();
     const text = "k".repeat(1000);
     await synthChunk(text, "deepinfra:kokoro:af_bella");
@@ -144,7 +144,7 @@ describe("Kokoro on DeepInfra", () => {
 
 describe("dollar budget", () => {
   it("allows cheap narration and blocks costly narration under the same limit", async () => {
-    const { assertBudget, getUsage, BudgetError } = await import("@/lib/usage");
+    const { assertBudget, getUsage, BudgetError } = await import("@/lib/storage/usage");
     const used = (await getUsage()).usd;
     process.env.MONTHLY_BUDGET_USD = String(used + 0.001); // $0.001 of headroom
     await expect(assertBudget(500, "deepinfra:kokoro:af_bella")).resolves.toBeUndefined(); // ~$0.0005
@@ -154,8 +154,8 @@ describe("dollar budget", () => {
   });
 
   it("defaults to $30 and counts old character-only months as OpenAI", async () => {
-    const { getUsage, flushUsage } = await import("@/lib/usage");
-    const { putObject } = await import("@/lib/storage");
+    const { getUsage, flushUsage } = await import("@/lib/storage/usage");
+    const { putObject } = await import("@/lib/storage/storage");
     expect((await getUsage()).limitUsd).toBe(30);
     await flushUsage(); // settle anything counted by the tests above before replacing the stored month
     await putObject(`usage/${new Date().toISOString().slice(0, 7)}.json`, JSON.stringify({ chars: 500_000 }), "application/json");
@@ -166,7 +166,7 @@ describe("dollar budget", () => {
 describe("changing a narrator", () => {
   const ID = "0123456789abcdef";
   async function seed(narrated: number[]) {
-    const { putObject } = await import("@/lib/storage");
+    const { putObject } = await import("@/lib/storage/storage");
     await putObject(`books/${ID}.json`, JSON.stringify({ id: ID, title: "T", voice: "ballad", chapters: [] }), "application/json");
     await putObject(
       `library/${ID}.json`,
@@ -176,8 +176,8 @@ describe("changing a narrator", () => {
   }
 
   it("works before anything is narrated and updates the book and its shelf entry", async () => {
-    const { changeNarrator } = await import("@/lib/narrator");
-    const { getObject } = await import("@/lib/storage");
+    const { changeNarrator } = await import("@/lib/narration/narrator");
+    const { getObject } = await import("@/lib/storage/storage");
     await seed([]);
     expect(await changeNarrator(ID, "deepinfra:kokoro:af_bella")).toBe("deepinfra:kokoro:af_bella");
     expect(JSON.parse((await getObject(`books/${ID}.json`))!.toString()).voice).toBe("deepinfra:kokoro:af_bella");
@@ -185,9 +185,9 @@ describe("changing a narrator", () => {
   });
 
   it("switches a fic that already has narrated chapters, keeping those chapters in their old voice", async () => {
-    const { changeNarrator } = await import("@/lib/narrator");
-    const { voiceFor } = await import("@/lib/chaptervoice");
-    const { getObject } = await import("@/lib/storage");
+    const { changeNarrator } = await import("@/lib/narration/narrator");
+    const { voiceFor } = await import("@/lib/narration/chaptervoice");
+    const { getObject } = await import("@/lib/storage/storage");
     await seed([1, 2]);
     await changeNarrator(ID, "deepinfra:kokoro:af_bella");
     const book = JSON.parse((await getObject(`books/${ID}.json`))!.toString());
@@ -202,9 +202,9 @@ describe("changing a narrator", () => {
   });
 
   it("gives a range its own voice without touching the fic's voice or narrated chapters", async () => {
-    const { setChapterVoice } = await import("@/lib/narrator");
-    const { voiceFor } = await import("@/lib/chaptervoice");
-    const { getObject } = await import("@/lib/storage");
+    const { setChapterVoice } = await import("@/lib/narration/narrator");
+    const { voiceFor } = await import("@/lib/narration/chaptervoice");
+    const { getObject } = await import("@/lib/storage/storage");
     await seed([1]);
     await setChapterVoice(ID, [0, 1, 2], "deepinfra:kokoro:af_bella");
     const book = JSON.parse((await getObject(`books/${ID}.json`))!.toString());
@@ -213,7 +213,7 @@ describe("changing a narrator", () => {
   });
 
   it("refuses an unknown narrator", async () => {
-    const { changeNarrator, setChapterVoice, NarratorChangeError } = await import("@/lib/narrator");
+    const { changeNarrator, setChapterVoice, NarratorChangeError } = await import("@/lib/narration/narrator");
     await seed([]);
     await expect(changeNarrator(ID, "nonsense")).rejects.toBeInstanceOf(NarratorChangeError);
     await expect(setChapterVoice(ID, [0], "nonsense")).rejects.toBeInstanceOf(NarratorChangeError);
