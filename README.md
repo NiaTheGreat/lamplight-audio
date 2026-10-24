@@ -22,7 +22,10 @@ npm run dev
 
 Open http://localhost:3000. Audio is cached in `./.cache`.
 
-**Hosted app (recommended): Vercel + Cloudflare R2.** Listen from your phone anywhere. Import the repo at vercel.com/new, set `OPENAI_API_KEY`, `APP_PASSWORD` and the four `R2_*` variables, and deploy. The full steps, including the one bucket setting for large EPUBs, are in [Deployment](docs/deployment.md).
+**Hosted app (recommended): Vercel + Cloudflare R2.** Listen from your phone anywhere. Create the R2 bucket first (steps in [Deployment](docs/deployment.md), including the one bucket setting for large EPUBs), then pick one:
+
+- **One click, no updates.** [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FNiaTheGreat%2Flamplight-audio&env=OPENAI_API_KEY,APP_PASSWORD,R2_ACCOUNT_ID,R2_ACCESS_KEY_ID,R2_SECRET_ACCESS_KEY,R2_BUCKET) copies this repo into your own GitHub account and asks for `OPENAI_API_KEY`, `APP_PASSWORD` and the four `R2_*` variables. The copy is standalone, so it does not follow later changes here.
+- **Fork, to get updates.** Fork this repo on GitHub, then import your fork at [vercel.com/new](https://vercel.com/new) and set the same variables. The fork stays linked: when new changes land here, click **Sync fork** on your fork's GitHub page and Vercel redeploys it. Syncing is one click, not automatic.
 
 **Self-host with Docker.** Also works on a NAS or a small server:
 
