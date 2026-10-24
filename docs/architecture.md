@@ -34,3 +34,5 @@ Next.js 15 (App Router, TypeScript), meant for Vercel. Storage is Cloudflare R2 
 ## Look
 
 Dark theme with warm near-black, cream text and amber accents; Fraunces and Hanken Grotesk fonts. Tokens are in `app/styles/tokens.css`. Keep the UI usable one-handed on a phone.
+
+The logo (a lamp over an open book) is the app icon. `app/icon.png`, `app/apple-icon.png` (full-bleed, since iOS rounds it itself, used for "Add to Home Screen") and `app/favicon.ico` are picked up by Next.js automatically, and `middleware.ts` lets them through without the password so the login page shows the icon too.
