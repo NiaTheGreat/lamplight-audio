@@ -8,6 +8,16 @@ Upload an EPUB and listen to it as an audiobook in your phone's browser (or on d
 - **Resumes** where you left off
 - **Password-protected** when deployed, so nobody else can spend your OpenAI credits
 
+## Run locally
+
+```bash
+npm install
+cp .env.example .env.local   # then add your OPENAI_API_KEY
+npm run dev
+```
+
+Open http://localhost:3000. Locally, audio is cached in `./.cache`.
+
 ## Quick start
 
 You need an [OpenAI API key](https://platform.openai.com/api-keys). Narration is paid per character, roughly $10 for a 100,000-word fic with the default voice, far less with Kokoro (see [Cost and limits](docs/cost-and-limits.md)).
@@ -28,16 +38,6 @@ Open http://localhost:3000. Phone access over HTTPS and updating are covered in 
 **Coming soon:** `npm install`, a one-command install from npm.
 
 Next: [Getting started](docs/getting-started.md), [Configuration](docs/configuration.md) (every setting), and the [full documentation](docs/README.md).
-
-## Run locally
-
-```bash
-npm install
-cp .env.example .env.local   # then add your OPENAI_API_KEY
-npm run dev
-```
-
-Open http://localhost:3000. Locally, audio is cached in `./.cache`.
 
 ## Self-host (Docker)
 
