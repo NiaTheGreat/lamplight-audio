@@ -8,6 +8,33 @@ Upload an EPUB and listen to it as an audiobook in your phone's browser (or on d
 - **Resumes** where you left off
 - **Password-protected** when deployed, so nobody else can spend your OpenAI credits
 
+## Quick start
+
+You need an [OpenAI API key](https://platform.openai.com/api-keys). Narration is paid per character, roughly $10 for a 100,000-word fic with the default voice, far less with Kokoro (see [Cost and limits](docs/cost-and-limits.md)).
+
+**On your own computer with Docker** (the quickest way to get going):
+
+```bash
+curl -O https://raw.githubusercontent.com/NiaTheGreat/lamplight-audio/main/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/NiaTheGreat/lamplight-audio/main/.env.example
+# edit .env: set OPENAI_API_KEY and a strong APP_PASSWORD
+docker compose up -d
+```
+
+Open http://localhost:3000, add an EPUB, and press play.
+
+**Without Docker** (needs Node.js and npm):
+
+```bash
+npm install
+cp .env.example .env.local   # then add your OPENAI_API_KEY
+npm run dev
+```
+
+**On the internet (Vercel + Cloudflare R2)**, so you can listen from your phone anywhere: follow [Deployment](docs/deployment.md).
+
+Next: [Getting started](docs/getting-started.md), [Configuration](docs/configuration.md) (every setting), and the [full documentation](docs/README.md).
+
 ## Run locally
 
 ```bash
