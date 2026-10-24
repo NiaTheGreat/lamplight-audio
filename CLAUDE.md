@@ -1,4 +1,4 @@
-# audiobook-generator
+# lamplight-audio
 
 Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPUB, narrate each chapter once with OpenAI TTS, cache the audio, then stream it in a mobile-friendly player or download it as an MP3. Mostly AO3 fanfic EPUBs, but any EPUB should work. It is used from a phone, often at night with the screen locked.
 

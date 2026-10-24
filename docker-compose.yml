@@ -2,7 +2,7 @@
 # Reads your keys from a file named .env next to this one (copy .env.example).
 services:
   lamplight:
-    image: ghcr.io/niathegreat/audiobook-generator:latest
+    image: ghcr.io/niathegreat/lamplight-audio:latest
     build: .
     ports:
       - "3000:3000"

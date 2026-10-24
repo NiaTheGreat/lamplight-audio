@@ -1,4 +1,4 @@
-# audiobook-generator
+# lamplight-audio
 
 Upload an EPUB (AO3 downloads work great) and listen to it as an audiobook in your phone's browser. Narration is generated once per chapter with OpenAI's text-to-speech, cached, and then streamed or downloaded as an MP3.
 
@@ -23,8 +23,8 @@ Open http://localhost:3000. Locally, audio is cached in `./.cache`.
 Run it on your own computer, a NAS or a small server. No Vercel and no Cloudflare: books and audio are kept in a Docker volume.
 
 ```bash
-curl -O https://raw.githubusercontent.com/NiaTheGreat/audiobook-generator/main/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/NiaTheGreat/audiobook-generator/main/.env.example
+curl -O https://raw.githubusercontent.com/NiaTheGreat/lamplight-audio/main/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/NiaTheGreat/lamplight-audio/main/.env.example
 # edit .env: set OPENAI_API_KEY and a strong APP_PASSWORD
 docker compose up -d
 ```
