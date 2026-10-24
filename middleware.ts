@@ -14,7 +14,9 @@ export async function middleware(req: NextRequest) {
   }
 
   const { pathname } = req.nextUrl;
-  if (pathname === "/login" || pathname === "/api/login") return NextResponse.next();
+  if (pathname === "/login" || pathname === "/api/login" || pathname === "/api/health") {
+    return NextResponse.next();
+  }
 
   // The background worker calls itself without a browser cookie.
   const workerToken = req.headers.get("x-worker-token");

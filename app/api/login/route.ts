@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AUTH_COOKIE, tokenFor } from "@/lib/auth";
+import { cookieSecure } from "@/lib/self-host";
 import { clearFailures, isBlocked, recordFailure } from "@/lib/storage/throttle";
 
 export async function POST(req: Request) {
@@ -20,7 +21,7 @@ export async function POST(req: Request) {
   const res = NextResponse.redirect(new URL("/", req.url), 303);
   res.cookies.set(AUTH_COOKIE, await tokenFor(expected), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: cookieSecure(),
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 365,

@@ -1,5 +1,6 @@
 import { after } from "next/server";
 import { tokenFor } from "@/lib/auth";
+import { workerOrigin } from "@/lib/self-host";
 import { runJob } from "@/lib/narration/narration";
 import { BOOK_ID_RE } from "@/lib/types";
 
@@ -20,7 +21,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   const password = process.env.APP_PASSWORD;
   const token = password ? await tokenFor(password) : "";
-  const origin = new URL(req.url).origin;
+  const origin = workerOrigin(req);
 
   after(async () => {
     const result = await runJob(id, { budgetMs: BUDGET_MS });

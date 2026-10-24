@@ -18,6 +18,24 @@ npm run dev
 
 Open http://localhost:3000. Locally, audio is cached in `./.cache`.
 
+## Self-host (Docker)
+
+Run it on your own computer, a NAS or a small server. No Vercel and no Cloudflare: books and audio are kept in a Docker volume.
+
+```bash
+curl -O https://raw.githubusercontent.com/NiaTheGreat/audiobook-generator/main/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/NiaTheGreat/audiobook-generator/main/.env.example
+# edit .env: set OPENAI_API_KEY and a strong APP_PASSWORD
+docker compose up -d
+```
+
+Open http://localhost:3000 (or the machine's address on your network, port 3000). Updating is `docker compose pull && docker compose up -d`. Your library lives in the `lamplight-data` volume, so back that up.
+
+- **Phone access.** Lock-screen controls and "Add to Home Screen" need HTTPS. The easy ways are [Tailscale Serve](https://tailscale.com/kb/1242/tailscale-serve) or a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/). Once you reach the app over https, remove `COOKIE_SECURE: "false"` from `docker-compose.yml`.
+- **Reverse proxy.** The background worker calls itself on the container's own port (`WORKER_ORIGIN`), so a proxy needs no special setup.
+- **Keys.** Read "Keeping your keys safe" below; the same advice applies. Don't expose port 3000 to the internet without HTTPS and a strong `APP_PASSWORD`.
+- **Your own R2 bucket** also works: fill in the `R2_*` variables and the volume is no longer used for audio.
+
 ## Deploy (Vercel)
 
 1. Import this repo at vercel.com/new.

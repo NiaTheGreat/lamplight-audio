@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { tokenFor } from "@/lib/auth";
+import { workerOrigin } from "@/lib/self-host";
 import { setChapterVoice, NarratorChangeError } from "@/lib/narration/narrator";
 import {
   cancelJob,
@@ -80,7 +81,7 @@ export async function POST(req: Request, ctx: Ctx) {
 async function kickWorker(req: Request, id: string, job: unknown) {
   const password = process.env.APP_PASSWORD;
   const token = password ? await tokenFor(password) : "";
-  const kick = await fetch(`${new URL(req.url).origin}/api/worker/${id}`, {
+  const kick = await fetch(`${workerOrigin(req)}/api/worker/${id}`, {
     method: "POST",
     headers: { "x-worker-token": token },
   }).catch(() => null);
