@@ -32,3 +32,4 @@ Spend caps, rotating keys and what to do if one leaks are covered in "Keeping yo
 - The bucket stays private. Audio is streamed through short-lived (one hour) signed links handed out by the password-protected app.
 - R2's free tier covers typical use.
 - Do not commit `.env.local`. Use the host's environment variables for secrets.
+- If you rename or move the GitHub repository, open the Vercel project's Settings, then Git, and check it still points at the repo. Reconnect it there if it does not; your environment variables are kept.
