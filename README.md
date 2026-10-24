@@ -81,6 +81,10 @@ The app holds paid API keys, so set it up with these in mind:
 - Chapter MP3s are made by joining several API responses, so some players show a slightly off total duration. Playback is fine.
 - Only EPUB is supported. AO3's "Download > EPUB" is the best input because notes and summaries live in separate sections.
 
+## Documentation
+
+Guides for using, deploying and contributing are in [`docs/`](docs/README.md).
+
 ## Develop
 
 ```bash
