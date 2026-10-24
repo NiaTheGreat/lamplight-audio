@@ -14,19 +14,7 @@ You need an [OpenAI API key](https://platform.openai.com/api-keys). Narration is
 
 **Hosted app (recommended): Vercel + Cloudflare R2.** Listen from your phone anywhere. Import the repo at vercel.com/new, set `OPENAI_API_KEY`, `APP_PASSWORD` and the four `R2_*` variables, and deploy. The full steps, including the one bucket setting for large EPUBs, are in [Deployment](docs/deployment.md).
 
-**Locally on your computer.** Needs Git, Node.js and npm:
-
-```bash
-git clone https://github.com/NiaTheGreat/lamplight-audio.git
-cd lamplight-audio
-npm install
-cp .env.example .env.local   # then add your OPENAI_API_KEY
-npm run dev
-```
-
-Open http://localhost:3000. Audio is cached in `./.cache`.
-
-**Self-host with Docker.** Run it on your own computer, a NAS or a small server:
+**Locally on your computer, with Docker.** Also works on a NAS or a small server:
 
 ```bash
 curl -O https://raw.githubusercontent.com/NiaTheGreat/lamplight-audio/main/docker-compose.yml
@@ -37,7 +25,7 @@ docker compose up -d
 
 Open http://localhost:3000. Phone access over HTTPS and updating are covered in [Self-host (Docker)](#self-host-docker) below.
 
-**Coming soon:** a one-command install from npm.
+**Coming soon:** `npm install`, a one-command install from npm.
 
 Next: [Getting started](docs/getting-started.md), [Configuration](docs/configuration.md) (every setting), and the [full documentation](docs/README.md).
 
