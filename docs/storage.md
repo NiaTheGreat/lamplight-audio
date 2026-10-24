@@ -1,6 +1,6 @@
 # Storage
 
-`lib/storage/storage.ts` stores records in Cloudflare R2 (S3 API via `aws4fetch`) in production and in `./.cache` locally.
+`lib/storage/storage.ts` stores records in Cloudflare R2 (S3 API via `aws4fetch`) in production and in `./.cache` locally. The Docker image sets `CACHE_DIR=/data`, a volume, so a self-hosted copy needs no cloud storage; back that volume up.
 
 ## What is stored
 
@@ -8,6 +8,7 @@
 | --- | --- |
 | book records | parsed text, chapters, narrator, pronunciation lines |
 | `audio/<hash>.mp3` and chunk pieces | narrated audio, keyed by hash of text and settings |
+| `progress.json` | listening position per book, plus the spot in each part-listened chapter |
 | `keys/<bookId>.json` | where each narrated chapter's audio is, so playing never reads the whole book |
 | `jobs/<bookId>.json`, `jobs/active.json`, `jobs/live.json` | background jobs and what is being narrated |
 | `stats/speed.json` | measured narration speed for estimates |

@@ -4,13 +4,13 @@
 
 From a book's narrating screen you can narrate the whole book, or a range of chapters, without keeping the page open. Choosing a range lets you skip chapters you have already read. A different voice can be chosen for the batch without changing the book's default.
 
-A job record is saved in storage. A worker narrates for about 250 seconds, saves its place, then calls itself again to continue. If a hop is lost, the page shows "stalled" after 8 minutes with a **Resume** button.
+A job record is saved in storage. A worker narrates for about 250 seconds, saves its place, then calls itself again to continue. If a hop is lost, the page shows "stalled" after 8 minutes with a **Resume where it stopped** button.
 
 ## Job states
 
 A job is `running`, `paused`, `done`, `cancelled` or `error`.
 
-- **Pause** stops after the current chunk (checked at most every 8 seconds).
+- **Pause** stops after the current chunk (checked at most every 8 seconds). Nothing more is spent until you continue.
 - **Resume** continues from where it stopped.
 - **Cancel** ends the job. Audio already generated is kept.
 

@@ -17,6 +17,12 @@ Prices change. Cost estimates in the app are an upper bound because free tiers a
 
 The counter is batched in memory and written once per chapter, to keep storage operations low.
 
+## Where you can see it
+
+**Settings** shows the month's estimated spend against the limit.
+
+Narrating the next chapter while you listen ("Narrate the next chapter while I listen" in Settings, on by default) spends money on a chapter you might not reach. Turn it off to narrate only what you play.
+
 ## Password protection
 
 A deployed app is behind one shared password (`APP_PASSWORD`) so nobody else can spend your credits. After 5 wrong passwords an address is locked out for 15 minutes.

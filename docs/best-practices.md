@@ -14,6 +14,7 @@ Keep the bucket private. Audio reaches the browser through short-lived signed li
 | --- | --- | --- |
 | OpenAI `gpt-4o-mini-tts` (default) | Books you care about; supports tone instructions | About $10 for a 100,000-word book |
 | OpenAI `tts-1` | Slightly cheaper OpenAI voice | No tone instructions |
+| ElevenLabs Flash v2.5 | Short pieces you want in a specific voice | About $60 per million characters, roughly six times OpenAI; not yet tested against the real API |
 | Kokoro via DeepInfra | Long books, casual listening, trying a book out | About 1/16th the price; the voice is generally less expressive than OpenAI's, and voice quality here is not fully verified |
 
 A sensible pattern: narrate with Kokoro to try a book cheaply, and switch to an OpenAI voice only for books you love. Changing narrator only affects chapters narrated afterwards, so you can start cheap and upgrade later without paying twice for the early chapters. See [Narrators and voices](narrators.md).
@@ -24,6 +25,8 @@ Use [Hear](pronunciations.md) and the voice previews in Settings to compare voic
 
 - Leave `MONTHLY_BUDGET_USD` set. The default is $30; lower it if you want a tighter limit.
 - Keep the "confirm before narrating" prompt on. It shows the price first.
+- Consider turning off "Narrate the next chapter while I listen" if you often drop books part-way.
+- Set a hard monthly limit in each provider's own dashboard too. `MONTHLY_BUDGET_USD` is only the app's estimate.
 - Use a chapter range instead of narrating a whole book, especially for books you have already read part of.
 - Estimates are an upper bound, because free tiers are not modelled.
 
@@ -53,7 +56,8 @@ Leave **Skip notes and summaries** on. Check the first chapter after adding an u
 - Turn off Vercel Deployment Protection on the production domain, or background narration cannot chain.
 - Add the bucket CORS rule so large EPUBs can upload. See [Deployment](deployment.md).
 - Keep secrets in the host's environment variables, never in the repo.
-- Rotate your API keys if you ever suspect they leaked.
+- Rotate your API keys if you ever suspect they leaked. The README section "Keeping your keys safe" has the steps.
+- Self-hosting with Docker? Put it behind HTTPS (Tailscale Serve or a Cloudflare Tunnel) before exposing it beyond your home network, and keep a strong `APP_PASSWORD`. Back up the `lamplight-data` volume.
 
 ## Listening
 

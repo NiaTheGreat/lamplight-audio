@@ -31,6 +31,10 @@ A range of chapters can be read in a different voice without changing the book's
 
 Each chunk of audio is stored under a hash of its text and settings. Changing narrator creates new audio; switching back reuses the old audio for free. Keys for plain OpenAI voice names must never change, since audio already paid for lives under them (`tests/cachekeys.test.ts` pins them).
 
+## Fixing seeking (Kokoro)
+
+Kokoro audio can leave a chapter where dragging the slider jumps back to the start. On a book's narrating screen, **Fix seeking in finished chapters** rebuilds the finished chapters from their saved pieces. It costs nothing. The button only shows for narrators that need it.
+
 ## Known gaps
 
 ElevenLabs has been tested only against a local fake server. Kokoro voice names and quality are taken from the model card and have been tested only against a local fake server. DeepInfra may reject some voices.
