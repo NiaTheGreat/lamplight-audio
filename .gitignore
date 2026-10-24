@@ -1,0 +1,12 @@
+node_modules
+.next
+.vercel
+.cache
+.env
+.env*.local
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+.e2e-cache
+.e2e-results
+playwright-report

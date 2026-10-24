@@ -1,0 +1,139 @@
+/* ---------- Add a fic ---------- */
+
+.dropzone {
+  width: 100%;
+  min-height: 236px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  background: var(--paper-2);
+  border: 1px dashed #6b5540;
+  border-radius: 4px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.dropzone.over {
+  border-color: var(--amber);
+  background: var(--raised);
+}
+
+.dropzone .big {
+  font-family: var(--serif);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.dropzone svg {
+  color: var(--amber);
+}
+
+.soft-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 60px;
+  padding: 0 16px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  color: var(--cream-3);
+}
+
+.soft-row .tag {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid #5a4837;
+  border-radius: 2px;
+  padding: 3px 7px;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 72px;
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+.option .grow {
+  flex-grow: 1;
+}
+
+.option .label {
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.rangepick {
+  display: grid;
+  gap: 12px;
+}
+
+.rangepick label {
+  display: grid;
+  gap: 4px;
+}
+
+.select.wide {
+  width: 100%;
+  min-width: 0;
+  border-radius: 8px;
+  padding: 0 12px;
+  text-overflow: ellipsis;
+}
+
+.chrow.outside {
+  opacity: 0.45;
+}
+
+.select {
+  min-height: 48px;
+  min-width: 120px;
+  padding: 0 14px;
+  background: var(--paper-2);
+  color: var(--cream);
+  border: 1px solid var(--outline);
+  border-radius: 24px;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.switch {
+  position: relative;
+  width: 56px;
+  height: 32px;
+  border-radius: 16px;
+  border: 1px solid var(--outline);
+  background: transparent;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--cream-3);
+  transition: transform 0.4s ease, background 0.4s ease;
+}
+
+.switch[aria-checked="true"] {
+  background: var(--amber);
+  border-color: var(--amber);
+}
+
+.switch[aria-checked="true"]::after {
+  transform: translateX(24px);
+  background: var(--amber-ink);
+}

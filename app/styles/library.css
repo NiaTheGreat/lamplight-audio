@@ -1,0 +1,232 @@
+/* ---------- Library ---------- */
+
+.continue {
+  background: var(--raised);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 18px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.continue .row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.continue .name {
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.1;
+  font-weight: 500;
+}
+
+.round-play {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--amber);
+  color: var(--amber-ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hairline {
+  height: 2px;
+  background: rgba(154, 138, 114, 0.3);
+  position: relative;
+}
+
+.hairline > i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 2px;
+  background: var(--amber);
+}
+
+.shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.spine {
+  position: relative;
+  display: flex;
+  min-height: 76px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 2px 4px 4px 2px;
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.shelf > div:nth-child(2n) .spine {
+  margin-left: 12px;
+  min-height: 88px;
+}
+
+.shelf > div:nth-child(3n) .spine {
+  margin-left: 4px;
+  min-height: 68px;
+}
+
+.spine .binding {
+  width: 18px;
+  flex-shrink: 0;
+  background: var(--spine, #5a2a25);
+  border-right: 1px solid rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 8px 0;
+}
+
+.spine .binding i {
+  height: 1px;
+  background: rgba(234, 223, 200, 0.3);
+}
+
+.spine .body {
+  flex-grow: 1;
+  min-width: 0;
+  padding: 12px 40px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.spine .name {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.spine .meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--cream-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.spine .ribbon {
+  position: absolute;
+  right: 16px;
+  top: 0;
+  color: var(--amber);
+}
+
+.spine .remove {
+  position: absolute;
+  right: 4px;
+  bottom: 0;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--cream-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ticks {
+  position: relative;
+  height: 8px;
+  flex-shrink: 0;
+  background: repeating-linear-gradient(90deg, rgba(154, 138, 114, 0.45) 0 3px, transparent 3px 5px);
+}
+
+.ticks > i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 8px;
+  background: repeating-linear-gradient(90deg, var(--amber) 0 3px, transparent 3px 5px);
+}
+
+.ticks.solid {
+  background: rgba(154, 138, 114, 0.35);
+}
+
+.ticks.solid > i {
+  background: var(--amber);
+}
+
+.tickset {
+  display: flex;
+  gap: 2px;
+  height: 8px;
+  flex-shrink: 0;
+}
+
+.tickset i {
+  width: 3px;
+  background: rgba(154, 138, 114, 0.45);
+}
+
+.tickset i.on {
+  background: var(--amber);
+}
+
+.tickset.big {
+  height: 14px;
+  width: 100%;
+  gap: 6px;
+}
+
+.tickset.big i {
+  width: auto;
+  flex: 1;
+}
+
+.ticks.big {
+  height: 14px;
+  width: 100%;
+  background: repeating-linear-gradient(90deg, rgba(154, 138, 114, 0.45) 0 10px, transparent 10px 16px);
+}
+
+.ticks.big > i {
+  height: 14px;
+  background: repeating-linear-gradient(90deg, var(--amber) 0 10px, transparent 10px 16px);
+}
+
+.add-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  margin-top: 6px;
+  padding: 0 18px;
+  border: 1px dashed #5a4837;
+  border-radius: 4px;
+  color: var(--cream);
+  font-size: 15px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.add-row svg {
+  color: var(--amber);
+}
+
+.empty {
+  padding: 28px 4px;
+  font-family: var(--serif);
+  font-style: italic;
+  font-weight: 300;
+  font-size: 20px;
+  line-height: 1.4;
+  color: var(--cream-2);
+}

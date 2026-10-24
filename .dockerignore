@@ -1,0 +1,11 @@
+node_modules
+.next
+.git
+.cache
+.e2e-cache
+.e2e-results
+playwright-report
+.env
+.env*.local
+tests
+e2e

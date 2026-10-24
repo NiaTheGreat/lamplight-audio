@@ -1,0 +1,18 @@
+# docker compose up -d
+# Reads your keys from a file named .env next to this one (copy .env.example).
+services:
+  lamplight:
+    image: ghcr.io/niathegreat/audiobook-generator:latest
+    build: .
+    ports:
+      - "3000:3000"
+    env_file: .env
+    environment:
+      # Plain http on your home network drops Secure cookies; set to true behind https.
+      COOKIE_SECURE: "false"
+    volumes:
+      - lamplight-data:/data
+    restart: unless-stopped
+
+volumes:
+  lamplight-data:
