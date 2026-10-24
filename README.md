@@ -1,6 +1,6 @@
 # lamplight-audio
 
-Upload an EPUB (AO3 downloads work great) and listen to it as an audiobook in your phone's browser. Narration is generated once per chapter with OpenAI's text-to-speech, cached, and then streamed or downloaded as an MP3.
+Upload an EPUB and listen to it as an audiobook in your phone's browser (or on desktop browseer). Narration is generated once per chapter with OpenAI's text-to-speech, cached, and then streamed or downloaded as an MP3.
 
 - **Skips author's notes and summaries** (toggle on the upload form)
 - **Streams** with play/pause/seek, speed control, lock-screen controls, and auto-advance to the next chapter
