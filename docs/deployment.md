@@ -4,7 +4,9 @@ The app is built for Vercel with Cloudflare R2 storage, but any host that runs N
 
 ## Vercel
 
-1. Import the repo at vercel.com/new.
+1. Get the code into your own GitHub account and deploy it from there. There are two ways, and the difference is updates:
+   - **Deploy button (no updates).** The "Deploy with Vercel" button in the [README](../README.md#quick-start) copies the repo into your account and prompts for the environment variables. The copy is standalone and does not follow later changes to this repo.
+   - **Fork (updates).** Fork the repo on GitHub, then import your fork at vercel.com/new. The fork stays linked to this repo: when new changes land, click **Sync fork** on your fork's GitHub page and Vercel redeploys it. Syncing is one click, not automatic.
 2. Add environment variables: `OPENAI_API_KEY` and `APP_PASSWORD`. The app refuses to run in production without a password. See [Configuration](configuration.md) for the rest.
 3. Create a Cloudflare R2 bucket (private is fine) and an API token with Object Read and Write on it. Add `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` and `R2_BUCKET` to Vercel.
 4. Add a CORS rule to the bucket (Settings, CORS Policy) so the browser can upload large EPUBs directly:
