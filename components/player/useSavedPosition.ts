@@ -28,6 +28,9 @@ export function useSavedPosition({
   loadedRef: MutableRefObject<string>;
 }) {
   const lastSaved = useRef(0);
+  // Where each chapter was left, kept here too so a quick return doesn't wait for the server.
+  const spots = useRef(new Map<string, number>());
+  const toClear = useRef<number | null>(null);
   const [progress, setProgress] = useState<Progress>({ last: null, books: {} });
 
   const savePosition = useCallback(
@@ -41,10 +44,13 @@ export function useSavedPosition({
       lastSaved.current = now;
       const pos = { id: b.id, chapter: chapterRef.current, time: Math.floor(audio.currentTime) };
       writeStore(POSITION_KEY, pos);
+      const clear = toClear.current;
+      toClear.current = null;
+      if (clear !== pos.chapter) spots.current.set(`${b.id}:${pos.chapter}`, pos.time);
       fetch("/api/progress", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pos),
+        body: JSON.stringify(clear === null ? pos : { ...pos, clear }),
         keepalive: true,
       })
         .then((r) => (r.ok ? (r.json() as Promise<Progress>) : null))
@@ -54,6 +60,19 @@ export function useSavedPosition({
     [audioRef, bookRef, chapterRef, loadedRef],
   );
 
+  /** Where to pick a chapter up: its own saved spot, or 0 if it was never started or finished. */
+  const spotFor = useCallback(
+    (bookId: string, index: number) =>
+      spots.current.get(`${bookId}:${index}`) ?? progress.books[bookId]?.chapters?.[index] ?? 0,
+    [progress],
+  );
+
+  /** The chapter was listened to the end; the next save drops its spot. */
+  const finishChapter = useCallback((bookId: string, index: number) => {
+    spots.current.set(`${bookId}:${index}`, 0);
+    toClear.current = index;
+  }, []);
+
   // Save the place when the page goes away.
   useEffect(() => {
     const save = () => savePosition(true);
@@ -61,5 +80,5 @@ export function useSavedPosition({
     return () => window.removeEventListener("pagehide", save);
   }, [savePosition]);
 
-  return { progress, setProgress, savePosition };
+  return { progress, setProgress, savePosition, spotFor, finishChapter };
 }

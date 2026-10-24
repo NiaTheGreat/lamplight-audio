@@ -10,7 +10,13 @@ export type JobInfo = {
 // A running job that hasn't saved progress for this long has probably lost its worker.
 export const STALE_MS = 8 * 60 * 1000;
 
-export type Position = { chapter: number; time: number; updatedAt: number };
+export type Position = {
+  chapter: number;
+  time: number;
+  updatedAt: number;
+  /** Seconds listened in each chapter left part-way, by chapter index. */
+  chapters?: Record<string, number>;
+};
 export type Progress = {
   last: ({ id: string } & Position) | null;
   books: Record<string, Position>;
@@ -25,6 +31,8 @@ export type PendingNarration = {
   index: number;
   startAt: number;
   fresh: boolean;
+  /** Narrate it in the background without leaving the chapter that is playing. */
+  ahead?: boolean;
   title: string;
   chars: number;
   costUsd: number;

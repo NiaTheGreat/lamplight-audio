@@ -13,9 +13,12 @@ export async function PUT(req: Request) {
     id?: string;
     chapter?: number;
     time?: number;
+    clear?: number;
   } | null;
   if (!body || !BOOK_ID_RE.test(body.id ?? "") || typeof body.chapter !== "number") {
     return NextResponse.json({ error: "Bad request." }, { status: 400 });
   }
-  return NextResponse.json(await savePosition(body.id!, body.chapter, Number(body.time) || 0));
+  return NextResponse.json(
+    await savePosition(body.id!, body.chapter, Number(body.time) || 0, body.clear),
+  );
 }

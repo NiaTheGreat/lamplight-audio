@@ -287,6 +287,62 @@ describe("player: chapters that are not narrated yet", () => {
   });
 });
 
+describe("player: keeping your place", () => {
+  it("keeps playing the current chapter when another one is read ahead", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: false });
+    localStorage.setItem("abg:confirm", "false");
+    await mount();
+    await act(async () => player.openBook("b1"));
+    let ahead: Promise<void> = Promise.resolve();
+    await act(async () => {
+      ahead = Promise.resolve(player.playChapter(2));
+      await vi.advanceTimersByTimeAsync(10);
+    });
+    const post = calls.find((c) => c.method === "POST" && c.url === "/api/books/b1/narrate");
+    expect(post?.body).toEqual({ chapters: [2], onlyIfIdle: true });
+    expect(player.chapter).toBe(0);
+    expect(audioPath()).toBe("/api/audio/b1/0");
+    expect(player.playing).toBe(true);
+    expect(player.preparing).toBeNull();
+    expect(player.chapterState(2)).toBe("reading");
+
+    server.audioProgress = { ready: 2, total: 2 };
+    await act(async () => void (await vi.advanceTimersByTimeAsync(2100)));
+    await act(async () => void (await ahead));
+    expect(player.chapterState(2)).toBe("ready");
+    expect(player.chapter).toBe(0);
+    expect(audioPath()).toBe("/api/audio/b1/0");
+  });
+
+  it("comes back to a chapter where it was left", async () => {
+    await mount();
+    await act(async () => player.openBook("b1"));
+    setAudio({ currentTime: 40 });
+    await act(async () => player.playChapter(1));
+    const puts = calls.filter((c) => c.method === "PUT" && c.url === "/api/progress");
+    expect(puts.some((c) => JSON.stringify(c.body).includes('"chapter":0,"time":40'))).toBe(true);
+    expect(audioPath()).toBe("/api/audio/b1/1");
+    setAudio({ currentTime: 0 });
+    await act(async () => player.playChapter(0));
+    expect(audioPath()).toBe("/api/audio/b1/0");
+    expect(audio.currentTime).toBe(40);
+  });
+
+  it("starts a finished chapter from the top again", async () => {
+    await mount();
+    await act(async () => player.openBook("b1"));
+    await act(async () => player.playChapter(1));
+    setAudio({ currentTime: 90 });
+    await fire("ended");
+    const puts = calls.filter((c) => c.method === "PUT" && c.url === "/api/progress");
+    expect(puts.some((c) => (c.body as { clear?: number }).clear === 1)).toBe(true);
+    // Chapter 1 is not started 90 s in: the element is left alone, so the stand-in time stays.
+    setAudio({ currentTime: 99 });
+    await act(async () => player.playChapter(1));
+    expect(audio.currentTime).toBe(99);
+  });
+});
+
 describe("player: auto-advance", () => {
   it("rolls into the next chapter when one ends, if it is narrated", async () => {
     await mount();

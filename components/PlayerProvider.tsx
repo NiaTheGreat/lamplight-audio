@@ -144,6 +144,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const listenRangeRef = useRef<ListenRange>(null);
   const pendingRef = useRef<PendingNarration | null>(null);
   const loadToken = useRef(0);
+  const aheadRef = useRef(""); // "<bookId>:<chapter>" being narrated while another chapter plays
   const startingRef = useRef(""); // "<bookId>:<chapter>" being narrated for a play right now
   const readyRef = useRef(new Set<string>());
   const settingsRef = useRef<Settings>(DEFAULT_SETTINGS);
@@ -156,6 +157,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const [preparing, setPreparing] = useState<{ chapter: number; pct: number } | null>(null);
   const [error, setError] = useState("");
   const [failedChapter, setFailedChapter] = useState<number | null>(null);
+  const [aheadChapter, setAheadChapter] = useState<number | null>(null);
   const [rate, setRate] = useState(1);
   const { sleep, sleepRef, setSleep, setSleepMinutes, cycleSleep } = useSleepTimer();
   const [autoNext, setAutoNextState] = useState(true);
@@ -264,7 +266,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       refreshLibrary,
     });
 
-  const { progress, setProgress, savePosition } = useSavedPosition({
+  const { progress, setProgress, savePosition, spotFor, finishChapter } = useSavedPosition({
     audioRef,
     bookRef,
     chapterRef,
@@ -428,11 +430,46 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   /**
+   * Narrate a chapter while the one that is playing carries on: nothing on the audio element or
+   * the open chapter changes. It runs as a background job (so it shows in the Queue and keeps going
+   * if the tab closes) and the chapter turns ready when it is done.
+   */
+  const narrateAhead = useCallback(
+    async (b: BookSummary, index: number) => {
+      const key = `${b.id}:${index}`;
+      if (aheadRef.current === key) return;
+      aheadRef.current = key;
+      setAheadChapter(index);
+      setFailedChapter(null);
+      setError("");
+      try {
+        const ok = await narrateViaQueue(
+          b.id,
+          index,
+          () => {},
+          () => false,
+        );
+        if (ok) {
+          markReady(b.id, index);
+          void refreshBook(b.id);
+        }
+      } catch (err) {
+        setFailedChapter(index);
+        setError(err instanceof Error ? err.message : "Couldn't prepare that chapter.");
+      } finally {
+        if (aheadRef.current === key) aheadRef.current = "";
+        setAheadChapter((c) => (c === index ? null : c));
+      }
+    },
+    [refreshBook],
+  );
+
+  /**
    * Start a chapter because the listener asked to. If it isn't narrated yet, ask first
    * (it costs money), unless they turned the prompt off.
    */
   const requestStart = useCallback(
-    async (b: BookSummary, index: number, startAt: number, fresh: boolean) => {
+    async (b: BookSummary, index: number, startAt: number, fresh: boolean, ahead = false) => {
       const ch = b.chapters[index];
       if (
         ch &&
@@ -443,6 +480,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
           index,
           startAt,
           fresh,
+          ahead,
           title: ch.title,
           chars: ch.chars,
           costUsd: costUsd(ch.chars, b.voice),
@@ -450,17 +488,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         });
         return;
       }
-      await startChapter(b, index, startAt, fresh);
+      if (ahead) await narrateAhead(b, index);
+      else await startChapter(b, index, startAt, fresh);
     },
-    [startChapter],
+    [startChapter, narrateAhead],
   );
 
   const confirmNarration = useCallback(() => {
     const p = pendingRef.current;
     const b = bookRef.current;
     setPending(null);
-    if (p && b && b.id === p.bookId) void startChapter(b, p.index, p.startAt, p.fresh);
-  }, [startChapter]);
+    if (!p || !b || b.id !== p.bookId) return;
+    if (p.ahead) void narrateAhead(b, p.index);
+    else void startChapter(b, p.index, p.startAt, p.fresh);
+  }, [startChapter, narrateAhead]);
 
   const cancelNarration = useCallback(() => setPending(null), []);
 
@@ -494,9 +535,21 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       if (!b || !b.chapters[index]) return;
       // Choosing a chapter outside the chosen range means they want to read from there.
       if (!inRange(listenRangeRef.current, index)) setListenRange(b.id, null);
-      await requestStart(b, index, 0, true);
+      const audio = audioRef.current;
+      const listening =
+        Boolean(audio && !audio.paused) &&
+        loadedRef.current === `${b.id}:${chapterRef.current}` &&
+        index !== chapterRef.current;
+      if (listening && !isReadyIdx(b, index)) {
+        // Don't pull the listener out of the chapter they're in: narrate this one alongside.
+        if (aheadRef.current !== `${b.id}:${index}`) await requestStart(b, index, 0, true, true);
+        return;
+      }
+      // Leaving a chapter part-way: keep the place, and pick the new one up where it was left.
+      if (loadedRef.current === `${b.id}:${chapterRef.current}`) savePosition(true);
+      await requestStart(b, index, index === chapterRef.current ? 0 : spotFor(b.id, index), true);
     },
-    [requestStart],
+    [requestStart, savePosition, spotFor],
   );
 
   const togglePlay = useCallback(async () => {
@@ -716,6 +769,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     const b = bookRef.current;
     if (!audio || !b) return;
     setPlaying(false);
+    // Listened to the end: a later visit to this chapter starts from the top.
+    finishChapter(b.id, chapterRef.current);
+    savePosition(true);
 
     if (sleepRef.current.kind === "chapter") {
       setSleep({ kind: "off" });
@@ -768,7 +824,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (index === chapter && playing && isChapterReady(index)) return "playing";
     if (failedChapter === index || (job?.status === "error" && job.chapter === index))
       return "failed";
-    if (preparing?.chapter === index) return "reading";
+    if (preparing?.chapter === index || aheadChapter === index) return "reading";
     if (isChapterReady(index)) return "ready";
     if (job?.status === "running" && job.chapter === index) return "reading";
     return "waiting";
