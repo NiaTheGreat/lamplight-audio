@@ -7,13 +7,15 @@ A **narrator** is a string identifying a voice.
 | `ballad` (a plain voice name) | An OpenAI voice |
 | `deepinfra:kokoro:af_bella` | A Kokoro-82M voice through DeepInfra |
 | `elevenlabs:flash:<voiceId>` | An ElevenLabs Flash v2.5 voice |
+| `elevenlabs:v4turbo:<voiceId>` | An ElevenLabs Eleven v4 Turbo voice |
+| `elevenlabs:v4:<voiceId>` | An ElevenLabs Eleven v4 voice |
 
 ## Providers
 
 - **OpenAI** (default). Model `gpt-4o-mini-tts`, or `tts-1` by setting `OPENAI_TTS_MODEL`. `gpt-4o-mini-tts` supports tone instructions (`TTS_INSTRUCTIONS`).
 - **Kokoro via DeepInfra.** About 1/16th the price. Enabled by `DEEPINFRA_API_KEY`; without it the Kokoro voices show as "needs a key".
 
-- **ElevenLabs Flash v2.5.** Female premade voices, about $60 per million characters (the priciest option). Enabled by `ELEVENLABS_API_KEY`. Not yet tested against the real API.
+- **ElevenLabs.** Female premade voices, enabled by `ELEVENLABS_API_KEY`. The model is part of the narrator, so you choose it in the narrator menu (Settings, the add page, a book's narrator): Flash v2.5 (about $60 per million characters), Eleven v4 Turbo (about $40) or Eleven v4 (about $80). List prices; your plan's credits may differ. Each model has its own cached audio. `ELEVENLABS_TTS_MODEL` still overrides the model for Flash narrators only. Not yet tested against the real API.
 
 Hear voices in **Settings** before choosing.
 

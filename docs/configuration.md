@@ -15,7 +15,7 @@ All settings are environment variables. `.env.example` lists them; locally put t
 | --- | --- | --- |
 | `DEEPINFRA_API_KEY` | none | Enables Kokoro voices |
 | `ELEVENLABS_API_KEY` | none | Enables ElevenLabs voices |
-| `ELEVENLABS_TTS_MODEL` | built in | Override the ElevenLabs model |
+| `ELEVENLABS_TTS_MODEL` | built in | Override the model for ElevenLabs Flash narrators (v4 Turbo and v4 are chosen as narrators) |
 | `OPENAI_TTS_MODEL` | `gpt-4o-mini-tts` | Or `tts-1` |
 | `OPENAI_TTS_VOICE` | `ballad` | Default OpenAI voice |
 | `TTS_INSTRUCTIONS` | none | Tone instructions (`gpt-4o-mini-tts` only) |

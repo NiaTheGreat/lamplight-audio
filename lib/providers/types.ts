@@ -16,6 +16,6 @@ export type TtsProvider = {
   id: Provider;
   /** The cache-key parts for a chunk (hashed by audioKey). Never change these for existing narrators: audio already paid for lives under them. */
   cacheLayout(text: string, narrator: string, voice: string): string[];
-  /** The request for one chunk. `apiKey` is already checked to be set. */
-  request(input: string, voice: string, apiKey: string): SpeechRequest;
+  /** The request for one chunk. `apiKey` is already checked to be set; `narrator` is the full id. */
+  request(input: string, voice: string, apiKey: string, narrator: string): SpeechRequest;
 };

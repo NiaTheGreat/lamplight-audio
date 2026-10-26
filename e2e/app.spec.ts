@@ -13,10 +13,10 @@ async function bookId(): Promise<string> {
 test("settings: lists every narrator provider and remembers the speed", async ({ page }) => {
   await page.goto("/settings");
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible();
-  await expect(page.getByText("per million characters")).toHaveCount(3);
+  await expect(page.getByText("per million characters")).toHaveCount(5);
   // No Kokoro or ElevenLabs key is set in the test server, so those groups say so.
-  await expect(page.getByText("Add DEEPINFRA_API_KEY in Vercel")).toBeVisible();
-  await expect(page.getByText("Add ELEVENLABS_API_KEY in Vercel")).toBeVisible();
+  await expect(page.getByText("Add DEEPINFRA_API_KEY in Vercel").first()).toBeVisible();
+  await expect(page.getByText("Add ELEVENLABS_API_KEY in Vercel").first()).toBeVisible();
 
   await page.getByRole("radio", { name: "1.3×" }).click();
   await expect(page.getByRole("radio", { name: "1.3×" })).toBeChecked();

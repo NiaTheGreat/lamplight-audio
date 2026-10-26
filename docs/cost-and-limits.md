@@ -8,6 +8,8 @@ Narration is the only real cost. It is paid once per chapter; replays come from 
 | `tts-1` | $15 per 1M characters | roughly $9 |
 | Kokoro via DeepInfra | about $0.99 per 1M characters | roughly $0.60 |
 | ElevenLabs Flash v2.5 | about $60 per 1M characters | roughly $36 |
+| ElevenLabs v4 Turbo | about $40 per 1M characters | roughly $24 |
+| ElevenLabs v4 | about $80 per 1M characters | roughly $48 |
 
 Prices change. Cost estimates in the app are an upper bound because free tiers are not modelled.
 

@@ -36,7 +36,7 @@ function buildRequest(input: string, narrator: string) {
   const keyName = PROVIDER_INFO[provider.id].keyEnv;
   const apiKey = process.env[keyName];
   if (!apiKey) throw new Error(`${keyName} is not set.`);
-  return { provider: provider.id, ...provider.request(input, voice, apiKey) };
+  return { provider: provider.id, ...provider.request(input, voice, apiKey, narrator) };
 }
 
 export async function synthChunk(
