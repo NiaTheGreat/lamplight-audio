@@ -29,7 +29,7 @@ export function NarratorOptions({
     <>
       {groups.map((g) => (
         <optgroup
-          key={g.provider}
+          key={g.label}
           label={
             showPrice
               ? `${g.label} · about ${formatUsd(g.pricePerMillion)} per million characters`

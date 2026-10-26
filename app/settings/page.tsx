@@ -71,7 +71,7 @@ export default function Settings() {
           const open = showAll[g.provider];
           const shown = open ? ordered : ordered.slice(0, 4);
           return (
-            <div key={g.provider} style={{ marginTop: 14 }}>
+            <div key={g.label} style={{ marginTop: 14 }}>
               <div
                 style={{
                   display: "flex",

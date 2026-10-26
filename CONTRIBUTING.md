@@ -51,7 +51,7 @@ Never change the cache key for plain OpenAI voice names. `tests/cachekeys.test.t
 | `OPENAI_TTS_VOICE` | no | Default voice for new books |
 | `TTS_INSTRUCTIONS` | no | Tone instructions (`gpt-4o-mini-tts` only) |
 | `TTS_END_PAD` | no | Text appended to each piece so the last words aren't clipped. Empty disables it. |
-| `ELEVENLABS_TTS_MODEL` | no | Override the ElevenLabs model |
+| `ELEVENLABS_TTS_MODEL` | no | Override the model for ElevenLabs Flash narrators |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | on Vercel | Cloudflare R2 storage. Leave empty locally to use `./.cache`. |
 | `R2_ENDPOINT` | no | Override the R2 endpoint |
 | `MONTHLY_BUDGET_USD` | no | Stop narrating at this estimated monthly spend (default 30) |

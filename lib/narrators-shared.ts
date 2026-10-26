@@ -72,6 +72,22 @@ export const ELEVENLABS_VOICES = [
 ] as const;
 
 /**
+ * ElevenLabs models, by the short name used in narrator ids (`elevenlabs:<model>:<voiceId>`).
+ * `flash` is the original and can be overridden with ELEVENLABS_TTS_MODEL. Prices are list
+ * prices per million characters; plan credits differ.
+ */
+export const ELEVENLABS_MODELS = {
+  flash: { label: "Flash v2.5", modelId: "eleven_flash_v2_5", pricePerMillion: 60 },
+  v4turbo: { label: "v4 Turbo", modelId: "eleven_v4_turbo", pricePerMillion: 40 },
+  v4: { label: "v4", modelId: "eleven_v4", pricePerMillion: 80 },
+} as const;
+
+export type ElevenLabsModel = keyof typeof ELEVENLABS_MODELS;
+
+const isElevenLabsModel = (m: unknown): m is ElevenLabsModel =>
+  typeof m === "string" && Object.hasOwn(ELEVENLABS_MODELS, m);
+
+/**
  * Everything about a provider that the browser may see (no keys, no request code; that
  * lives in lib/providers). A new provider starts as one row here.
  */
@@ -102,8 +118,9 @@ export const PROVIDER_INFO = {
     name: "ElevenLabs",
     label: "ElevenLabs",
     keyEnv: "ELEVENLABS_API_KEY",
-    // Flash v2.5 API list price (about $0.06 per 1,000 characters); plan credits differ.
-    pricePerMillion: 60,
+    // Flash v2.5 list price (about $0.06 per 1,000 characters); the other models are in
+    // ELEVENLABS_MODELS and pricePerMillion(id) picks the right one. Plan credits differ.
+    pricePerMillion: ELEVENLABS_MODELS.flash.pricePerMillion,
     minBytesPerChar: 30,
     needsMp3Repair: false,
   },
@@ -113,7 +130,7 @@ export type Provider = keyof typeof PROVIDER_INFO;
 
 export type ParsedNarrator = {
   provider: Provider;
-  /** "kokoro" for DeepInfra; undefined for OpenAI (the model comes from OPENAI_TTS_MODEL). */
+  /** "kokoro" for DeepInfra, an ELEVENLABS_MODELS key for ElevenLabs; undefined for OpenAI (the model comes from OPENAI_TTS_MODEL). */
   model?: string;
   voice: string;
 };
@@ -133,7 +150,8 @@ export const PROVIDER_KEY_ENV = Object.fromEntries(
 ) as Record<Provider, string>;
 
 export const kokoroId = (voice: string) => `deepinfra:kokoro:${voice}`;
-export const elevenLabsId = (voiceId: string) => `elevenlabs:flash:${voiceId}`;
+export const elevenLabsId = (voiceId: string, model: ElevenLabsModel = "flash") =>
+  `elevenlabs:${model}:${voiceId}`;
 
 /** Understand a narrator id, or null if it isn't one we know how to run. */
 export function parseNarrator(id: unknown): ParsedNarrator | null {
@@ -143,7 +161,7 @@ export function parseNarrator(id: unknown): ParsedNarrator | null {
   if (rest.length || !voice) return null;
   if (provider === "deepinfra" && model === "kokoro")
     return { provider: "deepinfra", model, voice };
-  if (provider === "elevenlabs" && model === "flash")
+  if (provider === "elevenlabs" && isElevenLabsModel(model))
     return { provider: "elevenlabs", model, voice };
   return null;
 }
@@ -164,6 +182,9 @@ export function providerOf(id: string | undefined): Provider {
 }
 
 export function pricePerMillion(id: string | undefined): number {
+  const parsed = parseNarrator(id);
+  if (parsed?.provider === "elevenlabs" && isElevenLabsModel(parsed.model))
+    return ELEVENLABS_MODELS[parsed.model].pricePerMillion;
   return PRICE_PER_MILLION_CHARS[providerOf(id)];
 }
 
@@ -191,7 +212,10 @@ export function narratorLabel(id: string | undefined): string {
   const parsed = parseNarrator(id);
   if (!parsed) return id ?? "";
   if (parsed.provider === "elevenlabs") {
-    return `${ELEVENLABS_VOICES.find((v) => v.id === parsed.voice)?.name ?? "Voice"} (ElevenLabs)`;
+    const name = ELEVENLABS_VOICES.find((v) => v.id === parsed.voice)?.name ?? "Voice";
+    return parsed.model === "flash"
+      ? `${name} (ElevenLabs)`
+      : `${name} (ElevenLabs ${ELEVENLABS_MODELS[parsed.model as ElevenLabsModel].label})`;
   }
   return parsed.provider === "openai"
     ? prettyVoice(parsed.voice)
@@ -222,13 +246,13 @@ export const NARRATOR_GROUPS: NarratorGroup[] = [
       label: `${prettyVoice(v)} · ${kokoroTraits(v)}`,
     })),
   },
-  {
-    provider: "elevenlabs",
-    label: PROVIDER_LABEL.elevenlabs,
-    pricePerMillion: PRICE_PER_MILLION_CHARS.elevenlabs,
+  ...(Object.keys(ELEVENLABS_MODELS) as ElevenLabsModel[]).map((model) => ({
+    provider: "elevenlabs" as const,
+    label: `${PROVIDER_LABEL.elevenlabs} ${ELEVENLABS_MODELS[model].label}`,
+    pricePerMillion: ELEVENLABS_MODELS[model].pricePerMillion,
     narrators: ELEVENLABS_VOICES.map((v) => ({
-      id: elevenLabsId(v.id),
+      id: elevenLabsId(v.id, model),
       label: `${v.name} · ${v.traits}`,
     })),
-  },
+  })),
 ];

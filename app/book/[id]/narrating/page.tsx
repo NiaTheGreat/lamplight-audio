@@ -15,7 +15,7 @@ import {
   costUsd,
   formatUsd,
   narratorLabel,
-  PRICE_PER_MILLION_CHARS,
+  pricePerMillion,
   PROVIDER_INFO,
   providerOf,
 } from "@/lib/narrators-shared";
@@ -250,8 +250,7 @@ export default function Narrating() {
               {narratorLabel(book.voice)}
               <span className="faint">
                 {" "}
-                · about {formatUsd(PRICE_PER_MILLION_CHARS[providerOf(book.voice)])} per million
-                characters
+                · about {formatUsd(pricePerMillion(book.voice))} per million characters
               </span>
             </div>
           )}

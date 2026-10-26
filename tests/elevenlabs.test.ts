@@ -74,6 +74,49 @@ describe("ElevenLabs narrators", () => {
     });
   });
 
+  it("offers Flash, v4 Turbo and v4 with their own prices, labels and model ids", async () => {
+    const { parseNarrator, sanitizeNarrator, narratorLabel, costUsd, NARRATOR_GROUPS } =
+      await import("@/lib/narrators-shared");
+    const { synthChunk, audioKey } = await import("@/lib/narration/tts");
+    const TURBO = "elevenlabs:v4turbo:21m00Tcm4TlvDq8ikWAM";
+    const V4 = "elevenlabs:v4:21m00Tcm4TlvDq8ikWAM";
+    expect(parseNarrator(TURBO)?.model).toBe("v4turbo");
+    expect(sanitizeNarrator(V4)).toBe(V4);
+    expect(sanitizeNarrator("elevenlabs:v9:21m00Tcm4TlvDq8ikWAM")).toBeUndefined();
+    expect(narratorLabel(TURBO)).toBe("Rachel (ElevenLabs v4 Turbo)");
+    expect(costUsd(1_000_000, TURBO)).toBeCloseTo(40);
+    expect(costUsd(1_000_000, V4)).toBeCloseTo(80);
+    expect(NARRATOR_GROUPS.filter((g) => g.provider === "elevenlabs").map((g) => g.label)).toEqual([
+      "ElevenLabs Flash v2.5",
+      "ElevenLabs v4 Turbo",
+      "ElevenLabs v4",
+    ]);
+    // Each model gets its own cache key.
+    const keys = new Set([RACHEL, TURBO, V4].map((n) => audioKey("Hello.", n)));
+    expect(keys.size).toBe(3);
+
+    seen.length = 0;
+    await synthChunk("The quick brown fox jumps over the lazy dog.", TURBO);
+    await synthChunk("The quick brown fox jumps over the lazy dog.", V4);
+    expect(seen.map((r) => r.body.model_id)).toEqual(["eleven_v4_turbo", "eleven_v4"]);
+  });
+
+  it("lets ELEVENLABS_TTS_MODEL override Flash only", async () => {
+    const { synthChunk } = await import("@/lib/narration/tts");
+    process.env.ELEVENLABS_TTS_MODEL = "eleven_multilingual_v2";
+    try {
+      seen.length = 0;
+      await synthChunk("An override line to read aloud, please.", RACHEL);
+      await synthChunk(
+        "An override line to read aloud, please.",
+        "elevenlabs:v4:21m00Tcm4TlvDq8ikWAM",
+      );
+      expect(seen.map((r) => r.body.model_id)).toEqual(["eleven_multilingual_v2", "eleven_v4"]);
+    } finally {
+      delete process.env.ELEVENLABS_TTS_MODEL;
+    }
+  });
+
   it("gets its own cache keys and names a missing key", async () => {
     const { audioKey, synthChunk } = await import("@/lib/narration/tts");
     expect(audioKey("Hello.", RACHEL)).toMatch(/^audio\/[0-9a-f]{64}\.mp3$/);

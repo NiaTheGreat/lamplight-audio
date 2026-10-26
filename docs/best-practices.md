@@ -15,6 +15,7 @@ Keep the bucket private. Audio reaches the browser through short-lived signed li
 | OpenAI `gpt-4o-mini-tts` (default) | Books you care about; supports tone instructions | About $10 for a 100,000-word book |
 | OpenAI `tts-1` | Slightly cheaper OpenAI voice | No tone instructions |
 | ElevenLabs Flash v2.5 | Short pieces you want in a specific voice | About $60 per million characters, roughly six times OpenAI; not yet tested against the real API |
+| ElevenLabs v4 Turbo / v4 | When Flash isn't expressive enough | About $40 / $80 per million characters (list prices); not yet tested against the real API |
 | Kokoro via DeepInfra | Long books, casual listening, trying a book out | About 1/16th the price; the voice is generally less expressive than OpenAI's, and voice quality here is not fully verified |
 
 A sensible pattern: narrate with Kokoro to try a book cheaply, and switch to an OpenAI voice only for books you love. Changing narrator only affects chapters narrated afterwards, so you can start cheap and upgrade later without paying twice for the early chapters. See [Narrators and voices](narrators.md).
