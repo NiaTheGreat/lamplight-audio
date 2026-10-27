@@ -32,26 +32,6 @@
   color: var(--amber);
 }
 
-.soft-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-height: 60px;
-  padding: 0 16px;
-  border: 1px solid var(--rule);
-  border-radius: 4px;
-  color: var(--cream-3);
-}
-
-.soft-row .tag {
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  border: 1px solid #5a4837;
-  border-radius: 2px;
-  padding: 3px 7px;
-}
-
 .option {
   display: flex;
   align-items: center;

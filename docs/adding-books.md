@@ -4,7 +4,7 @@
 
 Choose an EPUB on the **Add** screen, or drop one on the upload box. The file is parsed into chapters and the book appears in your library.
 
-Only EPUB is supported. Pasting a link is a disabled placeholder on the Add screen (live scraping of websites is intentionally avoided).
+Only EPUB is supported. Pasting a link is not supported (live scraping of websites is intentionally avoided).
 
 ## Large files
 
