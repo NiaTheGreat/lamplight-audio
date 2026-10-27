@@ -194,12 +194,6 @@ export default function AddFic() {
         ) : null}
       </div>
 
-      <div style={{ marginTop: 14 }} className="soft-row" aria-disabled="true">
-        <Icon name="link" size={22} />
-        <span style={{ flexGrow: 1, fontSize: 15 }}>Paste an AO3 link</span>
-        <span className="tag">Soon</span>
-      </div>
-
       <div className="section">
         <div className="eyebrow">While reading it aloud</div>
         <div className="option">

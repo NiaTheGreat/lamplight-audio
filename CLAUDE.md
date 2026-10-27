@@ -5,7 +5,7 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 ## Decisions already made (don't relitigate without asking)
 
 - Next.js 15 (App Router, TypeScript), hosted on Vercel. Stay on Next 15 for now; Next 16 renames `middleware.ts` to `proxy.ts`.
-- Input is EPUB upload. No live scraping of AO3 (fragile). A paste-a-link convenience that fetches AO3's EPUB download is a possible later add-on.
+- Input is EPUB upload. No live scraping of AO3 (fragile), and no paste-a-link feature.
 - Narration is OpenAI TTS by default (`gpt-4o-mini-tts`, switchable to `tts-1` via `OPENAI_TTS_MODEL`), Kokoro-82M through DeepInfra for about 1/16th the price, or ElevenLabs (`elevenlabs:<flash|v4turbo|v4>:<voiceId>`, female premade voices, ~$60/$40/$80 per million characters, `ELEVENLABS_API_KEY`, untested against the real API; `ELEVENLABS_TTS_MODEL` overrides Flash only). A "narrator" is a string: a plain voice name ("ballad") is the original OpenAI narrator; `deepinfra:kokoro:af_bella` is Kokoro. Each book has a default narrator in `voice`. It can be changed at any time (not while a job runs); chapters already narrated are pinned to the voice they were narrated in (`chapterVoices`), so only chapters narrated later use the new one. A range can also be read in another voice (`voice` on `POST /api/books/[id]/narrate`, `setChapterVoice`) without changing the default. Cost matters: it should be cheap, so audio is generated once per chapter and cached (`audioKey` in `lib/narration/tts.ts`).
 - Streaming playback is the default; MP3 download is also available. Both come from the same cached file.
 - Author's notes, chapter summaries and end notes are stripped before narration (`lib/epub.ts`). This must stay on by default. The upload form has a toggle.
@@ -61,7 +61,6 @@ Personal tool (single user, Nia) that turns EPUBs into audiobooks. Upload an EPU
 - Direct-to-R2 EPUB upload (signed PUT URL + bucket CORS) is tested only against an in-memory stand-in, not real R2.
 - The audio redirect to R2 (and Range playback through it on iOS Safari) hasn't been tried on real Vercel/phone. The `?prepare=1` flow avoids a cross-origin fetch on purpose; the audio element itself follows the redirect.
 - The Lamplight screens were checked with screenshots only against a fake OpenAI server. Playing real audio, the sleep timer, bedside mode and auto-advance haven't been exercised in a real browser or on a phone.
-- Paste-an-AO3-link is a disabled placeholder (scraping is a standing decision to avoid).
 - Background narration (self-chaining worker) works locally against a mock but hasn't run on real Vercel. Check that the worker can call its own production URL (Deployment Protection off) and that a >250s book hops correctly.
 - Note-stripping has been checked against one real AO3 download ("Download > EPUB"). AO3 builds its EPUBs with Calibre, so they turn note headings into plain `<p>` labels and name the files `*_split_000.xhtml` instead of preface/afterword. Other AO3 works may differ (series, anonymous works, many chapters). If an EPUB leaks notes into the narration, fix `lib/epub.ts` and add that case to `tests/epub.test.ts`.
 - iOS lock-screen playback was checked on a real phone (2026-10-23: plays with the screen locked). Auto-advance between chapters and the sleep timer on a phone are still unchecked.
