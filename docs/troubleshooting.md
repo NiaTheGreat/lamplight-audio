@@ -10,7 +10,7 @@
 
 **Narration stopped partway ("stalled").** A hop of the background worker was lost. Press **Resume where it stopped**. On Vercel, make sure Deployment Protection is off for the production domain.
 
-**Narration refused: budget reached.** The monthly spend limit was hit. Raise `MONTHLY_BUDGET_USD` or wait for the next month.
+**Narration refused: budget reached.** The monthly spend limit was hit. Raise the monthly limit in Settings (or `MONTHLY_BUDGET_USD`) or wait for the next month.
 
 **A chapter takes a long time the first time.** Long chapters are narrated chunk by chunk. If the time budget runs out the player retries and resumes where it stopped. Replays are instant.
 

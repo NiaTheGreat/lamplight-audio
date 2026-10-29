@@ -15,13 +15,13 @@ Prices change. Cost estimates in the app are an upper bound because free tiers a
 
 ## Monthly budget
 
-`MONTHLY_BUDGET_USD` (default $30) stops narration once the estimated spend for the calendar month, across all narrators, reaches it. An optional `MONTHLY_CHAR_LIMIT` caps characters as well. Both are checked before every provider call.
+The monthly limit (default $30, or `MONTHLY_BUDGET_USD` if set) stops narration once the estimated spend for the calendar month, across all narrators, reaches it. An optional `MONTHLY_CHAR_LIMIT` caps characters as well. Both are checked before every provider call.
 
 The counter is batched in memory and written once per chapter, to keep storage operations low.
 
 ## Where you can see it
 
-**Settings** shows the month's estimated spend against the limit.
+**Settings** shows the month's estimated spend against the limit, and you can change the limit there. A limit saved in Settings is stored server-side (`usage/limit.json`) and overrides `MONTHLY_BUDGET_USD`; "Use the default" removes it so the environment variable (or $30) applies again. The API is `PUT /api/usage` with `{ "limitUsd": 40 }` or `{ "limitUsd": null }`.
 
 Narrating the next chapter while you listen ("Narrate the next chapter while I listen" in Settings, on by default) spends money on a chapter you might not reach. Turn it off to narrate only what you play.
 

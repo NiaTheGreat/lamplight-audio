@@ -12,7 +12,7 @@
 | `keys/<bookId>.json` | where each narrated chapter's audio is, so playing never reads the whole book |
 | `jobs/<bookId>.json`, `jobs/active.json`, `jobs/live.json` | background jobs and what is being narrated |
 | `stats/speed.json` | measured narration speed for estimates |
-| usage counters | monthly spend |
+| usage counters and limit | monthly spend, and the limit set in Settings |
 | `pronlists.json` | named pronunciation lists |
 
 ## Keeping operations low

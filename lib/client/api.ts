@@ -139,5 +139,15 @@ export async function saveSettings(settings: Settings): Promise<Settings | null>
 
 export const getSpeed = async (): Promise<SpeedStats> =>
   (await soft<SpeedStats>("/api/speed")) ?? {};
-export const getUsage = () => soft<{ chars: number; usd: number; limitUsd: number }>("/api/usage");
+export type Usage = {
+  chars: number;
+  usd: number;
+  limitUsd: number;
+  defaultLimitUsd: number;
+  limitSaved: boolean;
+};
+export const getUsage = () => soft<Usage>("/api/usage");
+/** Set the monthly spending limit (null for the default). Throws an `ApiError` with the server's message. */
+export const saveBudget = (limitUsd: number | null) =>
+  call<Usage>("/api/usage", { method: "PUT", body: { limitUsd } }, "Couldn't save the limit.");
 export const getNarrators = () => soft<NarratorGroupInfo[]>("/api/narrators");

@@ -25,7 +25,7 @@ All settings are environment variables. `.env.example` lists them; locally put t
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `MONTHLY_BUDGET_USD` | `30` | Stop narrating at this estimated monthly spend |
+| `MONTHLY_BUDGET_USD` | `30` | Default monthly spend limit; a limit saved in Settings overrides it |
 | `MONTHLY_CHAR_LIMIT` | none | Optional cap in characters |
 
 ## Storage

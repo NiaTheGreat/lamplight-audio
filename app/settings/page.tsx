@@ -6,7 +6,7 @@ import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { formatUsd } from "@/lib/narrators-shared";
-import { getUsage } from "@/lib/client/api";
+import { getUsage, saveBudget, type Usage } from "@/lib/client/api";
 import { SLEEP_OPTIONS, SPEEDS } from "@/lib/settings-shared";
 
 const sleepLabel = (m: number) => (m === 0 ? "Off" : m === -1 ? "Ch. end" : String(m));
@@ -18,14 +18,35 @@ export default function Settings() {
   const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const [hearing, setHearing] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState("");
-  const [usage, setUsage] = useState<{ chars: number; usd: number; limitUsd: number } | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
+  const [limitText, setLimitText] = useState("");
+  const [limitError, setLimitError] = useState("");
+  const [savingLimit, setSavingLimit] = useState(false);
   const previewRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => () => previewRef.current?.pause(), []);
 
   useEffect(() => {
-    void getUsage().then((u) => u && setUsage(u));
+    void getUsage().then((u) => {
+      if (!u) return;
+      setUsage(u);
+      setLimitText(String(u.limitUsd));
+    });
   }, []);
+
+  async function changeLimit(value: number | null) {
+    setLimitError("");
+    setSavingLimit(true);
+    try {
+      const u = await saveBudget(value);
+      setUsage(u);
+      setLimitText(String(u.limitUsd));
+    } catch (err) {
+      setLimitError(err instanceof Error ? err.message : "Couldn't save the limit.");
+    } finally {
+      setSavingLimit(false);
+    }
+  }
 
   async function hear(voice: string) {
     previewRef.current?.pause();
@@ -219,9 +240,52 @@ export default function Settings() {
             <i style={{ width: `${Math.min(100, (usage.usd / usage.limitUsd) * 100)}%` }} />
           </div>
           <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
-            An estimate from each narrator&apos;s price per character. Narration stops at the limit;
-            raise MONTHLY_BUDGET_USD in Vercel to continue.
+            An estimate from each narrator&apos;s price per character. Narration stops at the limit.
           </p>
+          <label
+            className="eyebrow"
+            htmlFor="monthly-limit"
+            style={{ display: "block", marginTop: 14 }}
+          >
+            Monthly limit (USD)
+          </label>
+          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+            <input
+              id="monthly-limit"
+              type="number"
+              inputMode="decimal"
+              min={1}
+              step={1}
+              value={limitText}
+              onChange={(e) => setLimitText(e.target.value)}
+              style={{ flex: 1, minHeight: 44 }}
+            />
+            <button
+              className="btn"
+              style={{ minHeight: 44 }}
+              disabled={
+                savingLimit || !(Number(limitText) > 0) || Number(limitText) === usage.limitUsd
+              }
+              onClick={() => void changeLimit(Number(limitText))}
+            >
+              Save
+            </button>
+          </div>
+          {limitError ? (
+            <p role="alert" className="faint" style={{ marginTop: 8 }}>
+              {limitError}
+            </p>
+          ) : null}
+          {usage.limitSaved ? (
+            <button
+              className="btn"
+              style={{ minHeight: 44, marginTop: 8 }}
+              disabled={savingLimit}
+              onClick={() => void changeLimit(null)}
+            >
+              Use the default ({formatUsd(usage.defaultLimitUsd)})
+            </button>
+          ) : null}
         </section>
       ) : null}
 
