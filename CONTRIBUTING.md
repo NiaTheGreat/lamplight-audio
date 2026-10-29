@@ -54,7 +54,7 @@ Never change the cache key for plain OpenAI voice names. `tests/cachekeys.test.t
 | `ELEVENLABS_TTS_MODEL` | no | Override the model for ElevenLabs Flash narrators |
 | `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` | on Vercel | Cloudflare R2 storage. Leave empty locally to use `./.cache`. |
 | `R2_ENDPOINT` | no | Override the R2 endpoint |
-| `MONTHLY_BUDGET_USD` | no | Stop narrating at this estimated monthly spend (default 30) |
+| `MONTHLY_BUDGET_USD` | no | Default monthly spend limit (30); a limit saved in Settings overrides it |
 | `MONTHLY_CHAR_LIMIT` | no | Optional monthly cap in characters |
 | `CACHE_DIR` | no | Local cache folder (default `./.cache`) |
 | `OPENAI_BASE_URL`, `DEEPINFRA_BASE_URL`, `ELEVENLABS_BASE_URL` | no | Point a provider at a mock server (tests do this) |

@@ -4,19 +4,52 @@ import { getObject, putObject } from "./storage";
 /**
  * A monthly spending cap, so a runaway job (or anyone who learns the password) can't
  * spend without limit. Each narrator has its own price per million characters
- * (lib/narrators-shared.ts), so the cap is in dollars: MONTHLY_BUDGET_USD, default $30.
+ * (lib/narrators-shared.ts), so the cap is in dollars. It can be set in the app (stored in
+ * usage/limit.json); without that it is MONTHLY_BUDGET_USD, default $30.
  * MONTHLY_CHAR_LIMIT is still honoured when set, as a second cap in characters.
  * Prices are estimates; free tiers are not modelled.
  */
 export class BudgetError extends Error {}
 
-export const monthlyBudgetUsd = () => Number(process.env.MONTHLY_BUDGET_USD) || 30;
+/** The limit used when none has been saved in the app. */
+export const defaultBudgetUsd = () => Number(process.env.MONTHLY_BUDGET_USD) || 30;
 /** 0 means no character cap. */
 export const monthlyCharLimit = () => Number(process.env.MONTHLY_CHAR_LIMIT) || 0;
 
 const monthKey = () => `usage/${new Date().toISOString().slice(0, 7)}.json`;
 
 type Used = { chars: number; usd: number };
+
+const LIMIT_KEY = "usage/limit.json";
+let savedLimit: { usd: number | null; at: number } | null = null;
+
+/** The limit saved in the app, or null. Cached for a short while to keep storage reads low. */
+async function readSavedLimit(force = false): Promise<number | null> {
+  if (!force && savedLimit && Date.now() - savedLimit.at < READ_TTL_MS) return savedLimit.usd;
+  let usd: number | null = null;
+  try {
+    const raw = await getObject(LIMIT_KEY);
+    const v = raw ? Number((JSON.parse(raw.toString("utf8")) as { usd?: unknown }).usd) : 0;
+    if (Number.isFinite(v) && v > 0) usd = v;
+  } catch {
+    // An unreadable record means "use the default".
+  }
+  savedLimit = { usd, at: Date.now() };
+  return usd;
+}
+
+export const monthlyBudgetUsd = async (force = false) =>
+  (await readSavedLimit(force)) ?? defaultBudgetUsd();
+
+/** Save the monthly dollar limit, or pass null to go back to the default. Returns the limit now in force. */
+export async function setMonthlyBudgetUsd(usd: number | null): Promise<number> {
+  if (usd !== null && (!Number.isFinite(usd) || usd < 0.01 || usd > 100_000))
+    throw new RangeError("The limit must be at least $0.01 and at most $100,000.");
+  const value = usd === null ? null : Math.round(usd * 100) / 100;
+  await putObject(LIMIT_KEY, JSON.stringify({ usd: value }), "application/json");
+  savedLimit = { usd: value, at: Date.now() };
+  return value ?? defaultBudgetUsd();
+}
 
 const currentMonth = () => new Date().toISOString().slice(0, 7);
 
@@ -56,14 +89,20 @@ export async function getUsage(): Promise<{
   chars: number;
   usd: number;
   limitUsd: number;
+  defaultLimitUsd: number;
+  /** True when the limit was set in the app rather than coming from MONTHLY_BUDGET_USD. */
+  limitSaved: boolean;
   limitChars: number | null;
 }> {
   const used = await storedUsed(true);
+  const saved = await readSavedLimit(true);
   return {
     month: currentMonth(),
     chars: used.chars + pending.chars,
     usd: used.usd + pending.usd,
-    limitUsd: monthlyBudgetUsd(),
+    limitUsd: saved ?? defaultBudgetUsd(),
+    defaultLimitUsd: defaultBudgetUsd(),
+    limitSaved: saved !== null,
     limitChars: monthlyCharLimit() || null,
   };
 }
@@ -81,9 +120,10 @@ export async function assertBudget(chars: number, narrator?: string): Promise<vo
     );
   }
   const add = costUsd(chars, narrator);
-  if (used.usd + add > monthlyBudgetUsd()) {
+  const limit = await monthlyBudgetUsd();
+  if (used.usd + add > limit) {
     throw new BudgetError(
-      `Monthly narration budget reached ($${used.usd.toFixed(2)} of $${monthlyBudgetUsd().toFixed(2)}). Raise MONTHLY_BUDGET_USD to continue.`,
+      `Monthly narration budget reached ($${used.usd.toFixed(2)} of $${limit.toFixed(2)}). Raise the limit in Settings to continue.`,
     );
   }
 }

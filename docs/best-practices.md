@@ -24,7 +24,7 @@ Use [Hear](pronunciations.md) and the voice previews in Settings to compare voic
 
 ## Spend: keep a cap on
 
-- Leave `MONTHLY_BUDGET_USD` set. The default is $30; lower it if you want a tighter limit.
+- Keep a monthly limit. The default is $30 (`MONTHLY_BUDGET_USD`); change it in Settings if you want a tighter or looser limit.
 - Keep the "confirm before narrating" prompt on. It shows the price first.
 - Consider turning off "Narrate the next chapter while I listen" if you often drop books part-way.
 - Set a hard monthly limit in each provider's own dashboard too. `MONTHLY_BUDGET_USD` is only the app's estimate.

@@ -21,6 +21,31 @@ describe("monthly spending cap", () => {
   });
 });
 
+describe("monthly limit saved in the app", () => {
+  it("overrides MONTHLY_BUDGET_USD, can be reset, and rejects bad values", async () => {
+    const { getUsage, setMonthlyBudgetUsd, assertBudget, BudgetError } =
+      await import("@/lib/storage/usage");
+    delete process.env.MONTHLY_BUDGET_USD;
+    expect((await getUsage()).limitUsd).toBe(30);
+    process.env.MONTHLY_BUDGET_USD = "12";
+    expect(await setMonthlyBudgetUsd(null)).toBe(12);
+    await setMonthlyBudgetUsd(0.01);
+    expect(await getUsage()).toMatchObject({
+      limitUsd: 0.01,
+      limitSaved: true,
+      defaultLimitUsd: 12,
+    });
+    await expect(assertBudget(1_000_000, "ballad")).rejects.toBeInstanceOf(BudgetError);
+    await setMonthlyBudgetUsd(500);
+    expect((await getUsage()).limitUsd).toBe(500);
+    await expect(setMonthlyBudgetUsd(0)).rejects.toThrow();
+    await expect(setMonthlyBudgetUsd(Number.NaN)).rejects.toThrow();
+    await setMonthlyBudgetUsd(null);
+    expect(await getUsage()).toMatchObject({ limitUsd: 12, limitSaved: false });
+    delete process.env.MONTHLY_BUDGET_USD;
+  });
+});
+
 describe("usage counter", () => {
   it("counts parallel updates without losing any", async () => {
     const { recordUsage, getUsage } = await import("@/lib/storage/usage");
