@@ -34,6 +34,7 @@ import {
   DIM_LEVELS,
   RANGE_KEY,
   SILENT_WAV,
+  HANDOFF_SECONDS,
   readStore,
   writeStore,
 } from "./player/store";
@@ -744,8 +745,11 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (s.kind === "minutes" && Date.now() >= s.endsAt) {
       audio.pause();
       setSleep({ kind: "off" });
+      savePosition();
+      return;
     }
     savePosition();
+    handOffEarly(audio);
   }
 
   function onLoadedMetadata() {
@@ -792,6 +796,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       return;
     }
     // Prefetched: swap straight over so lock-screen playback keeps going.
+    rollInto(b, next);
+  }
+
+  /** Load the next (narrated) chapter into the element and play it. */
+  function rollInto(b: BookSummary, next: number) {
+    const audio = audioRef.current;
+    if (!audio) return;
     chapterRef.current = next;
     loadedRef.current = `${b.id}:${next}`;
     setChapter(next);
@@ -805,7 +816,47 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     prefetch(b, next + 1);
   }
 
-  useMediaSession({ audioRef, book, chapter, prevChapter, nextChapter, skip });
+  /**
+   * Hand over to the next narrated chapter just before this one ends. On iOS a locked page whose
+   * audio element has *ended* loses its audio session: a new src then "plays" (the clock runs) but
+   * stays silent until the app is opened. Switching while the element is still playing keeps it.
+   */
+  function handOffEarly(audio: HTMLAudioElement) {
+    const b = bookRef.current;
+    if (!b || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
+    if (audio.duration - audio.currentTime > HANDOFF_SECONDS) return;
+    if (sleepRef.current.kind === "chapter") return; // let it end; onEnded stops
+    const next = chapterRef.current + 1;
+    const decision = afterChapter({
+      next,
+      count: b.chapters.length,
+      isReady: isReadyIdx(b, next),
+      autoNext: autoNextRef.current,
+      range: listenRangeRef.current,
+    });
+    if (decision !== "swap") return;
+    setPlaying(false);
+    finishChapter(b.id, chapterRef.current);
+    savePosition(true);
+    rollInto(b, next);
+  }
+
+  /** Lock-screen / headphone Play: start the chapter, or reload it if the element is stuck. */
+  const resume = useCallback(() => {
+    const audio = audioRef.current;
+    const b = bookRef.current;
+    if (!audio || !b) return;
+    const key = `${b.id}:${chapterRef.current}`;
+    if (preparing) return;
+    if (loadedRef.current !== key || audio.src.startsWith("data:") || !audio.src) {
+      void requestStart(b, chapterRef.current, resumeAtRef.current, true);
+      return;
+    }
+    const at = audio.ended ? 0 : audio.currentTime;
+    audio.play().catch(() => void startChapter(b, chapterRef.current, at, false));
+  }, [preparing, requestStart, startChapter]);
+
+  useMediaSession({ audioRef, book, chapter, playing, resume, prevChapter, nextChapter, skip });
 
   // ---------- Derived ----------
 

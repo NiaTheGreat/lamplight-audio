@@ -18,8 +18,8 @@ By default the app asks before narrating (the cost is shown first). You can turn
 - Playback speed. The default is set in **Settings**.
 - Sleep timer: off, 15, 30 or 60 minutes, or end of chapter. The default is set in **Settings**.
 - Bedside mode and a screen-dimming layer for night listening. The dimming level is set in **Settings**.
-- Lock-screen and headphone controls through the media session.
-- Auto-advance to the next chapter, limited to the range you chose to listen to.
+- Lock-screen and headphone controls through the media session. Play reloads the chapter at the saved spot if the audio element is stuck, and the lock screen's play/pause state follows the real one.
+- Auto-advance to the next chapter, limited to the range you chose to listen to. When the next chapter is already narrated it is loaded about 0.4 s before the current one ends, so the audio element never ends. On iOS an element that ends while the phone is locked loses its audio session, and the next chapter then runs silently until the app is opened.
 
 ## Resume
 

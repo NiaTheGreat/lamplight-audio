@@ -353,6 +353,27 @@ describe("player: auto-advance", () => {
     expect(player.playing).toBe(true);
   });
 
+  it("hands over to the next narrated chapter just before the element ends", async () => {
+    await mount();
+    await act(async () => player.openBook("b1"));
+    setAudio({ duration: 100, currentTime: 50 });
+    await fire("timeupdate");
+    expect(player.chapter).toBe(0);
+    setAudio({ duration: 100, currentTime: 99.8 });
+    await fire("timeupdate");
+    expect(player.chapter).toBe(1);
+    expect(audioPath()).toBe("/api/audio/b1/1");
+  });
+
+  it("does not hand over early when the next chapter is not narrated", async () => {
+    localStorage.setItem("abg:autonext", "false");
+    await mount();
+    await act(async () => player.openBook("b1", { chapter: 1 }));
+    setAudio({ duration: 100, currentTime: 99.8 });
+    await fire("timeupdate");
+    expect(player.chapter).toBe(1);
+  });
+
   it("stops at the end of the book", async () => {
     server.book = { ...BOOK, narrated: [0, 1, 2] };
     await mount();
@@ -508,6 +529,7 @@ describe("player: lock screen", () => {
       configurable: true,
       value: {
         metadata: null,
+        playbackState: "none",
         setActionHandler: (a: string, h: () => void) => void (handlers[a] = h),
       },
     });
@@ -526,6 +548,8 @@ describe("player: lock screen", () => {
     });
     await act(async () => handlers.nexttrack());
     expect(player.chapter).toBe(1);
+    await act(async () => handlers.play());
+    expect(navigator.mediaSession.playbackState).toBe("playing");
     expect(Object.keys(handlers).sort()).toEqual([
       "nexttrack",
       "pause",
