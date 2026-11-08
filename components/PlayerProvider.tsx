@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type ReactNode,
+  type SyntheticEvent,
 } from "react";
 import {
   afterChapter,
@@ -34,7 +35,6 @@ import {
   DIM_LEVELS,
   RANGE_KEY,
   SILENT_WAV,
-  HANDOFF_SECONDS,
   readStore,
   writeStore,
 } from "./player/store";
@@ -133,7 +133,18 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const onLogin = pathname === "/login";
 
-  const audioRef = useRef<HTMLAudioElement>(null);
+  // Two audio elements: the one that is playing (audioRef) and a spare that is preloaded with the
+  // next chapter and takes over when this one ends. See onEnded.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const spareRef = useRef<HTMLAudioElement | null>(null);
+  const spareForRef = useRef(""); // "<bookId>:<chapter>" loaded on the spare
+  // Stable callback refs: the roles swap at runtime, so a re-render must not reassign them.
+  const firstAudio = useCallback((el: HTMLAudioElement | null) => {
+    if (el && !audioRef.current) audioRef.current = el;
+  }, []);
+  const secondAudio = useCallback((el: HTMLAudioElement | null) => {
+    if (el && !spareRef.current) spareRef.current = el;
+  }, []);
   const bookRef = useRef<BookSummary | null>(null);
   const chapterRef = useRef(0);
   const loadedRef = useRef(""); // "<bookId>:<chapter>" whose audio is on the element
@@ -350,6 +361,14 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       audio.src = SILENT_WAV;
       loadedRef.current = "";
       audio.play().catch(() => {});
+      // Unlock the spare element too: iOS only lets an element start later, with the screen
+      // locked, if it was started by a tap once.
+      const spare = spareRef.current;
+      if (spare) {
+        spare.src = SILENT_WAV;
+        spareForRef.current = "";
+        spare.play().catch(() => {});
+      }
 
       // A chapter that is already narrated needs no preparing: one request plays it.
       if (!isReadyIdx(b, index)) {
@@ -749,7 +768,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       return;
     }
     savePosition();
-    handOffEarly(audio);
+    preloadSpare(audio);
   }
 
   function onLoadedMetadata() {
@@ -795,7 +814,26 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       void startChapter(b, next, 0, false);
       return;
     }
-    // Prefetched: swap straight over so lock-screen playback keeps going.
+    // Prefetched: the spare element already holds the next chapter. Starting it right away keeps
+    // lock-screen playback going without cutting the end of this chapter.
+    const spare = spareRef.current;
+    if (spare && spareForRef.current === `${b.id}:${next}`) {
+      chapterRef.current = next;
+      loadedRef.current = `${b.id}:${next}`;
+      spareForRef.current = "";
+      spareRef.current = audio;
+      audioRef.current = spare;
+      setChapter(next);
+      setPosition(0);
+      setDuration(0);
+      spare.defaultPlaybackRate = rateRef.current;
+      spare.playbackRate = rateRef.current;
+      spare.currentTime = 0;
+      spare.play().catch(() => {});
+      savePosition(true);
+      prefetch(b, next + 1);
+      return;
+    }
     rollInto(b, next);
   }
 
@@ -816,29 +854,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     prefetch(b, next + 1);
   }
 
-  /**
-   * Hand over to the next narrated chapter just before this one ends. On iOS a locked page whose
-   * audio element has *ended* loses its audio session: a new src then "plays" (the clock runs) but
-   * stays silent until the app is opened. Switching while the element is still playing keeps it.
-   */
-  function handOffEarly(audio: HTMLAudioElement) {
+  /** Once the next chapter is narrated, load it on the spare element while this one plays. */
+  function preloadSpare(audio: HTMLAudioElement) {
     const b = bookRef.current;
-    if (!b || !Number.isFinite(audio.duration) || audio.duration <= 0) return;
-    if (audio.duration - audio.currentTime > HANDOFF_SECONDS) return;
-    if (sleepRef.current.kind === "chapter") return; // let it end; onEnded stops
+    const spare = spareRef.current;
+    if (!b || !spare || spare === audio) return;
+    if (!Number.isFinite(audio.duration) || audio.duration - audio.currentTime > 60) return;
     const next = chapterRef.current + 1;
-    const decision = afterChapter({
-      next,
-      count: b.chapters.length,
-      isReady: isReadyIdx(b, next),
-      autoNext: autoNextRef.current,
-      range: listenRangeRef.current,
-    });
-    if (decision !== "swap") return;
-    setPlaying(false);
-    finishChapter(b.id, chapterRef.current);
-    savePosition(true);
-    rollInto(b, next);
+    const key = `${b.id}:${next}`;
+    if (spareForRef.current === key) return;
+    if (next >= b.chapters.length || !isReadyIdx(b, next)) return;
+    spareForRef.current = key;
+    spare.preload = "auto";
+    spare.src = `/api/audio/${b.id}/${next}`;
+    spare.load();
   }
 
   /** Lock-screen / headphone Play: start the chapter, or reload it if the element is stuck. */
@@ -938,28 +967,30 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     chapterMinutes,
   };
 
+  // Only the playing element's events count; the spare's (preloading, unlocking) are ignored.
+  const mine = (e: SyntheticEvent<HTMLAudioElement>) => e.currentTarget === audioRef.current;
+  const audioEvents = {
+    onTimeUpdate: (e: SyntheticEvent<HTMLAudioElement>) => mine(e) && onTimeUpdate(),
+    onLoadedMetadata: (e: SyntheticEvent<HTMLAudioElement>) => mine(e) && onLoadedMetadata(),
+    onDurationChange: (e: SyntheticEvent<HTMLAudioElement>) => {
+      const a = e.currentTarget;
+      if (mine(e) && !isSilent() && Number.isFinite(a.duration)) setDuration(a.duration);
+    },
+    onPlay: (e: SyntheticEvent<HTMLAudioElement>) => mine(e) && !isSilent() && setPlaying(true),
+    onPause: (e: SyntheticEvent<HTMLAudioElement>) => {
+      if (mine(e) && !isSilent()) {
+        setPlaying(false);
+        savePosition(true);
+      }
+    },
+    onEnded: (e: SyntheticEvent<HTMLAudioElement>) => mine(e) && onEnded(),
+  };
+
   return (
     <PlayerContext.Provider value={value}>
       {children}
-      <audio
-        ref={audioRef}
-        preload="none"
-        onTimeUpdate={onTimeUpdate}
-        onLoadedMetadata={onLoadedMetadata}
-        onDurationChange={() => {
-          const a = audioRef.current;
-          if (a && !isSilent() && Number.isFinite(a.duration)) setDuration(a.duration);
-        }}
-        onPlay={() => !isSilent() && setPlaying(true)}
-        onPause={() => {
-          if (!isSilent()) {
-            setPlaying(false);
-            savePosition(true);
-          }
-        }}
-        onEnded={onEnded}
-        className="hidden-input"
-      />
+      <audio ref={firstAudio} preload="none" {...audioEvents} className="hidden-input" />
+      <audio ref={secondAudio} preload="none" {...audioEvents} className="hidden-input" />
     </PlayerContext.Provider>
   );
 }

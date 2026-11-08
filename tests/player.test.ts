@@ -353,25 +353,27 @@ describe("player: auto-advance", () => {
     expect(player.playing).toBe(true);
   });
 
-  it("hands over to the next narrated chapter just before the element ends", async () => {
+  it("preloads the next narrated chapter on the spare element and plays it when this one ends", async () => {
     await mount();
     await act(async () => player.openBook("b1"));
+    const [first, spare] = Array.from(document.querySelectorAll("audio"));
     setAudio({ duration: 100, currentTime: 50 });
     await fire("timeupdate");
+    expect(new URL(spare.src, "http://localhost").pathname).toBe("/api/audio/b1/1");
     expect(player.chapter).toBe(0);
-    setAudio({ duration: 100, currentTime: 99.8 });
-    await fire("timeupdate");
+    const play = vi.spyOn(spare, "play");
+    await fire("ended");
+    expect(play).toHaveBeenCalled();
     expect(player.chapter).toBe(1);
-    expect(audioPath()).toBe("/api/audio/b1/1");
+    expect(first.src).toContain("/api/audio/b1/0");
   });
 
-  it("does not hand over early when the next chapter is not narrated", async () => {
-    localStorage.setItem("abg:autonext", "false");
+  it("ignores events from the spare element", async () => {
     await mount();
-    await act(async () => player.openBook("b1", { chapter: 1 }));
-    setAudio({ duration: 100, currentTime: 99.8 });
-    await fire("timeupdate");
-    expect(player.chapter).toBe(1);
+    await act(async () => player.openBook("b1"));
+    const spare = document.querySelectorAll("audio")[1];
+    await act(async () => void spare.dispatchEvent(new Event("ended")));
+    expect(player.chapter).toBe(0);
   });
 
   it("stops at the end of the book", async () => {
