@@ -135,12 +135,14 @@ function xingFrame(
   const total = length + audioBytes;
   frame.writeUInt32BE(total, tagAt + 12);
 
-  // Seek table: how far into the file (of 256) each percent of the audio is.
+  // Seek table: how far into the file (of 256) each percent of the audio is. Players seek by it and
+  // then believe they are exactly there, so it is rounded to the nearest step (a step is about 1/256
+  // of the chapter, some seconds): rounding down always landed early, so the text ran ahead of the audio.
   const before: number[] = [0];
   for (const l of lengths) before.push(before[before.length - 1] + l);
   for (let i = 0; i < 100; i++) {
     const frameIdx = Math.floor((i / 100) * lengths.length);
-    frame[tagAt + 16 + i] = Math.min(255, Math.floor(((length + before[frameIdx]) / total) * 256));
+    frame[tagAt + 16 + i] = Math.min(255, Math.round(((length + before[frameIdx]) / total) * 256));
   }
   return frame;
 }
