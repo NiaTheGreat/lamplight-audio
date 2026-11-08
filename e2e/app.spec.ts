@@ -97,7 +97,7 @@ test("player: play an unnarrated chapter through the queue, then hear it", async
   await expect(page.getByRole("button", { name: "Pause" }).first()).toBeVisible({
     timeout: 60_000,
   });
-  const audio = page.locator("audio");
+  const audio = page.locator("audio").first();
   await expect(audio).toHaveAttribute("src", /\/api\/audio\/[a-f0-9]{16}\/0$/);
   await expect
     .poll(() => audio.evaluate((a: HTMLAudioElement) => a.currentTime), { timeout: 20_000 })
