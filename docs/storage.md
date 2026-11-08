@@ -10,7 +10,7 @@
 | `audio/<hash>.mp3` and chunk pieces | narrated audio, keyed by hash of text and settings |
 | `progress.json` | listening position per book, plus the spot in each part-listened chapter |
 | `keys/<bookId>.json` | where each narrated chapter's audio is, so playing never reads the whole book |
-| `epubs/<bookId>.epub`, `reader/<bookId>.json`, `timing/<bookId>.json` | the original EPUB, its formatted chapters and measured chunk lengths, for the optional [reader](reader.md) |
+| `epubs/<bookId>.epub`, `reader/<bookId>.json`, `timing/<bookId>.json` | the original EPUB, its formatted chapters and measured chunk lengths and pauses, for the optional [reader](reader.md) |
 | `jobs/<bookId>.json`, `jobs/active.json`, `jobs/live.json` | background jobs and what is being narrated |
 | `stats/speed.json` | measured narration speed for estimates |
 | usage counters and limit | monthly spend, and the limit set in Settings |

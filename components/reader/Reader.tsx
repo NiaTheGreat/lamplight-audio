@@ -79,6 +79,9 @@ export function Reader({ reader }: { reader: ReaderView }) {
   const synced = Boolean(ready && times && data?.total);
   // The audio element's real length wins over the measured one if they differ a little.
   const scale = synced && p.duration > 0 && data?.total ? data.total / p.duration : 1;
+  // If the player's idea of the chapter's length is off, its clock and the measured times disagree.
+  const lengthOff =
+    synced && p.duration > 0 && data?.total ? Math.abs(p.duration / data.total - 1) > 0.02 : false;
   const fromAudio = synced && times ? sentenceAt(times, (p.position + 0.5) * scale) : -1;
   const fromSpot =
     spot && spot.chapter === p.chapter ? Math.min(spot.sentence, sentences.length - 1) : 0;
@@ -295,6 +298,15 @@ export function Reader({ reader }: { reader: ReaderView }) {
           <span className="grow">
             This chapter&apos;s timing isn&apos;t available, so the page can&apos;t follow the
             audio.
+          </span>
+        </div>
+      ) : null}
+
+      {lengthOff && data?.total ? (
+        <div className="banner rd-note">
+          <span className="grow">
+            This device measures the chapter as {clock(p.duration)}, but it is {clock(data.total)}{" "}
+            long, so the highlight may drift.
           </span>
         </div>
       ) : null}

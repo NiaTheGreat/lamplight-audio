@@ -5,7 +5,7 @@ import { spokenText } from "@/lib/pronunciation/pronunciation";
 import { chapterText, plainParas } from "@/lib/reader/format";
 import { readerEnabled } from "@/lib/reader/flag";
 import { splitSentences } from "@/lib/reader/sentences";
-import { chunkDurations, getReaderBook } from "@/lib/reader/store";
+import { chunkTimings, getReaderBook } from "@/lib/reader/store";
 import { sentenceTimes } from "@/lib/reader/timeline";
 import type { ReaderChapterData } from "@/lib/reader/types";
 import { getObject, hasObject } from "@/lib/storage/storage";
@@ -44,15 +44,15 @@ export async function GET(
   let total: number | null = null;
   if (narrated) {
     try {
-      const durations = await chunkDurations(id, ch.index, spoken, voice);
-      if (durations) {
+      const timings = await chunkTimings(id, ch.index, spoken, voice);
+      if (timings) {
         times = sentenceTimes(
           ch.text,
           splitSentences(paras).map((s) => s.off),
           spoken,
-          durations,
+          timings,
         );
-        total = durations.reduce((a, b) => a + b, 0);
+        total = timings.reduce((a, t) => a + t.d, 0);
       }
     } catch {
       times = null; // the page still reads; it just doesn't follow the audio

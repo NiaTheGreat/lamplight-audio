@@ -13,10 +13,10 @@ const RATES: Record<number, number[]> = {
   0: [11025, 12000, 8000],
 };
 
-type Frame = { length: number; tagAt: number };
+export type Frame = { length: number; tagAt: number };
 
 /** Layer III frame header at `at`, or null. Gives the frame length and where a Xing/Info tag would sit. */
-function frameAt(b: Buffer, at: number): Frame | null {
+export function frameAt(b: Buffer, at: number): Frame | null {
   if (at + 4 > b.length || b[at] !== 0xff || (b[at + 1] & 0xe0) !== 0xe0) return null;
   const version = (b[at + 1] >> 3) & 3; // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
   if (version === 1 || ((b[at + 1] >> 1) & 3) !== 1) return null; // reserved version, or not layer III
@@ -31,7 +31,7 @@ function frameAt(b: Buffer, at: number): Frame | null {
   return { length, tagAt: at + 4 + crc + side };
 }
 
-const isInfoFrame = (b: Buffer, at: number, f: Frame) => {
+export const isInfoFrame = (b: Buffer, at: number, f: Frame) => {
   const tag = b.toString("latin1", f.tagAt, f.tagAt + 4);
   return tag === "Xing" || tag === "Info" || b.toString("latin1", at + 36, at + 40) === "VBRI";
 };

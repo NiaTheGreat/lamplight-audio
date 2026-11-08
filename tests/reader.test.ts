@@ -4,6 +4,10 @@ import path from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { sentenceAt, sentenceRanges, splitSentences } from "@/lib/reader/sentences";
 import { sentenceTimes } from "@/lib/reader/timeline";
+import type { ChunkTiming } from "@/lib/reader/speech";
+
+/** Timings with no pauses found: what is known when only the chunk lengths are. */
+const plain = (d: number): ChunkTiming => ({ d, on: 0, off: d, p: [] });
 import { splitForTts } from "@/lib/narration/text";
 
 const cacheDir = mkdtempSync(path.join(tmpdir(), "abg-reader-"));
@@ -50,7 +54,8 @@ describe("sentence times", () => {
     const chunks = splitForTts(text);
     expect(chunks.length).toBeGreaterThan(1);
     const durations = chunks.map((_, i) => 60 + i * 10);
-    const times = sentenceTimes(text, offsets, text, durations)!;
+    const timings = durations.map(plain);
+    const times = sentenceTimes(text, offsets, text, timings)!;
     expect(times).toHaveLength(offsets.length);
     expect(times[0]).toBe(0);
     for (let i = 1; i < times.length; i++) expect(times[i]).toBeGreaterThanOrEqual(times[i - 1]);
@@ -63,14 +68,14 @@ describe("sentence times", () => {
 
   it("copes with pronunciations that lengthen words", () => {
     const spoken = text.replaceAll("rain", "reh-yn");
-    const durations = splitForTts(spoken).map(() => 50);
+    const durations = splitForTts(spoken).map(() => plain(50));
     const times = sentenceTimes(text, offsets, spoken, durations)!;
     expect(times).toHaveLength(offsets.length);
     expect(times[times.length - 1]).toBeGreaterThan(90);
   });
 
   it("gives up (null) when the durations don't match the chunks", () => {
-    expect(sentenceTimes(text, offsets, text, [10])).toBeNull();
+    expect(sentenceTimes(text, offsets, text, [plain(10)])).toBeNull();
   });
 });
 
