@@ -110,6 +110,32 @@ test("player: play an unnarrated chapter through the queue, then hear it", async
   await expect(page.getByRole("link", { name: /Download Chapter 1/ })).toBeVisible();
 });
 
+test("reader: read the narrated chapter, tap a sentence, switch to pages", async ({ page }) => {
+  await page.goto(`/book/${await bookId()}`);
+  // The audio-only screen is still the default.
+  await expect(page.getByRole("tab", { name: "Listen" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("slider", { name: "Position" })).toBeVisible();
+
+  await page.getByRole("tab", { name: "Read" }).click();
+  await expect(page.getByText("The rain fell softly").first()).toBeVisible();
+  // The EPUB was saved at upload, so it is the formatted copy, not the plain-text fallback.
+  await expect(page.getByText("Shown as plain text")).toHaveCount(0);
+  // Chapter 1 is narrated, so tapping a sentence lights it and starts the audio there.
+  const third = page.locator('[data-s="3"]').first();
+  await third.click();
+  await expect(page.locator('[data-s="3"].on').first()).toBeVisible();
+
+  await page.getByRole("button", { name: "Switch to pages" }).click();
+  await expect(page.getByText(/page 1 of \d+/)).toBeVisible();
+  await page.getByRole("button", { name: "Switch to scrolling" }).click();
+
+  // Back to listening, and the choice sticks.
+  await page.getByRole("tab", { name: "Listen" }).click();
+  await expect(page.getByRole("slider", { name: "Position" })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("tab", { name: "Listen" })).toHaveAttribute("aria-selected", "true");
+});
+
 test("player: the sleep timer cycles and the speed changes", async ({ page }) => {
   await page.goto(`/book/${await bookId()}`);
   const sleep = page.getByRole("button", { name: "Sleep timer, tap to change" });

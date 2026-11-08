@@ -1,0 +1,161 @@
+/* ---------- Reader (optional view; delete this file with components/reader to remove it) ---------- */
+
+.rd-switch {
+  display: inline-flex;
+  margin: 0 auto;
+  padding: 3px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+}
+.rd-switch button {
+  min-width: 78px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cream-2);
+  font-size: 14px;
+  font-weight: 500;
+}
+.rd-switch button.on {
+  background: var(--ember-line);
+  color: var(--amber);
+}
+.rd-switch.floating {
+  display: flex;
+  width: fit-content;
+  margin: 8px auto 4px;
+}
+
+.rd {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: env(safe-area-inset-top) 0 0;
+}
+.rd-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+}
+.rd-top .rd-switch {
+  margin: 0 auto;
+}
+.rd-tools {
+  display: flex;
+}
+.rd-a {
+  font-family: var(--serif);
+  font-size: 22px;
+  line-height: 1;
+}
+.rd-a.sm {
+  font-size: 15px;
+}
+.rd-head {
+  padding: 4px 24px 8px;
+}
+.rd-chtitle {
+  font-family: var(--serif);
+  font-size: 19px;
+  color: var(--cream);
+}
+.rd-note {
+  margin: 0 20px 8px;
+}
+
+.rd-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  font-family: var(--serif);
+  font-size: var(--rd-size, 18px);
+  line-height: 1.65;
+  color: var(--cream);
+}
+.rd-body.scroll {
+  overflow-y: auto;
+  padding: 8px 24px 40px;
+  -webkit-overflow-scrolling: touch;
+}
+.rd-body.paged {
+  overflow: hidden;
+}
+.rd-flow {
+  position: relative;
+}
+.rd-body.paged .rd-flow {
+  height: 100%;
+  column-gap: 0;
+  column-fill: auto;
+  transition: transform 0.18s ease-out;
+}
+.rd-body.paged .rd-p,
+.rd-body.paged .rd-break {
+  margin-left: 24px;
+  margin-right: 24px;
+}
+.rd-p {
+  margin: 0 0 1em;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.rd-title {
+  font-size: 1.15em;
+  color: var(--amber);
+}
+.rd-quote {
+  padding-left: 14px;
+  border-left: 2px solid var(--ember-line);
+  color: var(--cream-2);
+}
+.rd-break {
+  margin: 1.2em 0;
+  text-align: center;
+  color: var(--cream-3);
+  letter-spacing: 0.4em;
+}
+.rd-p i,
+.rd-p span.i {
+  font-style: italic;
+}
+.rd-p span.b {
+  font-weight: 700;
+}
+.rd-p span.on {
+  background: rgba(227, 160, 74, 0.2);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  border-radius: 3px;
+}
+.rd-back {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  font-family: var(--sans);
+}
+
+.rd-bar {
+  padding: 4px 24px calc(10px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--rule);
+  background: var(--ground);
+}
+.rd-prep {
+  font-size: 13px;
+  color: var(--amber);
+  text-align: center;
+  padding-top: 6px;
+}
+.rd-bar .controls {
+  margin-top: 0;
+}
+
+.rd-switch-row {
+  text-align: center;
+}

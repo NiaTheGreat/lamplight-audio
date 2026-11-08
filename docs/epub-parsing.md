@@ -22,6 +22,10 @@ Landmark headings such as "Chapter Text" are not narrated.
 
 Calibre-converted EPUBs turn note headings into plain paragraph labels and rename files to `*_split_000.xhtml`; the parser handles that case too.
 
+## Reader copy
+
+With the `format` option, `parseEpub` also returns each chapter as paragraphs with italics, bold, block quotes and scene breaks (`paras`). The narrated `text` is computed first and is never affected; the reader copy is dropped if it would not read exactly as `text`. See [Reader](reader.md).
+
 ## Limits
 
 The heuristics were written against a small number of real EPUBs. Other EPUBs (series, many chapters, unusual markup) may leak notes into the narration.

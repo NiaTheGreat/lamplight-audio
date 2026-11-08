@@ -4,6 +4,8 @@ import { getSettings, sanitizeVoice } from "@/lib/storage/settings";
 import { deleteObject, getObject, listKeys, putObject } from "@/lib/storage/storage";
 import { listForUpload } from "@/lib/pronunciation/pronlists";
 import { isUploadKey } from "@/lib/storage/uploads";
+import { readerEnabled } from "@/lib/reader/flag";
+import { saveReaderBook } from "@/lib/reader/store";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -103,7 +105,11 @@ export async function POST(req: Request) {
   }
 
   try {
-    const book = await parseEpub(buf, { skipNotes });
+    const reading = readerEnabled();
+    const book = await parseEpub(buf, { skipNotes, format: reading });
+    // The reader's formatted copy is kept apart from the book (see lib/reader/store.ts).
+    const readerParas = book.chapters.map((c) => c.paras ?? []);
+    for (const c of book.chapters) delete c.paras;
     // A book keeps the voice it was first added with, so it never changes mid-story.
     const existing = await getObject(`books/${book.id}.json`);
     const previous = existing ? (JSON.parse(existing.toString("utf8")) as Book) : undefined;
@@ -131,6 +137,8 @@ export async function POST(req: Request) {
       chars: book.chapters.map((c) => c.text.length),
     };
     await putObject(`library/${book.id}.json`, JSON.stringify(entry), "application/json");
+    // The reader keeps the EPUB and its formatted chapters. It must never stop a book being added.
+    if (reading) await saveReaderBook(book.id, buf, readerParas).catch(() => {});
     return NextResponse.json(summarize(book));
   } catch (err) {
     const message = err instanceof Error ? err.message : "Couldn't read that EPUB.";

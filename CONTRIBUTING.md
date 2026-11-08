@@ -56,6 +56,7 @@ Never change the cache key for plain OpenAI voice names. `tests/cachekeys.test.t
 | `R2_ENDPOINT` | no | Override the R2 endpoint |
 | `MONTHLY_BUDGET_USD` | no | Default monthly spend limit (30); a limit saved in Settings overrides it |
 | `MONTHLY_CHAR_LIMIT` | no | Optional monthly cap in characters |
+| `READER_ENABLED` | no | `false` turns the optional reader off (default on); see docs/reader.md |
 | `CACHE_DIR` | no | Local cache folder (default `./.cache`) |
 | `OPENAI_BASE_URL`, `DEEPINFRA_BASE_URL`, `ELEVENLABS_BASE_URL` | no | Point a provider at a mock server (tests do this) |
 | `E2E_CHROMIUM`, `FAKE_OPENAI_PORT` | no | Browser test setup |
