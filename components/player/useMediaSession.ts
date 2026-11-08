@@ -31,9 +31,8 @@ export function useMediaSession({
       artist: book.author ?? "",
       album: book.title,
     });
-    const audio = audioRef.current;
     ms.setActionHandler("play", () => resume());
-    ms.setActionHandler("pause", () => audio?.pause());
+    ms.setActionHandler("pause", () => audioRef.current?.pause());
     ms.setActionHandler("previoustrack", () => prevChapter());
     ms.setActionHandler("nexttrack", () => nextChapter());
     ms.setActionHandler("seekbackward", () => skip(-15));

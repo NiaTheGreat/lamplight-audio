@@ -9,9 +9,6 @@ export const DIM_LEVELS = [0, 25, 50, 80];
 
 // A silent clip played on the first tap so iOS lets us start audio later,
 // after the (possibly slow) first-time narration finishes.
-// How close to the end of a chapter the next one is loaded (see handOffEarly).
-export const HANDOFF_SECONDS = 0.4;
-
 export const SILENT_WAV =
   "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
 
