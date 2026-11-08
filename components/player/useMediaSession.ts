@@ -8,6 +8,8 @@ export function useMediaSession({
   audioRef,
   book,
   chapter,
+  playing,
+  resume,
   prevChapter,
   nextChapter,
   skip,
@@ -15,6 +17,8 @@ export function useMediaSession({
   audioRef: RefObject<HTMLAudioElement | null>;
   book: BookSummary | null;
   chapter: number;
+  playing: boolean;
+  resume: () => void;
   prevChapter: () => void;
   nextChapter: () => void;
   skip: (delta: number) => void;
@@ -28,11 +32,17 @@ export function useMediaSession({
       album: book.title,
     });
     const audio = audioRef.current;
-    ms.setActionHandler("play", () => void audio?.play());
+    ms.setActionHandler("play", () => resume());
     ms.setActionHandler("pause", () => audio?.pause());
     ms.setActionHandler("previoustrack", () => prevChapter());
     ms.setActionHandler("nexttrack", () => nextChapter());
     ms.setActionHandler("seekbackward", () => skip(-15));
     ms.setActionHandler("seekforward", () => skip(15));
-  }, [audioRef, book, chapter, prevChapter, nextChapter, skip]);
+  }, [audioRef, book, chapter, resume, prevChapter, nextChapter, skip]);
+
+  // Keep the lock screen's play/pause button in step with the real state.
+  useEffect(() => {
+    if (!("mediaSession" in navigator)) return;
+    navigator.mediaSession.playbackState = playing ? "playing" : "paused";
+  }, [playing]);
 }
