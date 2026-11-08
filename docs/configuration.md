@@ -39,6 +39,7 @@ Leave empty locally; audio is then cached in `./.cache`.
 | `R2_SECRET_ACCESS_KEY` | R2 API token secret |
 | `R2_BUCKET` | Bucket name |
 | `R2_ENDPOINT` | Override the R2 endpoint (optional) |
+| `READER_ENABLED` | `false` turns the optional [reader](reader.md) off completely; anything else (or unset) leaves it on |
 | `CACHE_DIR` | Local cache folder (default `./.cache`) |
 
 ## Testing

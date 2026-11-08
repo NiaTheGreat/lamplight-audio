@@ -6,6 +6,9 @@ import { Fragment, useEffect, useState } from "react";
 import { useDialog } from "@/components/Dialog";
 import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
+import { Reader } from "@/components/reader/Reader";
+import { ViewSwitch } from "@/components/reader/ViewSwitch";
+import { useReaderView } from "@/components/reader/useReaderView";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 
 function clock(seconds: number): string {
@@ -22,6 +25,7 @@ export default function Player() {
   const dialog = useDialog();
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
+  const reader = useReaderView(id);
 
   useEffect(() => {
     let alive = true;
@@ -54,6 +58,8 @@ export default function Player() {
     );
   }
 
+  if (reader.enabled && reader.view === "read") return <Reader reader={reader} />;
+
   const ch = book.chapters[p.chapter];
   const estimate = ch ? (ch.chars / p.charsPerMin) * 60 : 0;
   const total = p.duration || estimate;
@@ -83,6 +89,10 @@ export default function Player() {
         >
           <Icon name="moon" />
         </button>
+      </div>
+
+      <div className="rd-switch-row">
+        <ViewSwitch reader={reader} />
       </div>
 
       <div>

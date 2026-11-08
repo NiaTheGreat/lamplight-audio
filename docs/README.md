@@ -7,6 +7,7 @@ An EPUB-to-audiobook generator. Upload an EPUB, narrate each chapter once with t
 - [Getting started](getting-started.md): run it locally and add your first book.
 - [Adding books](adding-books.md): uploading EPUBs, what gets skipped, large files.
 - [Listening](listening.md): the player, resume, sleep timer, bedside mode, lock-screen controls.
+- [Reader](reader.md): the optional Read view, synced with the audio; attaching EPUBs to older books; turning it off.
 - [Narrators and voices](narrators.md): OpenAI, Kokoro and ElevenLabs voices, changing a book's narrator, per-chapter voices.
 - [Pronunciations](pronunciations.md): teach the narrator how to say names and words.
 - [Narrating in the background](background-narration.md): whole-book jobs, the Queue, pause and cancel.

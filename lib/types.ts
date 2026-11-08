@@ -1,7 +1,11 @@
+import type { Para } from "./reader/types";
+
 export type Chapter = {
   index: number;
   title: string;
   text: string;
+  /** The reader's formatted copy; only while a book is being parsed, never saved in the book (see lib/reader/store.ts). */
+  paras?: Para[];
 };
 
 export type Book = {

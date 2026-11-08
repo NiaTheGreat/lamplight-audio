@@ -31,6 +31,10 @@ Each chapter also keeps its own listening spot. If you leave a chapter part-way 
 
 Any narrated chapter can be downloaded as a named MP3. It is the same cached file that streams.
 
+## Reading along
+
+The book screen has a Listen | Read switch. Listen is this screen. Read shows the chapter text in step with the audio; see [Reader](reader.md).
+
 ## Notes
 
 - With **Narrate the next chapter while I listen** on in **Settings** (the default), the player narrates the next chapter ahead so it is ready for auto-advance. Turn it off to spend less; the next chapter is then narrated when you reach it.

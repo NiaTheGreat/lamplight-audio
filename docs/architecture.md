@@ -19,6 +19,7 @@ Next.js 15 (App Router, TypeScript), meant for Vercel. Storage is Cloudflare R2 
 | Pronunciations | `lib/pronunciation/pronunciation.ts`, `lib/pronunciation/pronlists.ts` |
 | Voices per chapter | `lib/narration/chaptervoice.ts`, `lib/narration/reread.ts` |
 | Budget and speed | `lib/storage/usage.ts`, `lib/storage/speed.ts`, `lib/eta.ts`, `lib/storage/throttle.ts` |
+| Reader (optional) | `lib/reader/`, `components/reader/`, `app/api/reader/`, `app/styles/reader.css`; see [Reader](reader.md) |
 | Player | `components/PlayerProvider.tsx`, `components/AppChrome.tsx` |
 | Storage | `lib/storage/storage.ts`, `lib/storage/keys.ts`, `lib/storage/library.ts` |
 

@@ -3,12 +3,27 @@ import path from "node:path";
 import JSZip from "jszip";
 import * as cheerio from "cheerio";
 import type { Book, Chapter } from "./types";
+import {
+  B_OFF,
+  B_ON,
+  HR,
+  I_OFF,
+  I_ON,
+  MARK_RE,
+  Q_OFF,
+  Q_ON,
+  parseMarked,
+  plainParas,
+  withTitle,
+} from "./reader/format";
 
 export type ParseOptions = {
   /** Drop author's notes and summaries (default true). */
   skipNotes?: boolean;
   /** Read the chapter title aloud at the start of each chapter (default true). */
   announceTitles?: boolean;
+  /** Also keep italics, bold, quotes and scene breaks as `paras` on each chapter, for the reader. */
+  format?: boolean;
 };
 
 // Headings like "Summary", "Chapter Summary", "Notes", "Author's Notes",
@@ -41,7 +56,11 @@ const NOTE_FILE = /(^|\/)(preface|afterword)[^/]*$/i;
 const BR = "\u0001";
 const BLOCK = "\u0002";
 
-export function extractChapter(html: string, skipNotes: boolean): { title: string; text: string } {
+export function extractChapter(
+  html: string,
+  skipNotes: boolean,
+  withFormat = false,
+): { title: string; text: string; marked?: string } {
   const $ = cheerio.load(html);
 
   // Work out the chapter title before anything is removed.
@@ -94,25 +113,61 @@ export function extractChapter(html: string, skipNotes: boolean): { title: strin
   root.find("p, div, h1, h2, h3, h4, h5, h6, li, blockquote, tr, hr").after(BLOCK);
 
   const text = normalize(root.text());
-  return { title, text };
+  if (!withFormat) return { title, text };
+
+  // The reader's copy: the same walk again with formatting marks in the text. `text` above is
+  // computed first and untouched, so narration (and every cache key) is exactly as before.
+  root.find("em, i, cite").each((_, el) => {
+    $(el).prepend(I_ON).append(I_OFF);
+  });
+  root.find("strong, b").each((_, el) => {
+    $(el).prepend(B_ON).append(B_OFF);
+  });
+  root.find("blockquote").each((_, el) => {
+    $(el).prepend(Q_ON).append(Q_OFF);
+  });
+  root.find("hr").before(`${BLOCK}${HR}`);
+  return { title, text, marked: normalize(root.text(), true) };
 }
 
-function normalize(raw: string): string {
-  const lines = raw
-    .replace(/\s+/g, " ")
+/**
+ * Collapse whitespace the way `\s+ -> " "` does, but with formatting marks transparent: a space
+ * next to a mark ends up outside the italic/bold/quote, so the text (marks removed) is identical
+ * to the plain version.
+ */
+function collapseSpaces(raw: string): string {
+  return raw.replace(/[\s\uE000-\uE006]+/g, (run) => {
+    if (!/\s/.test(run)) return run;
+    const marks = [...run.replace(/\s/g, "")];
+    const closing = [I_OFF, B_OFF, Q_OFF] as string[];
+    const off = marks.filter((m) => closing.includes(m));
+    const on = marks.filter((m) => !closing.includes(m));
+    return `${off.join("")} ${on.join("")}`;
+  });
+}
+
+function normalize(raw: string, keepMarks = false): string {
+  const lines = (keepMarks ? collapseSpaces(raw) : raw.replace(/\s+/g, " "))
     .replaceAll(BLOCK, "\n\n")
     .replaceAll(BR, "\n")
     .split("\n")
     .map((line) => line.trim())
     // Scene-break lines like "* * *" have nothing to read; keep them as a pause.
-    .map((line) => (/[\p{L}\p{N}]/u.test(line) ? line : ""));
+    .map((line) => {
+      const bare = keepMarks ? line.replace(MARK_RE, "") : line;
+      if (/[\p{L}\p{N}]/u.test(bare)) return line;
+      // For the reader a scene break stays visible as a break.
+      if (!keepMarks) return "";
+      // A line with only marks (a block quote closing) must keep them so the state stays right.
+      return bare.trim() ? HR : line.replace(/\s/g, "");
+    });
   return lines
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
-type RawFile = { title: string; text: string };
+type RawFile = { title: string; text: string; marked?: string };
 
 /**
  * Some EPUBs are converted from PDFs: the file is cut into pieces by page size, not by
@@ -253,13 +308,14 @@ export async function parseEpub(buf: Buffer, opts: ParseOptions = {}): Promise<B
     if (skipNotes && NOTE_FILE.test(full)) continue;
     if (!zip.file(full)) continue;
 
-    const { title, text } = extractChapter(await read(full), skipNotes);
-    if (text.trim()) raw.push({ title, text });
+    const { title, text, marked } = extractChapter(await read(full), skipNotes, opts.format);
+    if (text.trim()) raw.push({ title, text, marked });
   }
 
   let chapters: Chapter[];
   if (looksReflowed(raw)) {
     chapters = regroupByHeadings(raw, { skipNotes, announceTitles });
+    if (opts.format) for (const c of chapters) c.paras = plainParas(c.text);
   } else {
     chapters = [];
     for (const { title, text } of raw) {
@@ -271,6 +327,15 @@ export async function parseEpub(buf: Buffer, opts: ParseOptions = {}): Promise<B
           ? `${/[.!?:]$/.test(heading) ? heading : `${heading}.`}\n\n${text}`
           : text;
       chapters.push({ index, title: heading, text: spoken });
+    }
+    if (opts.format) {
+      raw
+        .filter((f) => f.text.replace(/\s/g, "").length >= 20)
+        .forEach((f, i) => {
+          const c = chapters[i];
+          const body = (f.marked ? parseMarked(f.marked, f.text) : null) ?? plainParas(f.text);
+          c.paras = withTitle(c.text, f.text, body);
+        });
     }
   }
 
