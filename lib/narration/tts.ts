@@ -12,6 +12,9 @@ const defaultVoice = () => process.env.OPENAI_TTS_VOICE || "ballad";
 /** How long one speech request may take before it is abandoned and retried. */
 const REQUEST_TIMEOUT_MS = 120_000;
 
+/** After this long on one chunk, stop retrying so a hop of the worker (300 s) is never spent on one stuck request. */
+const CHUNK_BUDGET_MS = 150_000;
+
 export { defaultVoice, joinMp3, ProviderBusyError };
 
 /** Told when a request is waiting out a busy provider (for the "busy, retrying" status). */
@@ -52,11 +55,16 @@ export async function synthChunk(
   const name = PROVIDER_INFO[req.provider].name;
   await assertBudget(input.length, narrator);
 
+  const startedAt = Date.now();
   let lastError = "";
   let busyDetail = ""; // set when the last failure was "busy" rather than a real error
   for (let attempt = 0; attempt < retryTiming.maxAttempts; attempt++) {
     const last = attempt === retryTiming.maxAttempts - 1;
+    // The timeout covers reading the body too, so both happen inside the try: a response that
+    // starts and then stalls is a failed attempt to retry, not an uncaught error.
     let res: Response;
+    let audio: Buffer | null = null;
+    let detail = "";
     try {
       res = await fetch(req.url, {
         method: "POST",
@@ -67,15 +75,17 @@ export async function synthChunk(
         body: JSON.stringify(req.body),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       });
+      if (res.ok) audio = Buffer.from(await res.arrayBuffer());
+      else detail = (await res.text()).slice(0, 300);
     } catch (err) {
-      // A timeout or dropped connection: wait and try again.
+      // A timeout or dropped connection: wait and try again, unless this chunk has used up its time.
       busyDetail = "";
       lastError = `${name} TTS request failed: ${err instanceof Error ? err.message : "network error"}`;
-      if (!last) await new Promise((resolve) => setTimeout(resolve, backoffMs(attempt)));
+      if (last || Date.now() - startedAt > CHUNK_BUDGET_MS) break;
+      await new Promise((resolve) => setTimeout(resolve, backoffMs(attempt)));
       continue;
     }
-    if (res.ok) {
-      const audio = Buffer.from(await res.arrayBuffer());
+    if (audio) {
       if (looksComplete(audio, input, narrator)) {
         await recordUsage(input.length, narrator);
         return audio;
@@ -85,7 +95,6 @@ export async function synthChunk(
       continue;
     }
 
-    const detail = (await res.text()).slice(0, 300);
     lastError = `${name} TTS error ${res.status}: ${detail}`;
     const busy = isBusyResponse(res.status, detail);
     busyDetail = busy ? detail.replace(/^\{"detail":"(.*)"\}$/, "$1") || `HTTP ${res.status}` : "";
@@ -93,7 +102,7 @@ export async function synthChunk(
     // but waiting won't fix it.
     if (res.status !== 429 && res.status < 500) break;
     if (detail.includes("insufficient_quota")) break;
-    if (last) break;
+    if (last || Date.now() - startedAt > CHUNK_BUDGET_MS) break;
     const waitMs = backoffMs(attempt, res.headers.get("retry-after"));
     if (busy) onBusy?.({ providerName: name, waitMs, attempt: attempt + 1 });
     await new Promise((resolve) => setTimeout(resolve, waitMs));
