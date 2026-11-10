@@ -5,13 +5,17 @@ import { resolveNarrator } from "../providers";
 import { getObject, hasObject, putObject } from "../storage/storage";
 import { assertBudget, flushUsage, recordUsage } from "../storage/usage";
 import { splitForTts } from "./text";
+import { backoffMs, isBusyResponse, ProviderBusyError, retryTiming } from "./retry";
 
 const defaultVoice = () => process.env.OPENAI_TTS_VOICE || "ballad";
 
 /** How long one speech request may take before it is abandoned and retried. */
 const REQUEST_TIMEOUT_MS = 120_000;
 
-export { defaultVoice, joinMp3 };
+export { defaultVoice, joinMp3, ProviderBusyError };
+
+/** Told when a request is waiting out a busy provider (for the "busy, retrying" status). */
+export type OnBusy = (info: { providerName: string; waitMs: number; attempt: number }) => void;
 
 /**
  * Cache key: same text + same narrator settings => same audio, generated once.
@@ -42,13 +46,16 @@ function buildRequest(input: string, narrator: string) {
 export async function synthChunk(
   input: string,
   narrator: string = defaultVoice(),
+  onBusy?: OnBusy,
 ): Promise<Buffer> {
   const req = buildRequest(input, narrator);
   const name = PROVIDER_INFO[req.provider].name;
   await assertBudget(input.length, narrator);
 
   let lastError = "";
-  for (let attempt = 0; attempt < 4; attempt++) {
+  let busyDetail = ""; // set when the last failure was "busy" rather than a real error
+  for (let attempt = 0; attempt < retryTiming.maxAttempts; attempt++) {
+    const last = attempt === retryTiming.maxAttempts - 1;
     let res: Response;
     try {
       res = await fetch(req.url, {
@@ -62,8 +69,9 @@ export async function synthChunk(
       });
     } catch (err) {
       // A timeout or dropped connection: wait and try again.
+      busyDetail = "";
       lastError = `${name} TTS request failed: ${err instanceof Error ? err.message : "network error"}`;
-      await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
+      if (!last) await new Promise((resolve) => setTimeout(resolve, backoffMs(attempt)));
       continue;
     }
     if (res.ok) {
@@ -72,18 +80,26 @@ export async function synthChunk(
         await recordUsage(input.length, narrator);
         return audio;
       }
+      busyDetail = "";
       lastError = `${name} returned too little audio (${audio.length} bytes) for ${input.length} characters.`;
       continue;
     }
 
     const detail = (await res.text()).slice(0, 300);
     lastError = `${name} TTS error ${res.status}: ${detail}`;
+    const busy = isBusyResponse(res.status, detail);
+    busyDetail = busy ? detail.replace(/^\{"detail":"(.*)"\}$/, "$1") || `HTTP ${res.status}` : "";
     // Only retry rate limits and server errors. An empty balance is a 429 too,
     // but waiting won't fix it.
     if (res.status !== 429 && res.status < 500) break;
     if (detail.includes("insufficient_quota")) break;
-    await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** attempt));
+    if (last) break;
+    const waitMs = backoffMs(attempt, res.headers.get("retry-after"));
+    if (busy) onBusy?.({ providerName: name, waitMs, attempt: attempt + 1 });
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
+  // Still busy after every wait: say so in a way the app can offer a choice, instead of a bare error.
+  if (busyDetail) throw new ProviderBusyError(name, narrator, busyDetail);
   throw new Error(lastError);
 }
 
@@ -124,6 +140,8 @@ export async function synthesizeChapter(
   voice: string = defaultVoice(),
   /** Asked before each new chunk; true leaves the rest un-narrated (the chunks done stay cached). */
   shouldStop?: () => Promise<boolean>,
+  /** Told while a chunk waits for a busy provider. */
+  onBusy?: OnBusy,
 ): Promise<ChapterProgress> {
   const chunks = splitForTts(text);
   const keys = chunks.map((c) => audioKey(c, voice));
@@ -139,7 +157,7 @@ export async function synthesizeChapter(
       }
       if (Date.now() >= stop) return;
       if (shouldStop && (await shouldStop())) return;
-      const audio = await synthChunk(chunk, voice);
+      const audio = await synthChunk(chunk, voice, onBusy);
       synthesizedChars += chunk.length;
       await putObject(keys[i], audio, "audio/mpeg");
       parts[i] = audio;

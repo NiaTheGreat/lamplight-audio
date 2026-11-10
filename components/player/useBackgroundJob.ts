@@ -26,7 +26,7 @@ export function useBackgroundJob({
   const [job, setJob] = useState<JobInfo | null>(null);
 
   const startBackground = useCallback(
-    async (range?: { from: number; to: number }, voice?: string) => {
+    async (range?: { from: number; to: number; chapters?: number[] }, voice?: string) => {
       const b = bookRef.current;
       if (!b) return;
       setError("");

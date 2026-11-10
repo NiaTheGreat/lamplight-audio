@@ -18,6 +18,8 @@
 
 **A chapter shows as failed.** The reason is shown on the chapter. Common causes are a missing or wrong provider key, a provider outage, or the monthly budget. Fix that and press play again to retry. Chunks already narrated are kept.
 
+**"DeepInfra is busy right now."** DeepInfra answered "Model busy, retry later" through every automatic retry. Nothing was spent. Open the book's narrating screen and press **Try DeepInfra again**, or choose **Use OpenAI for these chapters**. See [Background narration](background-narration.md#when-the-narrator-is-busy).
+
 **Can't log in over plain http (Docker).** Browsers drop Secure cookies on http. The supplied `docker-compose.yml` sets `COOKIE_SECURE: "false"` for that. Once you reach the app over https, remove it.
 
 **Lock-screen controls or Add to Home Screen are missing (Docker).** They need HTTPS. Use Tailscale Serve or a Cloudflare Tunnel; see the README.

@@ -18,6 +18,7 @@ import {
   pricePerMillion,
   PROVIDER_INFO,
   providerOf,
+  VOICES,
 } from "@/lib/narrators-shared";
 import { Ticks } from "@/components/Ticks";
 
@@ -55,6 +56,7 @@ export default function Narrating() {
   }, []);
   const groups = useNarrators();
   const [narratorError, setNarratorError] = useState("");
+  const [fallbackVoice, setFallbackVoice] = useState("coral");
   // Which chapters to read in the background (0-based, inclusive).
   const [range, setRange] = useState<{ from: number; to: number } | null>(null);
   const rangeTouched = useRef(false);
@@ -110,6 +112,20 @@ export default function Narrating() {
   const running = jobRunning && !stalled;
   const paused = p.job?.status === "paused";
   const failedHere = p.job?.status === "error" ? p.job.chapter : null;
+  // The chapters a busy-stopped job still has to narrate, and what the OpenAI fallback would cost.
+  const fallbackToDo =
+    p.job?.status === "error" && p.job.busy
+      ? book.chapters
+          .map((c) => c.index)
+          .filter((i) =>
+            p.job?.chapters
+              ? p.job.chapters.includes(i)
+              : i >= (p.job?.chapter ?? 0) && i <= (p.job?.to ?? total - 1),
+          )
+          .filter((i) => !["ready", "playing"].includes(p.chapterState(i)))
+      : [];
+  const fallbackChars = fallbackToDo.reduce((sum, i) => sum + (book.chapters[i]?.chars ?? 0), 0);
+  const openaiReady = groups.find((g) => g.provider === "openai")?.configured ?? false;
   const sel = range ?? { from: 0, to: total - 1 };
   const inRange = (i: number) => i >= sel.from && i <= sel.to;
   const notReady = (i: number) => !["ready", "playing"].includes(p.chapterState(i));
@@ -212,10 +228,77 @@ export default function Narrating() {
             {p.error}
           </p>
         ) : null}
+        {running && p.job?.note ? (
+          <p className="faint" role="status" style={{ marginTop: 10 }}>
+            {p.job.note}
+          </p>
+        ) : null}
         {p.job?.status === "error" ? (
           <p className="error" role="alert">
             Narration stopped: {p.job.error}
           </p>
+        ) : null}
+        {p.job?.status === "error" && p.job.busy ? (
+          <section className="section" aria-label="Provider busy">
+            <p className="lead">
+              {p.job.busy.providerName} didn&apos;t free up after several tries. Nothing was spent.
+            </p>
+            <button
+              className="btn primary"
+              style={{ marginTop: 12 }}
+              onClick={() => void p.resumeBackground()}
+            >
+              Try {p.job.busy.providerName} again
+            </button>
+            {openaiReady ? (
+              <div style={{ marginTop: 18 }}>
+                <label className="label" htmlFor="fallback-voice">
+                  Or read the rest with OpenAI
+                </label>
+                <select
+                  id="fallback-voice"
+                  className="select wide"
+                  value={fallbackVoice}
+                  onChange={(e) => setFallbackVoice(e.target.value)}
+                >
+                  {VOICES.map((v) => (
+                    <option key={v} value={v}>
+                      {narratorLabel(v)}
+                    </option>
+                  ))}
+                </select>
+                <p className="faint" style={{ marginTop: 8, lineHeight: 1.5 }}>
+                  {fallbackToDo.length} chapter{fallbackToDo.length === 1 ? "" : "s"}, about{" "}
+                  {formatUsd(costUsd(fallbackChars, fallbackVoice))} with OpenAI instead of{" "}
+                  {formatUsd(costUsd(fallbackChars, p.job.busy.narrator))} with{" "}
+                  {narratorLabel(p.job.busy.narrator)}. The voice will sound different. Only these
+                  chapters change; the book&apos;s narrator stays the same.
+                </p>
+                <button
+                  className="btn"
+                  style={{ marginTop: 10 }}
+                  disabled={fallbackToDo.length === 0}
+                  onClick={() =>
+                    void p.startBackground(
+                      {
+                        from: fallbackToDo[0],
+                        to: fallbackToDo[fallbackToDo.length - 1],
+                        chapters: fallbackToDo,
+                      },
+                      fallbackVoice,
+                    )
+                  }
+                >
+                  Use OpenAI for these chapters
+                </button>
+              </div>
+            ) : (
+              <p className="faint" style={{ marginTop: 12, lineHeight: 1.5 }}>
+                OpenAI isn&apos;t set up on this server (OPENAI_API_KEY), so there is nothing to
+                switch to. Try again in a few minutes.
+              </p>
+            )}
+          </section>
         ) : null}
 
         <Link href={`/book/${book.id}/pronunciation`} className="btn" style={{ marginTop: 18 }}>
