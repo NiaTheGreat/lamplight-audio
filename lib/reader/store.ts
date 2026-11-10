@@ -1,7 +1,7 @@
-import { inspectMp3 } from "../narration/mp3";
 import { splitForTts } from "../narration/text";
 import { audioKey } from "../narration/tts";
 import { getObject, hasObject, putObject } from "../storage/storage";
+import { analyzeSpeech, type ChunkTiming } from "./speech";
 import type { Para, ReaderBook } from "./types";
 
 /**
@@ -45,7 +45,7 @@ export async function getReaderBook(id: string): Promise<ReaderBook | null> {
   return data;
 }
 
-type TimingFile = Record<string, { key: string; durations: number[] }>;
+type TimingFile = Record<string, { key: string; chunks?: ChunkTiming[] }>;
 
 async function readTiming(id: string): Promise<TimingFile> {
   try {
@@ -57,41 +57,41 @@ async function readTiming(id: string): Promise<TimingFile> {
 }
 
 /**
- * How long each narrated chunk of a chapter is, in order. Measured from the cached chunk files
+ * How long each narrated chunk of a chapter is and where its speech and pauses are, in order. Measured from the cached chunk files
  * the first time, then remembered. The record names the chapter's audio key, so a chapter that was
  * re-read or re-narrated (a new key) is measured again; nothing has to clear it. Null if any chunk
  * is missing (the chapter is not narrated).
  */
-export async function chunkDurations(
+export async function chunkTimings(
   bookId: string,
   chapter: number,
   spoken: string,
   voice: string,
-): Promise<number[] | null> {
+): Promise<ChunkTiming[] | null> {
   const key = audioKey(spoken, voice);
   const file = await readTiming(bookId);
   const saved = file[chapter];
-  if (saved && saved.key === key) return saved.durations;
+  if (saved && saved.key === key && saved.chunks) return saved.chunks;
 
   const chunks = splitForTts(spoken);
-  const durations: number[] = [];
+  const timings: ChunkTiming[] = [];
   for (let i = 0; i < chunks.length; i += 4) {
     const part = await Promise.all(
       chunks.slice(i, i + 4).map(async (c) => {
         const audio = await getObject(audioKey(c, voice));
-        return audio ? inspectMp3(audio).seconds : null;
+        return audio ? analyzeSpeech(audio) : null;
       }),
     );
-    for (const d of part) {
-      if (d === null || !(d > 0)) return null;
-      durations.push(d);
+    for (const t of part) {
+      if (t === null || !(t.d > 0)) return null;
+      timings.push(t);
     }
   }
   try {
-    file[chapter] = { key, durations };
+    file[chapter] = { key, chunks: timings };
     await putObject(timingKey(bookId), JSON.stringify(file), "application/json");
   } catch {
     /* only a cache */
   }
-  return durations;
+  return timings;
 }

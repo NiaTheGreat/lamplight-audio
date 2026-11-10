@@ -35,7 +35,7 @@ Each chunk of audio is stored under a hash of its text and settings. Changing na
 
 ## Fixing seeking (Kokoro)
 
-Kokoro audio can leave a chapter where dragging the slider jumps back to the start. On a book's narrating screen, **Fix seeking in finished chapters** rebuilds the finished chapters from their saved pieces. It costs nothing. The button only shows for narrators that need it.
+Kokoro audio can leave a chapter where dragging the slider jumps back to the start. On a book's narrating screen, **Fix seeking in finished chapters** rebuilds the finished chapters from their saved pieces. It costs nothing. The button only shows for narrators that need it. Run it again after updating the app if the reader's highlight runs ahead of the audio after seeking: the seek table it writes is now rounded to the nearest step instead of down (see [Reader](reader.md)).
 
 ## Known gaps
 

@@ -13,10 +13,10 @@ const RATES: Record<number, number[]> = {
   0: [11025, 12000, 8000],
 };
 
-type Frame = { length: number; tagAt: number };
+export type Frame = { length: number; tagAt: number };
 
 /** Layer III frame header at `at`, or null. Gives the frame length and where a Xing/Info tag would sit. */
-function frameAt(b: Buffer, at: number): Frame | null {
+export function frameAt(b: Buffer, at: number): Frame | null {
   if (at + 4 > b.length || b[at] !== 0xff || (b[at + 1] & 0xe0) !== 0xe0) return null;
   const version = (b[at + 1] >> 3) & 3; // 3 = MPEG1, 2 = MPEG2, 0 = MPEG2.5
   if (version === 1 || ((b[at + 1] >> 1) & 3) !== 1) return null; // reserved version, or not layer III
@@ -31,7 +31,7 @@ function frameAt(b: Buffer, at: number): Frame | null {
   return { length, tagAt: at + 4 + crc + side };
 }
 
-const isInfoFrame = (b: Buffer, at: number, f: Frame) => {
+export const isInfoFrame = (b: Buffer, at: number, f: Frame) => {
   const tag = b.toString("latin1", f.tagAt, f.tagAt + 4);
   return tag === "Xing" || tag === "Info" || b.toString("latin1", at + 36, at + 40) === "VBRI";
 };
@@ -135,12 +135,14 @@ function xingFrame(
   const total = length + audioBytes;
   frame.writeUInt32BE(total, tagAt + 12);
 
-  // Seek table: how far into the file (of 256) each percent of the audio is.
+  // Seek table: how far into the file (of 256) each percent of the audio is. Players seek by it and
+  // then believe they are exactly there, so it is rounded to the nearest step (a step is about 1/256
+  // of the chapter, some seconds): rounding down always landed early, so the text ran ahead of the audio.
   const before: number[] = [0];
   for (const l of lengths) before.push(before[before.length - 1] + l);
   for (let i = 0; i < 100; i++) {
     const frameIdx = Math.floor((i / 100) * lengths.length);
-    frame[tagAt + 16 + i] = Math.min(255, Math.floor(((length + before[frameIdx]) / total) * 256));
+    frame[tagAt + 16 + i] = Math.min(255, Math.round(((length + before[frameIdx]) / total) * 256));
   }
   return frame;
 }

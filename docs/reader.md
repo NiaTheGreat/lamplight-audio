@@ -22,9 +22,12 @@ New books keep their EPUB automatically.
 
 The narrator returns one MP3 per chunk of about 1,500 characters (see [Architecture](architecture.md)); the chapter's audio is those chunks joined. No provider (OpenAI, Kokoro, ElevenLabs) is asked for word timings.
 
-1. The first time a narrated chapter is opened in the reader, the app measures the true length of each cached chunk and saves it in `timing/<bookId>.json`.
-2. Each chunk's start time is exact. Sentences inside a chunk are placed by their length, with a little extra for sentence ends and paragraph breaks.
-3. The page is therefore exact at every chunk boundary (about every minute and a half of audio) and a good estimate between them, usually within a second or two. Highlighting is by sentence, not word, for that reason.
+1. The first time a narrated chapter is opened in the reader, the app reads each cached chunk's MP3 and saves what it finds in `timing/<bookId>.json`: the chunk's length, where speech starts and ends, and where it pauses. Nothing is decoded: every MP3 frame records how many bits its sound took, so silence shows up as frames that took almost none.
+2. Each chunk's start time is exact. Inside a chunk, sentence starts are first guessed from their length (with extra for sentence ends and paragraph breaks) across the part that is really speech, then pulled onto the pauses actually heard. A pause is used only if it is close to the guess; a sentence with no pause nearby keeps its guess, shifted by how far its neighbours moved.
+3. Guessing by length alone ran ahead of the audio, most visibly on short sentences that the narrator pauses around. Matching real pauses fixed that: against a speech-synthesiser recording with known sentence starts, the length-only guess was about a second out and the pause-matched times were within 0.15 s (`tests/speech.test.ts`). It is still an estimate where a narrator doesn't pause, so highlighting is by sentence, not word.
+4. If the device's player reports a different chapter length from the measured one, the reader says so, because its clock and the measured times then disagree.
+
+Kokoro audio is variable bitrate, so players seek with a 100-entry table written into the file. Each entry can only point to the nearest 1/256 of the file (a few seconds of audio on a long chapter), and the player then assumes it landed exactly. The table used to round down, so after a seek or a pause that re-seeks the audio sat a few seconds earlier than the player's clock and the highlight ran ahead; it now rounds to the nearest step, which leaves at most about half a step of error either way. Chapters narrated before this keep the old table until you use **Fix seeking in finished chapters** on the book's narrating screen (free). Playing from the start never seeks, so it is unaffected.
 
 Pronunciations don't affect this: the reader shows the original words, and the timing uses the text as it was spoken (the lines the chapter was narrated with). The timing record is tied to the chapter's audio file, so re-reading or re-narrating a chapter measures it again on its own.
 
@@ -36,7 +39,7 @@ It costs nothing extra: no provider call is made, the measurement reads the cach
 | --- | --- |
 | `epubs/<bookId>.epub` | the original upload (about 1 MB) |
 | `reader/<bookId>.json` | the formatted chapters made from it |
-| `timing/<bookId>.json` | measured chunk lengths per chapter |
+| `timing/<bookId>.json` | measured chunk lengths, speech extent and pauses per chapter |
 
 The formatted chapters and timing are caches that can be rebuilt; the EPUB is the source. The book record and narrated text are unchanged, so no audio cache key is affected.
 
