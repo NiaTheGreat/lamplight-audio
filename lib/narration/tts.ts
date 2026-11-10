@@ -10,10 +10,10 @@ import { backoffMs, isBusyResponse, ProviderBusyError, retryTiming } from "./ret
 const defaultVoice = () => process.env.OPENAI_TTS_VOICE || "ballad";
 
 /** How long one speech request may take before it is abandoned and retried. */
-const REQUEST_TIMEOUT_MS = 120_000;
+const REQUEST_TIMEOUT_MS = 75_000;
 
 /** After this long on one chunk, stop retrying so a hop of the worker (300 s) is never spent on one stuck request. */
-const CHUNK_BUDGET_MS = 150_000;
+const CHUNK_BUDGET_MS = 170_000;
 
 export { defaultVoice, joinMp3, ProviderBusyError };
 
@@ -79,7 +79,8 @@ export async function synthChunk(
       else detail = (await res.text()).slice(0, 300);
     } catch (err) {
       // A timeout or dropped connection: wait and try again, unless this chunk has used up its time.
-      busyDetail = "";
+      // No answer in time counts as "provider unavailable", so the app can offer the same choices as for busy.
+      busyDetail = "no answer in time";
       lastError = `${name} TTS request failed: ${err instanceof Error ? err.message : "network error"}`;
       if (last || Date.now() - startedAt > CHUNK_BUDGET_MS) break;
       await new Promise((resolve) => setTimeout(resolve, backoffMs(attempt)));

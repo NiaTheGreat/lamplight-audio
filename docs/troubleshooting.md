@@ -18,7 +18,7 @@
 
 **A chapter shows as failed.** The reason is shown on the chapter. Common causes are a missing or wrong provider key, a provider outage, or the monthly budget. Fix that and press play again to retry. Chunks already narrated are kept.
 
-**"The operation was aborted due to timeout."** The provider started answering and then stalled for over two minutes. Lamplight now treats that as a failed try and retries it (for up to about 2.5 minutes per piece of text) instead of stopping at once. If it still fails, resume the job or press play again; pieces already narrated are kept.
+**"The operation was aborted due to timeout."** The provider took over 75 seconds to answer. Lamplight retries (for up to about 3 minutes per piece of text). If it never answers, the job stops with nothing spent and the narrating screen offers the same two choices as for a busy provider: try again, or use OpenAI for the remaining chapters. Pieces already narrated are kept.
 
 **"DeepInfra is busy right now."** DeepInfra answered "Model busy, retry later" through every automatic retry. Nothing was spent. Open the book's narrating screen and press **Try DeepInfra again**, or choose **Use OpenAI for these chapters**. See [Background narration](background-narration.md#when-the-narrator-is-busy).
 
