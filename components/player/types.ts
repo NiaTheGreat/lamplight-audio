@@ -6,6 +6,11 @@ export type JobInfo = {
   to?: number;
   updatedAt: number;
   error?: string;
+  /** "DeepInfra busy, retrying in 12 s…" while a running job waits for a busy provider. */
+  note?: string;
+  /** The job stopped because the provider stayed busy. */
+  busy?: { providerName: string; narrator: string };
+  chapters?: number[];
 };
 // A running job that hasn't saved progress for this long has probably lost its worker.
 export const STALE_MS = 8 * 60 * 1000;

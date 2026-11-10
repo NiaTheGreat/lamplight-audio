@@ -5,7 +5,13 @@ import { spokenText } from "../pronunciation/pronunciation";
 import { markNarrated } from "../storage/library";
 import { getObject, hasObject, putObject } from "../storage/storage";
 import { recordSpeed, flushSpeed } from "../storage/speed";
-import { audioKey, charsSynthesized, synthesizeChapter } from "./tts";
+import {
+  audioKey,
+  charsSynthesized,
+  ProviderBusyError,
+  synthesizeChapter,
+  type OnBusy,
+} from "./tts";
 import type { Book, LibraryEntry } from "../types";
 
 /**
@@ -29,6 +35,10 @@ export type Job = {
   /** Another worker is running until this time; others must not start. */
   leaseUntil: number;
   error?: string;
+  /** Shown while the job is running but waiting, e.g. "DeepInfra busy, retrying…". Cleared on the next chapter. */
+  note?: string;
+  /** Set when the job stopped because the narrator's provider stayed busy; the app then offers to retry or to use another narrator. */
+  busy?: { providerName: string; narrator: string };
 };
 
 /** A running job whose worker hasn't saved progress for this long is treated as dead, not busy. */
@@ -226,6 +236,8 @@ export async function resumeJob(bookId: string): Promise<Job | null> {
   if (job && (job.status === "paused" || job.status === "error")) {
     job.status = "running";
     delete job.error;
+    delete job.busy;
+    delete job.note;
     await saveJob(bookId, job);
     await setQueued(bookId, true);
   }
@@ -241,6 +253,7 @@ async function leave(bookId: string, mine: Job, finished: boolean): Promise<Job>
   fresh.chapter = Math.max(fresh.chapter, mine.chapter);
   if (fresh.status === "running" && finished) fresh.status = "done";
   fresh.leaseUntil = 0;
+  delete fresh.note;
   await saveJob(bookId, fresh);
   if (fresh.status === "done") await setQueued(bookId, false);
   return fresh;
@@ -285,6 +298,23 @@ export async function runJob(
     return !now || now.status !== "running";
   };
 
+  // Tell the job (and so the screen) that we're waiting on a busy provider. At most every 10 s, and
+  // read-modify-write so a pause or cancel that arrived meanwhile is kept.
+  let notedAt = 0;
+  const onBusy: OnBusy = async ({ providerName, waitMs }) => {
+    if (Date.now() - notedAt < 10_000) return;
+    notedAt = Date.now();
+    try {
+      const now = await getJob(bookId);
+      if (!now || now.status !== "running") return;
+      now.note = `${providerName} busy, retrying in ${Math.max(1, Math.round(waitMs / 1000))} s…`;
+      now.leaseUntil = job?.leaseUntil ?? now.leaseUntil;
+      await saveJob(bookId, now);
+    } catch {
+      /* the note is a convenience */
+    }
+  };
+
   try {
     for (;;) {
       const next = remainingChapters(job, book.chapters.length)[0];
@@ -300,7 +330,7 @@ export async function runJob(
         if (chunkBudget <= 0) break;
         const startedMs = Date.now();
         const charsBefore = charsSynthesized();
-        const result = await synthesizeChapter(spoken, chunkBudget, voice, shouldStop);
+        const result = await synthesizeChapter(spoken, chunkBudget, voice, shouldStop, onBusy);
         recordSpeed(voice, charsSynthesized() - charsBefore, Date.now() - startedMs);
         if (!result.done) break;
         await putObject(key, result.audio, "audio/mpeg");
@@ -316,6 +346,7 @@ export async function runJob(
         return { finished: true };
       }
       job = { ...fresh, chapter: job.chapter + 1, leaseUntil: job.leaseUntil };
+      delete job.note;
       await saveJob(bookId, job);
     }
 
@@ -332,7 +363,10 @@ export async function runJob(
     if (current.status === "running") {
       current.status = "error";
       current.error = message;
+      if (err instanceof ProviderBusyError)
+        current.busy = { providerName: err.providerName, narrator: err.narrator };
     }
+    delete current.note;
     current.leaseUntil = 0;
     await saveJob(bookId, current);
     await flushSpeed();

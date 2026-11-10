@@ -81,3 +81,51 @@ describe("synthesizeChapter", () => {
     expect(await chapterProgress(other)).toEqual({ ready: before.total, total: before.total });
   });
 });
+
+describe("busy providers", () => {
+  it("computes backoff with jitter and Retry-After", async () => {
+    const { backoffMs, retryTiming } = await import("@/lib/narration/retry");
+    expect(backoffMs(0, "7")).toBe(7000);
+    expect(backoffMs(0, "9999")).toBe(retryTiming.retryAfterCapMs);
+    expect(backoffMs(2, null, () => 1)).toBe(12_000);
+    expect(backoffMs(9, null, () => 1)).toBe(retryTiming.capMs);
+  });
+
+  it("retries a busy answer, then throws ProviderBusyError once the tries run out", async () => {
+    const { synthChunk } = await import("@/lib/narration/tts");
+    const { ProviderBusyError, retryTiming } = await import("@/lib/narration/retry");
+    const saved = { ...retryTiming };
+    Object.assign(retryTiming, { baseMs: 1, capMs: 2, maxAttempts: 3 });
+    let hits = 0;
+    const busy = createServer((req, res) => {
+      hits++;
+      req.resume();
+      req.on("end", () => {
+        res.statusCode = 429;
+        res.end('{"detail":"Model busy, retry later"}');
+      });
+    });
+    await new Promise<void>((r) => busy.listen(0, r));
+    const { port } = busy.address() as { port: number };
+    process.env.DEEPINFRA_BASE_URL = `http://127.0.0.1:${port}`;
+    process.env.DEEPINFRA_API_KEY = "test";
+    const waits: number[] = [];
+    try {
+      await expect(
+        synthChunk("Hello there.", "deepinfra:kokoro:af_bella", (i) => waits.push(i.waitMs)),
+      ).rejects.toBeInstanceOf(ProviderBusyError);
+      expect(hits).toBe(3);
+      expect(waits).toHaveLength(2);
+    } finally {
+      Object.assign(retryTiming, saved);
+      busy.close();
+    }
+  });
+
+  it("does not wait on an empty balance", async () => {
+    const { isBusyResponse } = await import("@/lib/narration/retry");
+    expect(isBusyResponse(429, '{"error":{"code":"insufficient_quota"}}')).toBe(false);
+    expect(isBusyResponse(429, "Model busy")).toBe(true);
+    expect(isBusyResponse(400, "bad")).toBe(false);
+  });
+});

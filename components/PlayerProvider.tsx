@@ -100,7 +100,10 @@ type Ctx = {
   refreshLibrary: () => Promise<void>;
   refreshBook: (id: string) => Promise<void>;
   removeBook: (id: string) => Promise<void>;
-  startBackground: (range?: { from: number; to: number }, voice?: string) => Promise<void>;
+  startBackground: (
+    range?: { from: number; to: number; chapters?: number[] },
+    voice?: string,
+  ) => Promise<void>;
   stopBackground: () => Promise<void>;
   /** Throw away a narrated chapter and narrate it again now (stopping it if it's playing). Returns an error message, or null. */
   rereadAndNarrate: (
