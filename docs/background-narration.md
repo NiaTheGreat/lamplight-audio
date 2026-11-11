@@ -10,7 +10,7 @@ A job record is saved in storage. A worker narrates for about 250 seconds, saves
 
 Providers sometimes answer "busy, retry later" (DeepInfra's `429 Model busy`, or a 503). Lamplight waits and tries again on its own: up to six tries per piece of text, waiting about 3, 6, 12, 24 and 30 seconds (randomly shortened a little so parallel pieces don't retry in step), or as long as the provider's `Retry-After` header asks, up to a minute. While it waits, the narrating screen shows "DeepInfra busy, retrying in N s…". An empty balance is not treated as busy; that still stops straight away.
 
-If the provider is still busy after all tries, the job stops with nothing spent and the narrating screen offers two choices:
+If the provider is still busy, or never answers (each try gets 75 seconds), after all tries, the job stops with nothing spent and the narrating screen offers two choices:
 
 - **Try again** continues the job with the same narrator.
 - **Use OpenAI for these chapters** (only shown when `OPENAI_API_KEY` is set) reads the chapters the job had left in an OpenAI voice you pick. It shows the price for both narrators first. This happens only when you press it, never automatically. It applies to those chapters only: the book's narrator is unchanged, chapters already narrated keep their voice, and the voice will sound different.
