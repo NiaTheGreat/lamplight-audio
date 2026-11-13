@@ -43,6 +43,10 @@ It costs nothing extra: no provider call is made, the measurement reads the cach
 
 The formatted chapters and timing are caches that can be rebuilt; the EPUB is the source. The book record and narrated text are unchanged, so no audio cache key is affected.
 
+## Reading progress
+
+The reader tells the server which chapter is open and when its end has been reached (`components/browse/useReadingProgress.ts`, `reading.json`), so [Browse](browse.md) can show Unread, Reading or Finished and offer **Continue**. Opening a fic from Browse goes to `/book/<id>?chapter=<n>` in the Read view. Nothing breaks if these calls fail.
+
 ## Turning it off
 
 Set `READER_ENABLED=false` (see [Configuration](configuration.md)) and redeploy or restart. The Listen | Read switch disappears, the reader routes answer 404, and nothing is saved when books are added. Leaving it unset keeps it on. Books keep working exactly as before either way.
@@ -54,6 +58,7 @@ The reader is kept apart from the rest of the code. To take it out:
 1. Delete `lib/reader/`, `components/reader/`, `app/api/reader/`, `app/styles/reader.css`, `lib/client/reader.ts`, `tests/reader*.test.ts`, the reader test in `e2e/app.spec.ts` and this page.
 2. Remove its few hooks into other code:
    - `app/globals.css`: the `reader.css` import.
+   - `components/reader/Reader.tsx`: `useReadingProgress` (also used by Browse; see [Browse](browse.md)).
    - `app/book/[id]/page.tsx`: the `useReaderView` hook, the `ViewSwitch`, and the `Reader` early return.
    - `app/api/books/route.ts`: the `format` option and the `saveReaderBook` call.
    - `lib/epub.ts`: the `format` option, `collapseSpaces`, the marks in `normalize`, and the `paras` handling in `parseEpub` and `extractChapter`; and `paras?` in `lib/types.ts`.

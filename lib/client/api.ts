@@ -8,6 +8,7 @@
  *
  * Type-only imports from server files are fine here: they are erased at build time.
  */
+import type { CatalogItem, ReadingEntry } from "../catalog/meta";
 import type { SpeedStats } from "../eta";
 import type { LiveItem, QueueItem } from "../narration/narration";
 import type { Pron } from "../pronunciation/pronunciation";
@@ -151,3 +152,63 @@ export const getUsage = () => soft<Usage>("/api/usage");
 export const saveBudget = (limitUsd: number | null) =>
   call<Usage>("/api/usage", { method: "PUT", body: { limitUsd } }, "Couldn't save the limit.");
 export const getNarrators = () => soft<NarratorGroupInfo[]>("/api/narrators");
+
+// ---------- Browse ----------
+
+export type CatalogResponse = { items: CatalogItem[]; reader: boolean };
+export const getCatalog = () => soft<CatalogResponse>("/api/catalog");
+export const getReading = async (): Promise<Record<string, ReadingEntry>> =>
+  (await soft<Record<string, ReadingEntry>>("/api/reading")) ?? {};
+/** The full summary of a fic (the list carries a clipped one). Null if there isn't one. */
+export const getFullSummary = async (id: string): Promise<string | null> =>
+  (await soft<{ summary: string | null }>(`/api/catalog/${id}`))?.summary ?? null;
+
+/** Read details for books already stored (at most 8 at a time). Resolves to how many were read. */
+export async function readDetails(ids: string[]): Promise<number> {
+  try {
+    const data = await call<{ done: number }>(
+      "/api/catalog",
+      { method: "POST", body: { ids } },
+      "Couldn't read those books' details.",
+    );
+    return data.done;
+  } catch {
+    return 0;
+  }
+}
+
+/** Hand edits to a fic: tags you added, and complete / in progress (null goes back to what the file says). */
+export const editFic = (id: string, patch: { userTags?: string[]; complete?: boolean | null }) =>
+  call<CatalogItem>(`/api/catalog/${id}`, { method: "PATCH", body: patch }, "Couldn't save that.");
+
+/** Put a fic on the Shelf (before narrating it). */
+export const shelveFic = (id: string) =>
+  call<{ ok: boolean }>(
+    `/api/catalog/${id}`,
+    { method: "PATCH", body: { action: "shelve" } },
+    "Couldn't add it to your shelf.",
+  );
+
+export const removeFic = (id: string) =>
+  call<{ ok: boolean }>(`/api/catalog/${id}`, { method: "DELETE" }, "Couldn't remove it.");
+
+/** Where you are in a fic, or mark it finished / unread. Never throws: reading must not break on this. */
+export async function saveReading(update: {
+  id: string;
+  chapter?: number;
+  done?: boolean;
+  total?: number;
+  finished?: boolean;
+}): Promise<ReadingEntry | null> {
+  try {
+    const res = await fetch("/api/reading", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(update),
+      keepalive: true,
+    });
+    return res.ok ? ((await res.json()) as ReadingEntry) : null;
+  } catch {
+    return null;
+  }
+}

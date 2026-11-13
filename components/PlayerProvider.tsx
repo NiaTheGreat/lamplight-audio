@@ -77,7 +77,8 @@ type Ctx = {
   dim: number;
   bedside: boolean;
   // Actions
-  selectBook: (id: string) => Promise<BookSummary | null>;
+  /** Open a book without playing. `startChapter` opens it there instead of at the listening position. */
+  selectBook: (id: string, startChapter?: number) => Promise<BookSummary | null>;
   openBook: (id: string, opts?: OpenOptions) => Promise<void>;
   confirmNarrate: boolean;
   setConfirmNarrate: (on: boolean) => void;
@@ -420,7 +421,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   const selectBook = useCallback(
-    async (id: string): Promise<BookSummary | null> => {
+    async (id: string, startChapter?: number): Promise<BookSummary | null> => {
       if (bookRef.current?.id === id) return bookRef.current;
       try {
         const b = await getBook(id);
@@ -428,11 +429,20 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         const audio = audioRef.current;
         if (audio && !audio.paused) audio.pause();
         const saved = progress.books[id];
-        const index = saved && b.chapters[saved.chapter] ? saved.chapter : 0;
+        const explicit = startChapter !== undefined && Boolean(b.chapters[startChapter]);
+        const index = explicit
+          ? startChapter
+          : saved && b.chapters[saved.chapter]
+            ? saved.chapter
+            : 0;
         bookRef.current = b;
         listenRangeRef.current = readStore<ListenRange>(`${RANGE_KEY}:${id}`, null);
         chapterRef.current = index;
-        resumeAtRef.current = saved && b.chapters[saved.chapter] ? saved.time : 0;
+        resumeAtRef.current = explicit
+          ? (saved?.chapters?.[index] ?? 0)
+          : saved && b.chapters[saved.chapter]
+            ? saved.time
+            : 0;
         loadedRef.current = "";
         loadToken.current++;
         setBook(b);

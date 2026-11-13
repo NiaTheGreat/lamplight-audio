@@ -28,7 +28,7 @@ With the `format` option, `parseEpub` also returns each chapter as paragraphs wi
 
 ## Work details
 
-With the `meta` option, `parseEpub` also returns `Book.meta`: the summary, fandoms, rating, category, warnings, relationships, characters, tags, language, series, word count, chapter counts, complete or not, and dates (`lib/catalog/`). It is groundwork for the Browse view and nothing shows it yet. Details come from two places, the first one found for each field winning:
+With the `meta` option, `parseEpub` also returns `Book.meta`: the summary, fandoms, rating, category, warnings, relationships, characters, tags, language, series, word count, chapter counts, complete or not, and dates (`lib/catalog/`). It feeds [Browse](browse.md): `POST /api/books` saves it in the catalog, not in the book. Details come from two places, the first one found for each field winning:
 
 1. **An AO3 work-info block** (`<dl class="tags">` with Rating, Archive Warning, Category, Fandom, Relationship, Characters, Additional Tags, Language, Series and Stats, then the summary, and the link back to the work for its number). It sits in the preface, which narration skips, so it is read from the first few files and any file named like `preface`, before the skip. A work is complete when Stats says `Chapters: 5/5`; `3/?` and `3/10` are not.
 2. **The EPUB's package file**: `dc:description` (summary), `dc:subject` (a fandom when the file has an `urn:ao3:<n>` identifier, otherwise tags), `dc:language` (turned into a name such as "English"), `dc:date`, and the AO3 work number.

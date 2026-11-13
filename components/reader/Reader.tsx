@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
+import { useReadingProgress } from "@/components/browse/useReadingProgress";
 import { usePlayer } from "@/components/PlayerProvider";
 import { readStore, writeStore } from "@/components/player/store";
 import { attachEpub } from "@/lib/client/reader";
@@ -50,6 +51,11 @@ export function Reader({ reader }: { reader: ReaderView }) {
   const flowRef = useRef<HTMLDivElement>(null);
   const touchX = useRef<number | null>(null);
   const attachRef = useRef<HTMLInputElement>(null);
+
+  // Browse's Unread / Reading / Finished: the chapter being read, and whether its end was reached.
+  const [atEnd, setAtEnd] = useState(false);
+  useReadingProgress(bookId, p.chapter, book?.chapters.length ?? 0, atEnd);
+  useEffect(() => setAtEnd(false), [bookId, p.chapter]);
 
   const state = p.chapterState(p.chapter);
   const ready = state === "ready" || state === "playing";
@@ -139,6 +145,17 @@ export function Reader({ reader }: { reader: ReaderView }) {
     ro.observe(body);
     return () => ro.disconnect();
   }, [measure, data, size, mode]);
+
+  // Reached the end of the chapter: the last page, or scrolled to the bottom (or it all fits).
+  useEffect(() => {
+    if (data && mode === "paged" && page >= pages - 1) setAtEnd(true);
+  }, [data, mode, page, pages]);
+  const checkScrollEnd = useCallback(() => {
+    const body = bodyRef.current;
+    if (!body || mode !== "scroll" || !data) return;
+    if (body.scrollTop + body.clientHeight >= body.scrollHeight - 48) setAtEnd(true);
+  }, [mode, data]);
+  useEffect(() => checkScrollEnd(), [checkScrollEnd, size]);
 
   const pageOf = useCallback((el: Element | null) => {
     const body = bodyRef.current;
@@ -315,6 +332,7 @@ export function Reader({ reader }: { reader: ReaderView }) {
         ref={bodyRef}
         className={`rd-body ${mode}`}
         onClick={onBodyClick}
+        onScroll={checkScrollEnd}
         onWheel={mode === "scroll" ? leave : undefined}
         onTouchStart={(e) => {
           touchX.current = e.touches[0].clientX;

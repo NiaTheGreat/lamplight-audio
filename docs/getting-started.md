@@ -17,7 +17,8 @@ Open http://localhost:3000. Locally, parsed books and audio are cached in `./.ca
 
 ## Your first book
 
-1. Open **Add** and choose an EPUB (or drop it on the box).
+1. Open **Browse** and choose **Add EPUBs** to add one or many fics to your library (free, nothing is narrated), or use **Add a fic** on the Shelf to add one straight to the Shelf and pick its narrator. In Browse, press **Narrate…** on the fic you want.
+   The Add page: choose an EPUB (or drop it on the box).
 2. Pick a narrator and, optionally, a [pronunciation list](pronunciations.md).
 3. Leave **Skip notes and summaries** on unless you want them read aloud.
 4. Open the book from the library and press play on a chapter. The first time a chapter plays it is narrated, which can take a minute or more. After that it plays from the cache for free.

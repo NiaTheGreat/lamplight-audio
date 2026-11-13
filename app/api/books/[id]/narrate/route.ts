@@ -11,6 +11,7 @@ import {
   resumeJob,
   startJob,
 } from "@/lib/narration/narration";
+import { ensureLibraryEntry } from "@/lib/storage/library";
 import { getObject } from "@/lib/storage/storage";
 import { BOOK_ID_RE, type Book } from "@/lib/types";
 
@@ -38,6 +39,8 @@ export async function POST(req: Request, ctx: Ctx) {
   const raw = await getObject(`books/${id}.json`);
   if (!raw) return NextResponse.json({ error: "Book not found." }, { status: 404 });
   const book = JSON.parse(raw.toString("utf8")) as Book;
+  // A fic read in Browse has no Shelf entry until it is narrated: this puts it on the Shelf.
+  await ensureLibraryEntry(id).catch(() => {});
 
   // Optional { from, to } picks which chapters (0-based, inclusive), or { chapters: [..] } exact ones; none means the whole book.
   const range = (await req.json().catch(() => null)) as {

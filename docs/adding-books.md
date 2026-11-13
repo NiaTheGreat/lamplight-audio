@@ -6,6 +6,10 @@ Choose an EPUB on the **Add** screen, or drop one on the upload box. The file is
 
 Only EPUB is supported. Pasting a link is not supported (live scraping of websites is intentionally avoided).
 
+## Browse or Shelf
+
+There are two ways in. **Add EPUBs** in [Browse](browse.md) takes many files at once and keeps them in the library only (free, readable, not narrated, not on the Shelf). **Add a fic** on the Shelf adds one fic straight to the Shelf and lets you pick its narrator and pronunciation list first.
+
 ## Large files
 
 Hosts such as Vercel limit request bodies to about 4.5 MB. EPUBs over about 4 MB are therefore uploaded by the browser straight to cloud storage using a signed URL, then parsed on the server and the temporary file deleted. This needs a CORS rule on the storage bucket, see [Deployment](deployment.md). Small files work without it.

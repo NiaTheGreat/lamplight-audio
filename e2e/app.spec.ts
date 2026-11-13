@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { buildEpub } from "./epub";
+import { buildAo3Epub, buildEpub } from "./epub";
 
 // One shared library for the whole file: the first test adds a fic and the rest use it.
 test.describe.configure({ mode: "serial" });
@@ -151,4 +151,88 @@ test("player: the mini player and tabs show on other screens", async ({ page }) 
   await page.goto(`/book/${await bookId()}`);
   await page.getByRole("link", { name: "Back to shelf" }).first().click();
   await expect(page.getByRole("navigation", { name: "Main" })).toBeVisible();
+});
+
+test("browse: add EPUBs, filter them, read one, then narrate it", async ({ page }) => {
+  await page.goto("/browse");
+  await expect(page.getByRole("heading", { name: "Browse" })).toBeVisible();
+
+  await page.getByLabel("Choose EPUB files").setInputFiles([
+    {
+      name: "one.epub",
+      mimeType: "application/epub+zip",
+      buffer: await buildAo3Epub({
+        title: "Browse Fic One",
+        rating: "Mature",
+        chapters: "2/2",
+        words: "120,000",
+        tag: "Found Family",
+        summary: "A story about a lighthouse keeper.",
+      }),
+    },
+    {
+      name: "two.epub",
+      mimeType: "application/epub+zip",
+      buffer: await buildAo3Epub({
+        title: "Browse Fic Two",
+        rating: "General Audiences",
+        chapters: "2/?",
+        words: "9,000",
+        tag: "Slow Burn",
+        summary: "A story about a bus route.",
+      }),
+    },
+  ]);
+  await expect(page.getByText("Added 2 of 2.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Browse Fic One" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Browse Fic Two" })).toBeVisible();
+
+  // Browse-only: neither is on the shelf yet.
+  await page.goto("/");
+  await expect(page.getByText("Browse Fic One")).toHaveCount(0);
+
+  // Filters live in the address, so the same view comes back on reload.
+  await page.goto("/browse?complete=1&min=100000");
+  await expect(page.getByRole("button", { name: "Browse Fic One" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Browse Fic Two" })).toHaveCount(0);
+  await page.goto("/browse?tag=Slow%20Burn");
+  await expect(page.getByRole("button", { name: "Browse Fic Two" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Browse Fic One" })).toHaveCount(0);
+  await page.goto("/browse?q=lighthouse");
+  await expect(page.getByRole("button", { name: "Browse Fic One" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Browse Fic Two" })).toHaveCount(0);
+
+  // The detail shows the whole summary and the chapters.
+  await page.goto("/browse");
+  await page.getByRole("button", { name: "Browse Fic One" }).click();
+  await expect(
+    page.getByRole("dialog").getByText("A story about a lighthouse keeper."),
+  ).toBeVisible();
+  await expect(page.getByRole("dialog").getByText("Chapter 2: Part 2")).toBeVisible();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+
+  // Read it: it opens in the reader, and Browse then says it is being read.
+  const card = page.locator("article", { hasText: "Browse Fic One" });
+  await expect(card.getByText("UNREAD")).toBeVisible();
+  await card.getByRole("button", { name: "Read", exact: true }).click();
+  await page.waitForURL(/\/book\/[a-f0-9]{16}\?chapter=0/);
+  await expect(page.locator(".rd-body")).toContainText("The rain fell softly");
+  await page.waitForTimeout(2500);
+  await page.goto("/browse");
+  await expect(
+    page.locator("article", { hasText: "Browse Fic One" }).getByText("READING"),
+  ).toBeVisible();
+  // Reading did not put it on the shelf.
+  await page.goto("/");
+  await expect(page.getByText("Browse Fic One")).toHaveCount(0);
+
+  // Narrate it: it joins the shelf and opens the chapter picker.
+  await page.goto("/browse");
+  await page
+    .locator("article", { hasText: "Browse Fic One" })
+    .getByRole("button", { name: /Narrate/ })
+    .click();
+  await page.waitForURL(/\/book\/[a-f0-9]{16}\/narrating/);
+  await page.goto("/");
+  await expect(page.getByText("Browse Fic One")).toBeVisible();
 });

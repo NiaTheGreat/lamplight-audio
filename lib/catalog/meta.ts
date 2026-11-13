@@ -40,3 +40,48 @@ export function countWords(text: string): number {
   const m = text.match(/\S+/g);
   return m ? m.length : 0;
 }
+
+/** One fic in the Browse list: what's needed to show a card and filter, kept small. */
+export type CatalogItem = {
+  id: string;
+  title: string;
+  author?: string;
+  /** Clipped for the list; the full text is in `catalog/<id>.json`. */
+  summary?: string;
+  fandoms?: string[];
+  rating?: string;
+  category?: string[];
+  warnings?: string[];
+  relationships?: string[];
+  characters?: string[];
+  tags?: string[];
+  series?: string;
+  language?: string;
+  words: number;
+  /** Characters of narrated text, for the price of narrating it. */
+  chars: number;
+  chapters: number;
+  chaptersTotal?: number;
+  complete?: boolean;
+  published?: string;
+  updated?: string;
+  workId?: string;
+  /** "none": nothing but a title, made from a shelf entry until its details are read. */
+  source: FicMeta["source"] | "none";
+  addedAt: number;
+  /** Tags the reader added by hand. */
+  userTags?: string[];
+  /** "Mark complete" / "mark in progress" by hand; wins over the file. */
+  completeOverride?: boolean;
+};
+
+/** Where the reader has got to in one fic (kept on the server so every device agrees). */
+export type ReadingEntry = {
+  /** Chapter to continue from (0-based). */
+  chapter: number;
+  /** Chapters read to their end. */
+  done: number[];
+  /** true: finished (reached the end, or marked); false: marked unread. */
+  finished?: boolean;
+  updatedAt: number;
+};

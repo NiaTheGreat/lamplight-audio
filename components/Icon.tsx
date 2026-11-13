@@ -49,6 +49,12 @@ const PATHS: Record<string, ReactNode> = {
   download: <path d="M12 4v10M7.5 10.5L12 15l4.5-4.5M5 19h14" />,
   queue: <path d="M4 7h16M4 12h16M4 17h9" />,
   add: <path d="M12 5v14M5 12h14" />,
+  browse: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5" />
+    </>
+  ),
   shelf: (
     <>
       <rect x="3" y="4" width="4" height="16" />

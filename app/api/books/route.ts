@@ -6,6 +6,7 @@ import { listForUpload } from "@/lib/pronunciation/pronlists";
 import { isUploadKey } from "@/lib/storage/uploads";
 import { readerEnabled } from "@/lib/reader/flag";
 import { saveReaderBook } from "@/lib/reader/store";
+import { toItem, upsertItem } from "@/lib/catalog/store";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -56,6 +57,8 @@ export async function POST(req: Request) {
   let chosenVoice: string | undefined;
   let uploadKey: string | null = null;
   let pronChoice: unknown;
+  // Added from Browse: kept in the catalog, not put on the Shelf until it is narrated.
+  let browseOnly = false;
 
   if ((req.headers.get("content-type") ?? "").includes("application/json")) {
     const body = (await req.json().catch(() => null)) as {
@@ -63,6 +66,7 @@ export async function POST(req: Request) {
       skipNotes?: unknown;
       voice?: unknown;
       pronList?: unknown;
+      browse?: unknown;
     } | null;
     if (!body || !isUploadKey(body.uploadKey)) {
       return NextResponse.json({ error: "Couldn't find that upload." }, { status: 400 });
@@ -71,6 +75,7 @@ export async function POST(req: Request) {
     skipNotes = body.skipNotes !== false;
     chosenVoice = sanitizeVoice(body.voice);
     pronChoice = body.pronList;
+    browseOnly = body.browse === true;
     let stored: Buffer | null;
     try {
       stored = await getObject(uploadKey);
@@ -101,15 +106,19 @@ export async function POST(req: Request) {
     skipNotes = form.get("skipNotes") !== "false";
     chosenVoice = sanitizeVoice(form.get("voice"));
     pronChoice = form.get("pronList") ?? undefined;
+    browseOnly = form.get("browse") === "true";
     buf = Buffer.from(await file.arrayBuffer());
   }
 
   try {
     const reading = readerEnabled();
-    const book = await parseEpub(buf, { skipNotes, format: reading });
+    const book = await parseEpub(buf, { skipNotes, format: reading, meta: true });
     // The reader's formatted copy is kept apart from the book (see lib/reader/store.ts).
     const readerParas = book.chapters.map((c) => c.paras ?? []);
     for (const c of book.chapters) delete c.paras;
+    // The work's details go to the catalog, not into the saved book.
+    const meta = book.meta;
+    delete book.meta;
     // A book keeps the voice it was first added with, so it never changes mid-story.
     const existing = await getObject(`books/${book.id}.json`);
     const previous = existing ? (JSON.parse(existing.toString("utf8")) as Book) : undefined;
@@ -136,7 +145,11 @@ export async function POST(req: Request) {
       addedAt: Date.now(),
       chars: book.chapters.map((c) => c.text.length),
     };
-    await putObject(`library/${book.id}.json`, JSON.stringify(entry), "application/json");
+    // A fic added through Browse stays off the Shelf (and one already on it is left as it is).
+    if (!browseOnly) {
+      await putObject(`library/${book.id}.json`, JSON.stringify(entry), "application/json");
+    }
+    if (meta) await upsertItem(toItem(book, meta, entry.addedAt), meta.summary);
     // The reader keeps the EPUB and its formatted chapters. It must never stop a book being added.
     if (reading) await saveReaderBook(book.id, buf, readerParas).catch(() => {});
     return NextResponse.json(summarize(book));

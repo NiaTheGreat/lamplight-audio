@@ -29,7 +29,10 @@ export default function Player() {
 
   useEffect(() => {
     let alive = true;
-    void selectBook(id).then((b) => alive && setMissing(!b));
+    // Browse opens a fic at the chapter to continue from: /book/<id>?chapter=<n> (0-based).
+    const asked = Number(new URLSearchParams(location.search).get("chapter"));
+    const start = Number.isInteger(asked) && asked >= 0 ? asked : undefined;
+    void selectBook(id, start).then((b) => alive && setMissing(!b));
     return () => {
       alive = false;
     };
