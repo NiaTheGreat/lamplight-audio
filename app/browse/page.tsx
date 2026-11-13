@@ -73,7 +73,7 @@ function Browse() {
   const open = openId ? data.items.find((i) => i.id === openId) : undefined;
 
   function readFic(id: string, chapter: number) {
-    writeStore(VIEW_KEY, "read");
+    writeStore(VIEW_KEY, "book");
     router.push(`/book/${id}?chapter=${chapter}`);
   }
   async function narrate(id: string) {

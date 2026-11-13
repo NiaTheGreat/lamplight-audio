@@ -6,6 +6,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useDialog } from "@/components/Dialog";
 import { Icon, PlayDot, StateGlyph } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
+import { BookReader } from "@/components/reader/BookReader";
 import { Reader } from "@/components/reader/Reader";
 import { ViewSwitch } from "@/components/reader/ViewSwitch";
 import { useReaderView } from "@/components/reader/useReaderView";
@@ -61,6 +62,7 @@ export default function Player() {
     );
   }
 
+  if (reader.enabled && reader.view === "book") return <BookReader reader={reader} />;
   if (reader.enabled && reader.view === "read") return <Reader reader={reader} />;
 
   const ch = book.chapters[p.chapter];

@@ -43,9 +43,13 @@ It costs nothing extra: no provider call is made, the measurement reads the cach
 
 The formatted chapters and timing are caches that can be rebuilt; the EPUB is the source. The book record and narrated text are unchanged, so no audio cache key is affected.
 
+## Book only (no player)
+
+**Read** on a Browse card opens the book on its own, like an e-book app: just the text, no player and nothing narrated (`components/reader/BookReader.tsx`). Tap the middle of the page to show the menu: back to Browse, text settings, chapters, and a headphones button. Pages is the default (tap or swipe the left and right edges to turn; turning past the end goes to the next chapter); Scroll is in the text settings, with a **Next chapter** button at the end. A thin line at the top and bottom says where you are (chapter, page, percent of the book), and the place in the chapter is remembered on the device (`abg:bk-spot:<id>`). The headphones button opens Listen; on a chapter that isn't narrated it shows the price first and does nothing until you confirm. The view is the device-local `abg:view` value `book` (the Listen | Read switch is `listen` / `read`).
+
 ## Reading progress
 
-The reader tells the server which chapter is open and when its end has been reached (`components/browse/useReadingProgress.ts`, `reading.json`), so [Browse](browse.md) can show Unread, Reading or Finished and offer **Continue**. Opening a fic from Browse goes to `/book/<id>?chapter=<n>` in the Read view. Nothing breaks if these calls fail.
+The reader tells the server which chapter is open and when its end has been reached (`components/browse/useReadingProgress.ts`, `reading.json`), so [Browse](browse.md) can show Unread, Reading or Finished and offer **Continue**. Opening a fic from Browse goes to `/book/<id>?chapter=<n>` in the book-only view (above); the Read side of the Listen | Read switch records progress the same way. Nothing breaks if these calls fail.
 
 ## Turning it off
 
@@ -55,7 +59,7 @@ Set `READER_ENABLED=false` (see [Configuration](configuration.md)) and redeploy 
 
 The reader is kept apart from the rest of the code. To take it out:
 
-1. Delete `lib/reader/`, `components/reader/`, `app/api/reader/`, `app/styles/reader.css`, `lib/client/reader.ts`, `tests/reader*.test.ts`, the reader test in `e2e/app.spec.ts` and this page.
+1. Delete `lib/reader/`, `components/reader/` (including `BookReader.tsx`), `app/api/reader/`, `app/styles/reader.css`, `lib/client/reader.ts`, `tests/reader*.test.ts`, the reader test in `e2e/app.spec.ts` and this page.
 2. Remove its few hooks into other code:
    - `app/globals.css`: the `reader.css` import.
    - `components/reader/Reader.tsx`: `useReadingProgress` (also used by Browse; see [Browse](browse.md)).

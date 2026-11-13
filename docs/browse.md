@@ -1,6 +1,6 @@
 # Browse
 
-Browse is a second view of your library, beside the Shelf. The **Shelf** is what you are listening to. **Browse** lists every fic you have added, with its summary, tags, rating, length and whether it is complete, so you can search and filter, read a fic straight away in the [reader](reader.md), and narrate only the ones you pick. Adding a fic to Browse costs nothing.
+Browse is a second view of your library, beside the Shelf. The **Shelf** is what you are listening to. **Browse** lists every fic you have added, with its summary, tags, rating, length and whether it is complete, so you can search and filter, read a fic straight away in the [book-only reader](reader.md), and narrate only the ones you pick. Adding a fic to Browse costs nothing.
 
 ## Adding fics
 

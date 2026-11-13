@@ -217,6 +217,12 @@ test("browse: add EPUBs, filter them, read one, then narrate it", async ({ page 
   await card.getByRole("button", { name: "Read", exact: true }).click();
   await page.waitForURL(/\/book\/[a-f0-9]{16}\?chapter=0/);
   await expect(page.locator(".rd-body")).toContainText("The rain fell softly");
+  // It is the book on its own: no player, a menu on a tap in the middle, chapters to jump to.
+  await expect(page.getByRole("button", { name: "Play" })).toHaveCount(0);
+  await page.locator(".bk-body").click();
+  await page.getByRole("button", { name: "Chapters" }).click();
+  await expect(page.getByRole("dialog", { name: "chapters" })).toContainText("Chapter 2: Part 2");
+  await page.getByRole("button", { name: "Close" }).click({ position: { x: 10, y: 10 } });
   await page.waitForTimeout(2500);
   await page.goto("/browse");
   await expect(

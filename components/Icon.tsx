@@ -72,6 +72,14 @@ const PATHS: Record<string, ReactNode> = {
   book: (
     <path d="M12 6.5C10 5 7 4.5 4 5v13c3-.5 6 0 8 1.5 2-1.5 5-2 8-1.5V5c-3-.5-6 0-8 1.5zM12 6.5v13" />
   ),
+  headphones: (
+    <>
+      <path d="M4.5 14v-2a7.5 7.5 0 0 1 15 0v2" />
+      <rect x="3.5" y="13.5" width="4" height="6" rx="1.5" />
+      <rect x="16.5" y="13.5" width="4" height="6" rx="1.5" />
+    </>
+  ),
+  textsize: <path d="M3 18l4.5-11L12 18M4.8 14h5.4M13.5 18l3-7 3 7M14.7 15.5h3.6" />,
   back: <path d="M15 5l-7 7 7 7" />,
   chevronDown: <path d="M5 9l7 7 7-7" />,
   retry: <path d="M19 12a7 7 0 1 1-2.1-5M19 4.5v4h-4" />,

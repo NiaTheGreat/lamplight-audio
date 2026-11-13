@@ -11,7 +11,7 @@ export function ViewSwitch({ reader }: { reader: ReaderView }) {
         <button
           key={v}
           role="tab"
-          aria-selected={reader.view === v}
+          aria-selected={reader.view === v || (v === "read" && reader.view === "book")}
           className={reader.view === v ? "on" : ""}
           onClick={() => reader.setView(v)}
         >
