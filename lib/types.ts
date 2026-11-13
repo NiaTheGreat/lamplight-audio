@@ -1,3 +1,4 @@
+import type { FicMeta } from "./catalog/meta";
 import type { Para } from "./reader/types";
 
 export type Chapter = {
@@ -15,6 +16,8 @@ export type Book = {
   /** Voice this book is narrated in; fixed when first added. */
   voice?: string;
   chapters: Chapter[];
+  /** The work's details, only while a book is being parsed with `meta` on; never saved in the book. */
+  meta?: FicMeta;
   /**
    * Narrators for individual chapters that differ from `voice`: a chapter re-read in another
    * voice, or chapters narrated before the whole fic switched voice. See lib/narration/chaptervoice.ts.
