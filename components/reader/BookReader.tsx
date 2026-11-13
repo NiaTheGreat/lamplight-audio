@@ -17,6 +17,14 @@ const MODE_KEY = "abg:bk-mode";
 const SIZE_KEY = "abg:rd-size";
 const SPOT_KEY = (bookId: string) => `abg:bk-spot:${bookId}`;
 const SIZES = [16, 18, 20, 23];
+const THEME_KEY = "abg:bk-theme";
+/** Reading themes, like the ones in Apple Books. Colours are in reader.css (`.bk[data-theme]`). */
+const THEMES = [
+  { id: "lamplight", label: "Lamplight" },
+  { id: "calm", label: "Calm" },
+  { id: "black", label: "Black" },
+] as const;
+type Theme = (typeof THEMES)[number]["id"];
 const NO_SENTENCES: never[] = [];
 
 type Mode = "scroll" | "paged";
@@ -36,6 +44,7 @@ export function BookReader({ reader }: { reader: ReaderView }) {
   const [chapter, setChapter] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("paged");
   const [size, setSize] = useState(1);
+  const [theme, setTheme] = useState<Theme>("lamplight");
   const [menu, setMenu] = useState(false);
   const [sheet, setSheet] = useState<null | "text" | "chapters">(null);
   const [page, setPage] = useState(0);
@@ -52,7 +61,18 @@ export function BookReader({ reader }: { reader: ReaderView }) {
   useEffect(() => {
     setMode(readStore<Mode>(MODE_KEY, "paged") === "scroll" ? "scroll" : "paged");
     setSize(Math.min(SIZES.length - 1, Math.max(0, readStore<number>(SIZE_KEY, 1))));
+    const t = readStore<string>(THEME_KEY, "lamplight");
+    setTheme(THEMES.some((x) => x.id === t) ? (t as Theme) : "lamplight");
   }, []);
+  // The page behind the reader takes the theme's colour too (wide screens, overscroll).
+  useEffect(() => {
+    const color = { lamplight: "", calm: "#3a332a", black: "#000" }[theme];
+    const prev = document.body.style.background;
+    document.body.style.background = color;
+    return () => {
+      document.body.style.background = prev;
+    };
+  }, [theme]);
 
   // Where to start: the chapter Browse asked for, with the place left in it if it is the same one.
   useEffect(() => {
@@ -167,6 +187,10 @@ export function BookReader({ reader }: { reader: ReaderView }) {
     setMode(m);
     writeStore(MODE_KEY, m);
   };
+  const chooseTheme = (t: Theme) => {
+    setTheme(t);
+    writeStore(THEME_KEY, t);
+  };
   const chooseSize = (i: number) => {
     setSize(i);
     writeStore(SIZE_KEY, i);
@@ -212,7 +236,7 @@ export function BookReader({ reader }: { reader: ReaderView }) {
   const title = book.chapters[ch]?.title ?? "";
 
   return (
-    <main className="bk" style={{ ["--rd-size" as string]: `${SIZES[size]}px` }}>
+    <main className="bk" data-theme={theme} style={{ ["--rd-size" as string]: `${SIZES[size]}px` }}>
       {menu || sheet ? null : (
         <div className="bk-run top">
           {ch + 1} of {total} · {title}
@@ -328,6 +352,20 @@ export function BookReader({ reader }: { reader: ReaderView }) {
                     onChange={(e) => chooseSize(Number(e.target.value))}
                   />
                   <span className="rd-a">A</span>
+                </div>
+                <div className="bk-themes" role="radiogroup" aria-label="Theme">
+                  {THEMES.map((t) => (
+                    <button
+                      key={t.id}
+                      role="radio"
+                      aria-checked={theme === t.id}
+                      className={`bk-theme ${t.id}${theme === t.id ? " on" : ""}`}
+                      onClick={() => chooseTheme(t.id)}
+                    >
+                      <span>Aa</span>
+                      {t.label}
+                    </button>
+                  ))}
                 </div>
                 <div className="bk-seg" role="tablist" aria-label="Layout">
                   {(["paged", "scroll"] as const).map((m) => (

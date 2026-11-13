@@ -334,3 +334,66 @@
   display: block;
   margin: 24px auto 0;
 }
+
+/* Book reader themes: the reader reuses the app's colour variables, so a theme just sets them. */
+.bk[data-theme="calm"] {
+  --ground: #3a332a;
+  --paper: #453d33;
+  --raised: #4a4136;
+  --rule: #564c40;
+  --outline: #6a5e4f;
+  --cream: #e2d6c1;
+  --cream-2: #bdb09a;
+  --cream-3: #a09379;
+  --ember-line: #5e4a2c;
+  background: var(--ground);
+}
+.bk[data-theme="black"] {
+  --ground: #000;
+  --paper: #121212;
+  --raised: #1a1a1a;
+  --rule: #2a2a2a;
+  --outline: #444;
+  --cream: #f2f2f2;
+  --cream-2: #b8b8b8;
+  --cream-3: #8f8f8f;
+  --amber: #e3a04a;
+  --ember-line: #3a2c14;
+  background: var(--ground);
+}
+.bk-themes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 14px 0;
+}
+.bk-theme {
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 2px solid transparent;
+  border-radius: 16px;
+  font-size: 12px;
+}
+.bk-theme span {
+  font-family: var(--serif);
+  font-size: 24px;
+}
+.bk-theme.lamplight {
+  background: #14100d;
+  color: #eadfc8;
+}
+.bk-theme.calm {
+  background: #3a332a;
+  color: #e2d6c1;
+}
+.bk-theme.black {
+  background: #000;
+  color: #f2f2f2;
+}
+.bk-theme.on {
+  border-color: var(--cream);
+}
