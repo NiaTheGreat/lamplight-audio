@@ -221,6 +221,10 @@ test("browse: add EPUBs, filter them, read one, then narrate it", async ({ page 
   await expect(page.getByRole("button", { name: "Play" })).toHaveCount(0);
   await page.locator(".bk-body").click();
   await page.getByRole("button", { name: "Text settings" }).click();
+  await page.getByRole("radio", { name: /Atkinson/ }).click();
+  await expect(page.locator(".bk")).toHaveAttribute("data-font", "atkinson");
+  await page.getByRole("switch", { name: "Bold text" }).click();
+  await expect(page.locator(".bk")).toHaveAttribute("data-bold", "1");
   await page.getByRole("radio", { name: /Calm/ }).click();
   await expect(page.locator(".bk")).toHaveAttribute("data-theme", "calm");
   await page.getByRole("button", { name: "Close" }).click({ position: { x: 10, y: 10 } });

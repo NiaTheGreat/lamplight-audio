@@ -25,6 +25,23 @@ const THEMES = [
   { id: "black", label: "Black" },
 ] as const;
 type Theme = (typeof THEMES)[number]["id"];
+
+const FONT_KEY = "abg:bk-font";
+const BOLD_KEY = "abg:bk-bold";
+const LEADING_KEY = "abg:bk-leading";
+/** Reading fonts. The stacks are in reader.css (`.bk[data-font]`). */
+const FONTS = [
+  { id: "literata", label: "Literata" },
+  { id: "atkinson", label: "Atkinson" },
+  { id: "system", label: "Georgia" },
+  { id: "lamplight", label: "Lamplight" },
+] as const;
+type Font = (typeof FONTS)[number]["id"];
+const LEADINGS = [
+  { v: 1.45, label: "Tight" },
+  { v: 1.65, label: "Normal" },
+  { v: 1.9, label: "Roomy" },
+];
 const NO_SENTENCES: never[] = [];
 
 type Mode = "scroll" | "paged";
@@ -45,6 +62,9 @@ export function BookReader({ reader }: { reader: ReaderView }) {
   const [mode, setMode] = useState<Mode>("paged");
   const [size, setSize] = useState(1);
   const [theme, setTheme] = useState<Theme>("lamplight");
+  const [font, setFont] = useState<Font>("literata");
+  const [bold, setBold] = useState(false);
+  const [leading, setLeading] = useState(1.65);
   const [menu, setMenu] = useState(false);
   const [sheet, setSheet] = useState<null | "text" | "chapters">(null);
   const [page, setPage] = useState(0);
@@ -63,6 +83,11 @@ export function BookReader({ reader }: { reader: ReaderView }) {
     setSize(Math.min(SIZES.length - 1, Math.max(0, readStore<number>(SIZE_KEY, 1))));
     const t = readStore<string>(THEME_KEY, "lamplight");
     setTheme(THEMES.some((x) => x.id === t) ? (t as Theme) : "lamplight");
+    const f = readStore<string>(FONT_KEY, "literata");
+    setFont(FONTS.some((x) => x.id === f) ? (f as Font) : "literata");
+    setBold(readStore<boolean>(BOLD_KEY, false) === true);
+    const l = readStore<number>(LEADING_KEY, 1.65);
+    setLeading(LEADINGS.some((x) => x.v === l) ? l : 1.65);
   }, []);
   // The page behind the reader takes the theme's colour too (wide screens, overscroll).
   useEffect(() => {
@@ -191,6 +216,18 @@ export function BookReader({ reader }: { reader: ReaderView }) {
     setTheme(t);
     writeStore(THEME_KEY, t);
   };
+  const chooseFont = (f: Font) => {
+    setFont(f);
+    writeStore(FONT_KEY, f);
+  };
+  const chooseBold = (b: boolean) => {
+    setBold(b);
+    writeStore(BOLD_KEY, b);
+  };
+  const chooseLeading = (l: number) => {
+    setLeading(l);
+    writeStore(LEADING_KEY, l);
+  };
   const chooseSize = (i: number) => {
     setSize(i);
     writeStore(SIZE_KEY, i);
@@ -236,7 +273,13 @@ export function BookReader({ reader }: { reader: ReaderView }) {
   const title = book.chapters[ch]?.title ?? "";
 
   return (
-    <main className="bk" data-theme={theme} style={{ ["--rd-size" as string]: `${SIZES[size]}px` }}>
+    <main
+      className="bk"
+      data-theme={theme}
+      data-font={font}
+      data-bold={bold ? "1" : undefined}
+      style={{ ["--rd-size" as string]: `${SIZES[size]}px`, ["--bk-leading" as string]: leading }}
+    >
       {menu || sheet ? null : (
         <div className="bk-run top">
           {ch + 1} of {total} · {title}
@@ -352,6 +395,43 @@ export function BookReader({ reader }: { reader: ReaderView }) {
                     onChange={(e) => chooseSize(Number(e.target.value))}
                   />
                   <span className="rd-a">A</span>
+                </div>
+                <div className="bk-fonts" role="radiogroup" aria-label="Font">
+                  {FONTS.map((f) => (
+                    <button
+                      key={f.id}
+                      role="radio"
+                      aria-checked={font === f.id}
+                      className={`bk-font ${f.id}${font === f.id ? " on" : ""}`}
+                      onClick={() => chooseFont(f.id)}
+                    >
+                      <span>Aa</span>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="bk-row">
+                  <span>Bold text</span>
+                  <button
+                    role="switch"
+                    aria-checked={bold}
+                    aria-label="Bold text"
+                    className={`bk-switch${bold ? " on" : ""}`}
+                    onClick={() => chooseBold(!bold)}
+                  />
+                </div>
+                <div className="bk-seg" role="radiogroup" aria-label="Line spacing">
+                  {LEADINGS.map((l) => (
+                    <button
+                      key={l.v}
+                      role="radio"
+                      aria-checked={leading === l.v}
+                      className={leading === l.v ? "on" : ""}
+                      onClick={() => chooseLeading(l.v)}
+                    >
+                      {l.label}
+                    </button>
+                  ))}
                 </div>
                 <div className="bk-themes" role="radiogroup" aria-label="Theme">
                   {THEMES.map((t) => (

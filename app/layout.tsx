@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Fraunces, Hanken_Grotesk } from "next/font/google";
+import { Atkinson_Hyperlegible_Next, Fraunces, Hanken_Grotesk, Literata } from "next/font/google";
 import type { ReactNode } from "react";
 import { DialogProvider } from "@/components/Dialog";
 import { AppChrome } from "@/components/AppChrome";
@@ -12,6 +12,21 @@ const serif = Fraunces({
   axes: ["opsz"],
   style: ["normal", "italic"],
   display: "swap",
+});
+// Reading fonts for the book reader. Not preloaded: the browser fetches one only when it is used.
+const literata = Literata({
+  subsets: ["latin"],
+  variable: "--font-literata",
+  style: ["normal", "italic"],
+  display: "swap",
+  preload: false,
+});
+const atkinson = Atkinson_Hyperlegible_Next({
+  subsets: ["latin"],
+  variable: "--font-atkinson",
+  style: ["normal", "italic"],
+  display: "swap",
+  preload: false,
 });
 const sans = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 
@@ -29,7 +44,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${serif.variable} ${sans.variable}`}>
+    <html
+      lang="en"
+      className={`${serif.variable} ${sans.variable} ${literata.variable} ${atkinson.variable}`}
+    >
       <body suppressHydrationWarning>
         <PlayerProvider>
           <DialogProvider>
