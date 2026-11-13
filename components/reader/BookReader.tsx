@@ -10,7 +10,7 @@ import { readStore, writeStore } from "@/components/player/store";
 import { getReading } from "@/lib/client/api";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 import { Passage } from "./Passage";
-import { useChapterText } from "./useChapterText";
+import { useBookChapter } from "./useBookChapter";
 import type { ReaderView } from "./useReaderView";
 
 const MODE_KEY = "abg:bk-mode";
@@ -91,7 +91,7 @@ export function BookReader({ reader }: { reader: ReaderView }) {
   useReadingProgress(bookId, ch, total, atEnd);
   useEffect(() => setAtEnd(false), [bookId, ch]);
 
-  const { data, failed } = useChapterText(bookId, ch, false);
+  const { data, failed } = useBookChapter(bookId, ch, total);
   const sentences = NO_SENTENCES;
 
   // ----- paged layout -----
