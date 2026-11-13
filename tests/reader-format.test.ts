@@ -63,4 +63,25 @@ describe("reader copy of a chapter", () => {
     const book = await parseEpub(await epub([CH1, CH2]));
     expect(book.chapters[0].paras).toBeUndefined();
   });
+
+  it("keeps italic and bold from spilling over the rest of the chapter", async () => {
+    // The closing mark sits on a line with nothing to read ("—"), which used to drop it.
+    const book = await parseEpub(
+      await epub([
+        `<h2>Chapter 1</h2><p><strong><em>A thought here<br/>—</em></strong></p>
+         <p>A normal paragraph after it, with plenty of words.</p>
+         <p>Another one, also plain, with a <em>little</em> emphasis.</p>`,
+      ]),
+      { format: true },
+    );
+    const paras = book.chapters[0].paras ?? [];
+    const after = paras.filter((p) => p.runs.some((r) => r.t.includes("normal paragraph")));
+    expect(after[0].runs).toEqual([{ t: "A normal paragraph after it, with plenty of words." }]);
+    const last = paras[paras.length - 1];
+    expect(last.runs.map((r) => [r.t, Boolean(r.i), Boolean(r.b)])).toEqual([
+      ["Another one, also plain, with a ", false, false],
+      ["little", true, false],
+      [" emphasis.", false, false],
+    ]);
+  });
 });

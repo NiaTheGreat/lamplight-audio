@@ -24,7 +24,7 @@ Calibre-converted EPUBs turn note headings into plain paragraph labels and renam
 
 ## Reader copy
 
-With the `format` option, `parseEpub` also returns each chapter as paragraphs with italics, bold, block quotes and scene breaks (`paras`). The narrated `text` is computed first and is never affected; the reader copy is dropped if it would not read exactly as `text`. See [Reader](reader.md).
+With the `format` option, `parseEpub` also returns each chapter as paragraphs with italics, bold, block quotes and scene breaks (`paras`). The narrated `text` is computed first and is never affected; the reader copy is dropped if it would not read exactly as `text`. Italic and bold marks on a line with nothing to read (such as a closing `</em>` after a lone "—" or "* * *") are kept, so a style cannot stay on for the rest of the chapter. See [Reader](reader.md).
 
 ## Work details
 
