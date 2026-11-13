@@ -10,6 +10,7 @@ const STORY = "<p>The rain fell softly on the old house, and nobody came to the 
 
 // AO3's work-info block, as in a "Download > EPUB" preface (made-up work).
 const AO3_BLOCK = `<div class="meta group"><h1>The Long Way</h1>
+  <p>Posted originally on the <a href="https://archiveofourown.org/works/4001737">Archive of Our Own</a>.</p>
   <div class="byline">by <a rel="author" href="/users/x">quillandember</a></div>
   <dl class="tags">
     <dt>Rating:</dt><dd><a class="tag" href="#">Mature</a></dd>
@@ -48,6 +49,7 @@ describe("parseAo3Preface", () => {
   it("reads the work-info block and summary", () => {
     const m = parseAo3Preface(xhtml(AO3_BLOCK))!;
     expect(m.rating).toBe("Mature");
+    expect(m.workId).toBe("4001737");
     expect(m.warnings).toEqual(["No Archive Warnings Apply"]);
     expect(m.category).toEqual(["F/M", "Gen"]);
     expect(m.fandoms).toEqual(["Harbor Lights (TV)"]);

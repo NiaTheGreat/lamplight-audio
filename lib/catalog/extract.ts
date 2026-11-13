@@ -77,6 +77,10 @@ export function parseAo3Preface(html: string): FicMeta | null {
     }
   });
 
+  // The preface links back to the work ("Posted originally on the Archive of Our Own at ...").
+  const work = html.match(/archiveofourown\.org\/works\/(\d+)/i);
+  if (work) meta.workId = work[1];
+
   // The summary follows the block, either right after the <dl> or after the <div> that holds it.
   let box = dl.nextAll("blockquote").first();
   for (const up of dl.parents().toArray().slice(0, 3)) {
