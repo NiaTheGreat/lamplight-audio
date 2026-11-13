@@ -163,7 +163,10 @@ function normalize(raw: string, keepMarks = false): string {
       // For the reader a scene break stays visible as a break.
       if (!keepMarks) return "";
       // A line with only marks (a block quote closing) must keep them so the state stays right.
-      return bare.trim() ? HR : line.replace(/\s/g, "");
+      // Its marks stay, or an italic/bold that opens or closes on a line like "—" or "* * *"
+      // would stay on (or off) for the rest of the chapter.
+      const marks = line.replace(/[^\uE000-\uE006]/g, "").replaceAll(HR, "");
+      return bare.trim() ? `${HR}${marks}` : marks;
     });
   return lines
     .join("\n")

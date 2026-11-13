@@ -19,7 +19,7 @@ export const maxDuration = 60;
  * when the chapter is narrated, when each sentence starts in the audio.
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string; chapter: string }> },
 ) {
   if (!readerEnabled()) return new Response("The reader is turned off.", { status: 404 });
@@ -36,9 +36,11 @@ export async function GET(
   const formatted = Boolean(saved && chapterText(saved) === ch.text);
   const paras = formatted ? saved! : plainParas(ch.text);
 
+  // The book-only view asks for the text alone: no storage lookups for audio.
+  const plainOnly = new URL(req.url).searchParams.get("plain") === "1";
   const voice = voiceFor(book, ch.index);
   const spoken = spokenText(book, ch.index, ch.text);
-  const narrated = await hasObject(audioKey(spoken, voice));
+  const narrated = plainOnly ? false : await hasObject(audioKey(spoken, voice));
 
   let times: number[] | null = null;
   let total: number | null = null;

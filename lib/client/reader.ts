@@ -16,9 +16,13 @@ export async function getReaderStatus(bookId: string): Promise<ReaderStatus> {
 export async function getReaderChapter(
   bookId: string,
   chapter: number,
+  /** Just the text (the book-only view): skips looking for narration and its timing. */
+  plain = false,
 ): Promise<ReaderChapterData | null> {
   try {
-    const res = await fetch(`/api/reader/${bookId}/${chapter}`, { cache: "no-store" });
+    const res = await fetch(`/api/reader/${bookId}/${chapter}${plain ? "?plain=1" : ""}`, {
+      cache: "no-store",
+    });
     return res.ok ? ((await res.json()) as ReaderChapterData) : null;
   } catch {
     return null;
