@@ -220,6 +220,10 @@ test("browse: add EPUBs, filter them, read one, then narrate it", async ({ page 
   // It is the book on its own: no player, a menu on a tap in the middle, chapters to jump to.
   await expect(page.getByRole("button", { name: "Play" })).toHaveCount(0);
   await page.locator(".bk-body").click();
+  await page.getByRole("button", { name: "Text settings" }).click();
+  await page.getByRole("radio", { name: /Calm/ }).click();
+  await expect(page.locator(".bk")).toHaveAttribute("data-theme", "calm");
+  await page.getByRole("button", { name: "Close" }).click({ position: { x: 10, y: 10 } });
   await page.getByRole("button", { name: "Chapters" }).click();
   await expect(page.getByRole("dialog", { name: "chapters" })).toContainText("Chapter 2: Part 2");
   await page.getByRole("button", { name: "Close" }).click({ position: { x: 10, y: 10 } });
