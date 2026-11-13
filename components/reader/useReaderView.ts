@@ -5,7 +5,8 @@ import { readStore, writeStore } from "@/components/player/store";
 import { getReaderStatus } from "@/lib/client/reader";
 
 export const VIEW_KEY = "abg:view";
-export type View = "listen" | "read";
+/** "book" is the book on its own (no player); "read" is the Listen | Read side with the audio. */
+export type View = "listen" | "read" | "book";
 
 /**
  * Whether the book screen offers the reader, and which side is showing. Off (the server's
@@ -24,7 +25,8 @@ export function useReaderView(bookId: string) {
 
   useEffect(() => {
     void refresh();
-    setViewState(readStore<View>(VIEW_KEY, "listen") === "read" ? "read" : "listen");
+    const saved = readStore<View>(VIEW_KEY, "listen");
+    setViewState(saved === "read" || saved === "book" ? saved : "listen");
   }, [refresh]);
 
   const setView = useCallback((v: View) => {

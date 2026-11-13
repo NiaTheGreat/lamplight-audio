@@ -5,6 +5,7 @@ An EPUB-to-audiobook generator. Upload an EPUB, narrate each chapter once with t
 ## Using the app
 
 - [Getting started](getting-started.md): run it locally and add your first book.
+- [Browse](browse.md): a filterable library of every fic, with summaries and tags; read in the reader, narrate the ones you pick.
 - [Adding books](adding-books.md): uploading EPUBs, what gets skipped, large files.
 - [Listening](listening.md): the player, resume, sleep timer, bedside mode, lock-screen controls.
 - [Reader](reader.md): the optional Read view, synced with the audio; attaching EPUBs to older books; turning it off.

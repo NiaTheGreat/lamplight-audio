@@ -35,6 +35,10 @@ Any narrated chapter can be downloaded as a named MP3. It is the same cached fil
 
 The book screen has a Listen | Read switch. Listen is this screen. Read shows the chapter text in step with the audio; see [Reader](reader.md).
 
+## The Shelf and Browse
+
+The Shelf lists the fics you have narrated or put there. Fics you have only added to [Browse](browse.md) become Shelf fics when you narrate them. Listening position and Browse's reading state both count towards "where you are".
+
 ## Notes
 
 - With **Narrate the next chapter while I listen** on in **Settings** (the default), the player narrates the next chapter ahead so it is ready for auto-advance. Turn it off to spend less; the next chapter is then narrated when you reach it.

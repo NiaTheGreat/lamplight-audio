@@ -3,6 +3,8 @@ import path from "node:path";
 import JSZip from "jszip";
 import * as cheerio from "cheerio";
 import type { Book, Chapter } from "./types";
+import { mergeMeta, metaFromOpf, parseAo3Preface } from "./catalog/extract";
+import type { FicMeta } from "./catalog/meta";
 import {
   B_OFF,
   B_ON,
@@ -24,6 +26,8 @@ export type ParseOptions = {
   announceTitles?: boolean;
   /** Also keep italics, bold, quotes and scene breaks as `paras` on each chapter, for the reader. */
   format?: boolean;
+  /** Also read the work's details (summary, tags, rating, words...) into `Book.meta`, for Browse. */
+  meta?: boolean;
 };
 
 // Headings like "Summary", "Chapter Summary", "Notes", "Author's Notes",
@@ -287,6 +291,8 @@ export async function parseEpub(buf: Buffer, opts: ParseOptions = {}): Promise<B
   });
 
   const raw: RawFile[] = [];
+  let ao3: FicMeta | null = null;
+  let probed = 0;
   const itemrefs = opf("spine > itemref").toArray();
 
   for (const el of itemrefs) {
@@ -303,6 +309,12 @@ export async function parseEpub(buf: Buffer, opts: ParseOptions = {}): Promise<B
       /* keep raw href */
     }
     const full = path.posix.normalize(path.posix.join(baseDir === "." ? "" : baseDir, href));
+
+    // The work-info block lives in the preface, which narration skips; read it first.
+    if (opts.meta && !ao3 && (probed < 4 || NOTE_FILE.test(full)) && zip.file(full)) {
+      probed++;
+      ao3 = parseAo3Preface(await read(full));
+    }
 
     if (ALWAYS_SKIP_FILE.test(full)) continue;
     if (skipNotes && NOTE_FILE.test(full)) continue;
@@ -351,5 +363,7 @@ export async function parseEpub(buf: Buffer, opts: ParseOptions = {}): Promise<B
     .digest("hex")
     .slice(0, 16);
 
-  return { id, title, author, chapters };
+  const book: Book = { id, title, author, chapters };
+  if (opts.meta) book.meta = mergeMeta([ao3, metaFromOpf(opf)], chapters);
+  return book;
 }

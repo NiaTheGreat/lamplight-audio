@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { inCatalog } from "@/lib/catalog/store";
 import { deleteObject, getObject, putObject } from "@/lib/storage/storage";
 import { BOOK_ID_RE, summarize, type Book, type LibraryEntry } from "@/lib/types";
 
@@ -32,7 +33,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   }
   // A stored book that never made it onto the shelf (or whose entry was lost) gets one.
-  if (!hasEntry) {
+  // A fic that is only in Browse stays off the Shelf until it is narrated, so opening it to read is free.
+  if (!hasEntry && !(await inCatalog(id))) {
     const entry: LibraryEntry = {
       id,
       title: summary.title,

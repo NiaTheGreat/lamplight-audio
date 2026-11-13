@@ -34,3 +34,52 @@ export async function buildEpub(title = "E2E Fic"): Promise<Buffer> {
   }
   return zip.generateAsync({ type: "nodebuffer" });
 }
+
+/** An EPUB shaped like an AO3 download: a preface with the work-info block, then two chapters. */
+export async function buildAo3Epub(opts: {
+  title: string;
+  rating: string;
+  chapters: string;
+  words: string;
+  tag: string;
+  summary: string;
+}): Promise<Buffer> {
+  const zip = new JSZip();
+  zip.file("mimetype", "application/epub+zip");
+  zip.file(
+    "META-INF/container.xml",
+    `<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`,
+  );
+  zip.file(
+    "OEBPS/content.opf",
+    `<?xml version="1.0"?><package xmlns="http://www.idpf.org/2007/opf" version="2.0">
+      <metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>${opts.title}</dc:title><dc:creator>E2E Author</dc:creator></metadata>
+      <manifest>
+        <item id="pre" href="preface.xhtml" media-type="application/xhtml+xml"/>
+        <item id="c1" href="chapter_1.xhtml" media-type="application/xhtml+xml"/>
+        <item id="c2" href="chapter_2.xhtml" media-type="application/xhtml+xml"/>
+      </manifest>
+      <spine><itemref idref="pre"/><itemref idref="c1"/><itemref idref="c2"/></spine>
+    </package>`,
+  );
+  zip.file(
+    "OEBPS/preface.xhtml",
+    xhtml(`<div class="meta group"><h1>${opts.title}</h1>
+      <dl class="tags">
+        <dt>Rating:</dt><dd><a href="#">${opts.rating}</a></dd>
+        <dt>Fandom:</dt><dd><a href="#">E2E Fandom</a></dd>
+        <dt>Additional Tags:</dt><dd><a href="#">${opts.tag}</a></dd>
+        <dt>Language:</dt><dd>English</dd>
+        <dt>Stats:</dt><dd>Published: 2024-01-02 Words: ${opts.words} Chapters: ${opts.chapters}</dd>
+      </dl></div>
+      <p>Summary</p><blockquote class="userstuff"><p>${opts.summary}</p></blockquote>`),
+  );
+  const paragraph = "The rain fell softly on the old house, and she listened for a long time. ";
+  for (const n of [1, 2]) {
+    zip.file(
+      `OEBPS/chapter_${n}.xhtml`,
+      xhtml(`<h2>Chapter ${n}: Part ${n}</h2><p>${paragraph.repeat(6)}</p>`),
+    );
+  }
+  return zip.generateAsync({ type: "nodebuffer" });
+}
