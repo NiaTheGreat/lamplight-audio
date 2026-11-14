@@ -7,7 +7,8 @@ import { Icon } from "@/components/Icon";
 import { useReadingProgress } from "@/components/browse/useReadingProgress";
 import { usePlayer } from "@/components/PlayerProvider";
 import { readStore, writeStore } from "@/components/player/store";
-import { getReading } from "@/lib/client/api";
+import { getBook, getReading } from "@/lib/client/api";
+import type { BookSummary } from "@/lib/types";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 import { Passage } from "./Passage";
 import { useBookChapter } from "./useBookChapter";
@@ -50,14 +51,29 @@ type Spot = { chapter: number; frac: number };
 /**
  * The book on its own, like an e-book app: just the text, a menu on a tap in the middle, and no
  * player. It never narrates anything by itself. The headphones button goes to Listen.
+ *
+ * Reading and listening keep separate places. This view loads its own copy of the book and its
+ * own chapter (from the link, the spot kept on this device, or Browse's reading state), and never
+ * opens the book in the player, so what is being listened to, and where, is not touched. Only the
+ * headphones button reaches the player, and only when asked to narrate a chapter.
  */
-export function BookReader({ reader }: { reader: ReaderView }) {
+export function BookReader({ reader, bookId }: { reader: ReaderView; bookId: string }) {
   const p = usePlayer();
   const dialog = useDialog();
-  const { book } = p;
-  const bookId = book?.id ?? "";
+  const [book, setBook] = useState<BookSummary | null>(null);
+  const [missing, setMissing] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void getBook(bookId).then((b) => {
+      if (!alive) return;
+      if (b) setBook(b);
+      else setMissing(true);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [bookId]);
 
-  // The chapter being read here is its own: the player is left alone.
   const [chapter, setChapter] = useState<number | null>(null);
   const [mode, setMode] = useState<Mode>("paged");
   const [size, setSize] = useState(1);
@@ -76,6 +92,7 @@ export function BookReader({ reader }: { reader: ReaderView }) {
   const flowRef = useRef<HTMLDivElement>(null);
   const touchX = useRef<number | null>(null);
   const restore = useRef<Spot | null>(null);
+  const asked = useRef<number | null | undefined>(undefined);
   const goLast = useRef(false);
 
   useEffect(() => {
@@ -99,13 +116,39 @@ export function BookReader({ reader }: { reader: ReaderView }) {
     };
   }, [theme]);
 
-  // Where to start: the chapter Browse asked for, with the place left in it if it is the same one.
+  // Where to start: the chapter Browse asked for (?chapter=), else where this device left off, else
+  // where the reading state says; with the place left in it if it is the same chapter.
   useEffect(() => {
-    if (!bookId || chapter !== null) return;
+    if (!book || chapter !== null) return;
+    let alive = true;
+    if (asked.current === undefined) {
+      const url = new URL(location.href);
+      const raw = url.searchParams.get("chapter");
+      asked.current = raw !== null && Number.isInteger(Number(raw)) ? Number(raw) : null;
+      // Drop it once read, so a reload returns to where you are, not to where you began.
+      if (raw !== null) {
+        url.searchParams.delete("chapter");
+        history.replaceState(null, "", url.pathname + url.search + url.hash);
+      }
+    }
     const spot = readStore<Spot | null>(SPOT_KEY(bookId), null);
-    if (spot && spot.chapter === p.chapter) restore.current = spot;
-    setChapter(p.chapter);
-  }, [bookId, chapter, p.chapter]);
+    void (async () => {
+      let start: number | null = null;
+      const want = asked.current ?? null;
+      if (want !== null && book.chapters[want]) start = want;
+      if (start === null && spot && book.chapters[spot.chapter]) start = spot.chapter;
+      if (start === null) {
+        const c = (await getReading())[bookId]?.chapter;
+        if (typeof c === "number" && book.chapters[c]) start = c;
+      }
+      if (!alive) return;
+      if (spot && spot.chapter === start) restore.current = spot;
+      setChapter(start ?? 0);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [book, bookId, chapter]);
   useEffect(() => {
     if (!bookId) return;
     void getReading().then((r) => setDone(r[bookId]?.done ?? []));
@@ -235,8 +278,9 @@ export function BookReader({ reader }: { reader: ReaderView }) {
 
   const headphones = async () => {
     if (!book) return;
-    const state = p.chapterState(ch);
-    if (state === "ready" || state === "playing") {
+    if (book.narrated?.includes(ch)) {
+      // Listen where you left off listening. Only a book never listened to starts at this chapter.
+      if (!p.progress.books[bookId]) await p.selectBook(bookId, ch);
       reader.setView("listen");
       return;
     }
@@ -249,6 +293,7 @@ export function BookReader({ reader }: { reader: ReaderView }) {
       cancelLabel: "Keep reading",
     });
     if (!ok) return;
+    await p.selectBook(bookId, ch);
     reader.setView("listen");
     void p.playChapter(ch);
   };
@@ -263,6 +308,16 @@ export function BookReader({ reader }: { reader: ReaderView }) {
     );
   }, [book, ch, frac]);
 
+  if (missing) {
+    return (
+      <main className="bk">
+        <Link href="/browse" className="icon-btn" aria-label="Back to Browse">
+          <Icon name="back" />
+        </Link>
+        <p className="empty">That book isn&apos;t stored any more.</p>
+      </main>
+    );
+  }
   if (!book || chapter === null) {
     return (
       <main className="bk">

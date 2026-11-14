@@ -8,7 +8,7 @@
 | --- | --- |
 | book records | parsed text, chapters, narrator, pronunciation lines |
 | `audio/<hash>.mp3` and chunk pieces | narrated audio, keyed by hash of text and settings |
-| `progress.json` | listening position per book, plus the spot in each part-listened chapter |
+| `progress.json` | listening position per book, plus the spot in each part-listened chapter; each save carries the device's time (`at`) and an older one never replaces a newer one |
 | `keys/<bookId>.json` | where each narrated chapter's audio is, so playing never reads the whole book |
 | `epubs/<bookId>.epub`, `reader/<bookId>.json`, `timing/<bookId>.json` | the original EPUB, its formatted chapters and measured chunk lengths and pauses, for the optional [reader](reader.md) |
 | `catalog/index.json`, `catalog/<bookId>.json` | the [Browse](browse.md) list (one entry per fic, read in one request) and each fic's full summary |

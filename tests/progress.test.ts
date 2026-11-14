@@ -16,4 +16,13 @@ describe("progress: a spot per chapter", () => {
     const third = await savePosition("b1", 3, 600, 1);
     expect(third.books.b1.chapters).toEqual({ 3: 600 });
   });
+
+  it("ignores a save that was made earlier than the one already stored", async () => {
+    const { savePosition } = await import("@/lib/storage/progress");
+    await savePosition("b2", 4, 300, undefined, 2000);
+    const late = await savePosition("b2", 2, 10, undefined, 1000);
+    expect(late.books.b2).toMatchObject({ chapter: 4, time: 300, updatedAt: 2000 });
+    const newer = await savePosition("b2", 5, 7, undefined, 3000);
+    expect(newer.books.b2).toMatchObject({ chapter: 5, time: 7, updatedAt: 3000 });
+  });
 });

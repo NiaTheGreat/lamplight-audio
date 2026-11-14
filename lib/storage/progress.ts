@@ -33,12 +33,20 @@ export async function savePosition(
   time: number,
   /** A chapter that was listened to the end: forget its spot so it starts from the top. */
   clear?: number,
+  /** When the device recorded it (ms). A save older than the one stored is a late arrival: ignored. */
+  at?: number,
 ): Promise<Progress> {
   const progress = await getProgress();
+  const when =
+    typeof at === "number" && Number.isFinite(at) && at > 0
+      ? Math.min(Math.floor(at), Date.now() + 60_000)
+      : Date.now();
+  const stored = progress.books[id];
+  if (stored && stored.updatedAt > when) return progress;
   const pos: BookPosition = {
     chapter: Math.max(0, Math.floor(chapter)),
     time: Math.max(0, Math.floor(time)),
-    updatedAt: Date.now(),
+    updatedAt: when,
   };
   const chapters: Record<string, number> = {
     ...progress.books[id]?.chapters,
