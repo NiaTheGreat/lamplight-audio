@@ -28,16 +28,27 @@ export default function Player() {
   const [missing, setMissing] = useState(false);
   const reader = useReaderView(id);
 
+  // The book-only view has its own copy of the book and never touches the player, so it must not
+  // open the book here: that would move the listening place (see components/reader/BookReader.tsx).
+  const bookView = reader.ready && reader.enabled && reader.view === "book";
+
   useEffect(() => {
+    if (!reader.ready || bookView) return;
     let alive = true;
-    // Browse opens a fic at the chapter to continue from: /book/<id>?chapter=<n> (0-based).
-    const asked = Number(new URLSearchParams(location.search).get("chapter"));
-    const start = Number.isInteger(asked) && asked >= 0 ? asked : undefined;
-    void selectBook(id, start).then((b) => alive && setMissing(!b));
+    void selectBook(id).then((b) => alive && setMissing(!b));
     return () => {
       alive = false;
     };
-  }, [id, selectBook]);
+  }, [id, selectBook, reader.ready, bookView]);
+
+  if (!reader.ready) {
+    return (
+      <main className="screen no-tabs">
+        <p className="empty">Opening…</p>
+      </main>
+    );
+  }
+  if (bookView) return <BookReader reader={reader} bookId={id} />;
 
   if (missing) {
     return (
@@ -62,7 +73,6 @@ export default function Player() {
     );
   }
 
-  if (reader.enabled && reader.view === "book") return <BookReader reader={reader} />;
   if (reader.enabled && reader.view === "read") return <Reader reader={reader} />;
 
   const ch = book.chapters[p.chapter];
