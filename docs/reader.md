@@ -49,7 +49,9 @@ The formatted chapters and timing are caches that can be rebuilt; the EPUB is th
 
 ## Reading and listening keep separate places
 
-The book-only view (`components/reader/BookReader.tsx`) loads its own copy of the book and chooses its own chapter: the link's `?chapter=` (Browse's Continue; removed from the address once used), else the spot left on this device (`abg:bk-spot:<id>`), else Browse's reading state. It never opens the book in the player, so the player's book, chapter and saved listening place stay as they were, and the audio keeps playing if it was. The headphones button is the only way across: for a narrated chapter it goes to Listen at the saved listening place (a book never listened to starts at the chapter you are reading); for an un-narrated chapter it asks the price, then narrates that chapter, which moves the listening place on purpose. The Listen | Read side (`Reader.tsx`) shares the player's chapter by design.
+The book-only view opens only from Browse's Read (`?chapter=` or `?read=1` in the address). Opening a fic from the Shelf, the "Where you left off" card or a bookmark always opens Listen, even if the last thing you did on that device was read.
+
+The book-only view (`components/reader/BookReader.tsx`) loads its own copy of the book and chooses its own chapter: the link's `?chapter=` (Browse's Continue; swapped for `?read=1` once used), else the spot left on this device (`abg:bk-spot:<id>`), else Browse's reading state. It never opens the book in the player, so the player's book, chapter and saved listening place stay as they were, and the audio keeps playing if it was. The headphones button is the only way across: for a narrated chapter it goes to Listen at the saved listening place (a book never listened to starts at the chapter you are reading); for an un-narrated chapter it asks the price, then narrates that chapter, which moves the listening place on purpose. The Listen | Read side (`Reader.tsx`) shares the player's chapter by design.
 
 ## Reading progress
 

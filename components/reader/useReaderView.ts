@@ -29,7 +29,12 @@ export function useReaderView(bookId: string) {
   useEffect(() => {
     void refresh();
     const saved = readStore<View>(VIEW_KEY, "listen");
-    setViewState(saved === "read" || saved === "book" ? saved : "listen");
+    // The book-only view is for opening a fic to read (Browse's Read: ?chapter=, or ?read=1 once the
+    // chapter has been used). Any other way in (the Shelf, a bookmark) opens Listen.
+    const params = new URLSearchParams(location.search);
+    const toRead = params.has("chapter") || params.has("read");
+    if (saved === "book" && !toRead) writeStore(VIEW_KEY, "listen");
+    setViewState(saved === "read" || (saved === "book" && toRead) ? saved : "listen");
     setViewLoaded(true);
   }, [refresh]);
 

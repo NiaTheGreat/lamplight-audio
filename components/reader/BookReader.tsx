@@ -125,9 +125,11 @@ export function BookReader({ reader, bookId }: { reader: ReaderView; bookId: str
       const url = new URL(location.href);
       const raw = url.searchParams.get("chapter");
       asked.current = raw !== null && Number.isInteger(Number(raw)) ? Number(raw) : null;
-      // Drop it once read, so a reload returns to where you are, not to where you began.
+      // Swap it for a plain marker once read, so a reload stays in the reader but returns to where
+      // you are, not to where you began.
       if (raw !== null) {
         url.searchParams.delete("chapter");
+        url.searchParams.set("read", "1");
         history.replaceState(null, "", url.pathname + url.search + url.hash);
       }
     }
