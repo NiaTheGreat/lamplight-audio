@@ -27,6 +27,14 @@ Your position in each book is saved and restored. "Start listening" begins at th
 
 Each chapter also keeps its own listening spot. If you leave a chapter part-way and come back to it later, even after listening to other chapters, it picks up where you stopped. A chapter you listened to the end starts from the beginning next time. The spots are saved on the server, so they follow you between devices.
 
+How the place is kept safe:
+
+- Opening a book waits (a few seconds at most) for the saved places to arrive, so the app opening straight onto a book no longer starts it at the top.
+- Each device also keeps its own copy of every book's place. Opening a book uses the newer of the server's copy and the device's, so a save that never reached the server is not lost. The server ignores a save that was recorded earlier than the one it already holds, so a slow request can't put you back.
+- The place is saved when you pause, change chapter, or switch to another book (the book being left is saved first), every 30 seconds while playing, when the page unloads, and when the app goes to the background while playing. iOS often skips the unload event, which is why the last one exists.
+
+The listening place and the reading place are separate. Listening is `progress.json`; reading is `reading.json` (see [Reader](reader.md)). The book-only reader never opens a book in the player, so reading, or opening a fic from Browse to read, does not move where you were listening.
+
 ## Downloading
 
 Any narrated chapter can be downloaded as a named MP3. It is the same cached file that streams.

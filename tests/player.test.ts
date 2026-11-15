@@ -30,6 +30,8 @@ let server: {
   job: unknown;
   audioProgress: { ready: number; total: number };
   postNarrate: { ok: boolean };
+  /** Holds back the answer to GET /api/progress until resolved (a slow first load). */
+  progressGate?: Promise<void>;
 };
 
 function mockFetch() {
@@ -44,11 +46,15 @@ function mockFetch() {
         headers: { "Content-Type": "application/json" },
       });
     if (url === "/api/books") return json([]);
-    if (url === "/api/progress" && method === "GET") return json(server.progress);
+    if (url === "/api/progress" && method === "GET") {
+      await server.progressGate;
+      return json(server.progress);
+    }
     if (url === "/api/progress" && method === "PUT")
       return json({ last: body, books: { [body.id]: body } });
     if (url === "/api/settings") return json(method === "PUT" ? body : DEFAULT_SETTINGS);
     if (url === "/api/books/b1") return json(server.book);
+    if (url === "/api/books/b2") return json({ ...server.book, id: "b2", title: "Other Fic" });
     if (url === "/api/books/b1/narrate") {
       if (method === "POST")
         return server.postNarrate.ok
@@ -175,12 +181,72 @@ describe("player: starting playback", () => {
     setAudio({ currentTime: 77 });
     await act(async () => player.togglePlay());
     const put = calls.filter((c) => c.method === "PUT" && c.url === "/api/progress").pop();
-    expect(put?.body).toEqual({ id: "b1", chapter: 0, time: 77 });
+    expect(put?.body).toEqual({ id: "b1", chapter: 0, time: 77, at: expect.any(Number) });
     expect(JSON.parse(localStorage.getItem("abg:last")!)).toEqual({
       id: "b1",
       chapter: 0,
       time: 77,
     });
+  });
+
+  it("opens at the saved place even when the app opens before the server has answered", async () => {
+    let release = () => {};
+    server.progressGate = new Promise<void>((r) => (release = r));
+    server.progress = {
+      last: { id: "b1", chapter: 1, time: 42, updatedAt: 1 },
+      books: { b1: { chapter: 1, time: 42, updatedAt: 1 } },
+    };
+    await mount();
+    let opened: Promise<unknown> = Promise.resolve();
+    await act(async () => {
+      opened = player.selectBook("b1");
+    });
+    expect(player.chapter).toBe(0);
+    await act(async () => {
+      release();
+      await opened;
+    });
+    expect(player.chapter).toBe(1);
+    expect(player.position).toBe(42);
+  });
+
+  it("uses this device's own copy when the server has none or an older one", async () => {
+    localStorage.setItem(
+      "abg:pos:b1",
+      JSON.stringify({ chapter: 1, time: 30, updatedAt: 500, chapters: { "1": 30 } }),
+    );
+    server.progress = {
+      last: { id: "b1", chapter: 0, time: 5, updatedAt: 100 },
+      books: { b1: { chapter: 0, time: 5, updatedAt: 100 } },
+    };
+    await mount();
+    await act(async () => void (await player.selectBook("b1")));
+    expect(player.chapter).toBe(1);
+    expect(player.position).toBe(30);
+  });
+
+  it("keeps the place in the book being left when another book is opened", async () => {
+    await mount();
+    await act(async () => player.openBook("b1"));
+    setAudio({ currentTime: 55 });
+    await act(async () => void (await player.selectBook("b2")));
+    const puts = calls.filter((c) => c.method === "PUT" && c.url === "/api/progress");
+    expect(puts.some((c) => (c.body as { id: string; time: number }).id === "b1")).toBe(true);
+    expect(puts.some((c) => (c.body as { time: number }).time === 55)).toBe(true);
+    expect(JSON.parse(localStorage.getItem("abg:pos:b1")!)).toMatchObject({ chapter: 0, time: 55 });
+  });
+
+  it("saves when the app is hidden while playing, not only when the page unloads", async () => {
+    await mount();
+    await act(async () => player.openBook("b1"));
+    setAudio({ currentTime: 61 });
+    const before = calls.filter((c) => c.method === "PUT").length;
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    await act(async () => void document.dispatchEvent(new Event("visibilitychange")));
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    const puts = calls.filter((c) => c.method === "PUT");
+    expect(puts.length).toBe(before + 1);
+    expect(puts.pop()?.body).toMatchObject({ id: "b1", time: 61 });
   });
 
   it("does not save a position before anything has played", async () => {

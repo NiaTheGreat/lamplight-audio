@@ -260,6 +260,17 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
 
   // ---------- Library, progress, settings ----------
 
+  // Settles once the saved places have been asked for, so opening a book on a cold start doesn't
+  // choose its chapter before they are known. `selectBook` gives up waiting after a few seconds.
+  const progressLoaded = useRef<{ promise: Promise<void>; done: () => void }>(null!);
+  if (!progressLoaded.current) {
+    let done = () => {};
+    const promise = new Promise<void>((r) => (done = r));
+    progressLoaded.current = { promise, done };
+  }
+  // A book being opened right now, so two calls for it (a screen opening twice) don't race.
+  const opening = useRef<{ id: string; promise: Promise<BookSummary | null> } | null>(null);
+
   const refreshBook = useCallback(async (id: string) => {
     try {
       const fresh = await getBook(id);
@@ -282,12 +293,13 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       refreshLibrary,
     });
 
-  const { progress, setProgress, savePosition, spotFor, finishChapter } = useSavedPosition({
-    audioRef,
-    bookRef,
-    chapterRef,
-    loadedRef,
-  });
+  const { progress, setProgress, savedPlace, savePosition, spotFor, finishChapter } =
+    useSavedPosition({
+      audioRef,
+      bookRef,
+      chapterRef,
+      loadedRef,
+    });
 
   useEffect(() => {
     if (onLogin) return;
@@ -300,7 +312,9 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setAutoNextState(savedAuto);
 
     void refreshLibrary();
-    void getProgress().then((p) => p && setProgress(p));
+    void getProgress()
+      .then((p) => p && setProgress(p))
+      .finally(() => progressLoaded.current.done());
     void getSettings()
       .then((s) => {
         if (!s) return;
@@ -313,7 +327,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         }
       })
       .catch(() => {});
-  }, [onLogin, refreshLibrary]);
+  }, [onLogin, refreshLibrary, setProgress]);
 
   // A phone that was asleep, or a narration that finished in the background, leaves this screen
   // out of date: look again when the app comes back to the front.
@@ -421,45 +435,59 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
   );
 
   const selectBook = useCallback(
-    async (id: string, startChapter?: number): Promise<BookSummary | null> => {
-      if (bookRef.current?.id === id) return bookRef.current;
-      try {
-        const b = await getBook(id);
-        if (!b) return null;
-        const audio = audioRef.current;
-        if (audio && !audio.paused) audio.pause();
-        const saved = progress.books[id];
-        const explicit = startChapter !== undefined && Boolean(b.chapters[startChapter]);
-        const index = explicit
-          ? startChapter
-          : saved && b.chapters[saved.chapter]
-            ? saved.chapter
-            : 0;
-        bookRef.current = b;
-        listenRangeRef.current = readStore<ListenRange>(`${RANGE_KEY}:${id}`, null);
-        chapterRef.current = index;
-        resumeAtRef.current = explicit
-          ? (saved?.chapters?.[index] ?? 0)
-          : saved && b.chapters[saved.chapter]
-            ? saved.time
-            : 0;
-        loadedRef.current = "";
-        loadToken.current++;
-        setBook(b);
-        setChapter(index);
-        setPosition(resumeAtRef.current);
-        setDuration(0);
-        setPlaying(false);
-        setPreparing(null);
-        setError("");
-        setFailedChapter(null);
-        setJob(null);
-        return b;
-      } catch {
-        return null;
-      }
+    (id: string, startChapter?: number): Promise<BookSummary | null> => {
+      if (bookRef.current?.id === id) return Promise.resolve(bookRef.current);
+      if (opening.current?.id === id) return opening.current.promise;
+      const promise = (async (): Promise<BookSummary | null> => {
+        try {
+          // Leaving another book part-way: keep its place first, while it is still the open one.
+          if (bookRef.current && loadedRef.current) savePosition(true);
+          const b = await getBook(id);
+          if (!b) return null;
+          // The saved places may still be on their way (a cold start): wait a little for them.
+          await Promise.race([
+            progressLoaded.current.promise,
+            new Promise<void>((r) => setTimeout(r, 4000)),
+          ]);
+          const audio = audioRef.current;
+          if (audio && !audio.paused) audio.pause();
+          const saved = savedPlace(id);
+          const explicit = startChapter !== undefined && Boolean(b.chapters[startChapter]);
+          const index = explicit
+            ? startChapter
+            : saved && b.chapters[saved.chapter]
+              ? saved.chapter
+              : 0;
+          bookRef.current = b;
+          listenRangeRef.current = readStore<ListenRange>(`${RANGE_KEY}:${id}`, null);
+          chapterRef.current = index;
+          resumeAtRef.current = explicit
+            ? (saved?.chapters?.[index] ?? 0)
+            : saved && b.chapters[saved.chapter]
+              ? saved.time
+              : 0;
+          loadedRef.current = "";
+          loadToken.current++;
+          setBook(b);
+          setChapter(index);
+          setPosition(resumeAtRef.current);
+          setDuration(0);
+          setPlaying(false);
+          setPreparing(null);
+          setError("");
+          setFailedChapter(null);
+          setJob(null);
+          return b;
+        } catch {
+          return null;
+        } finally {
+          opening.current = null;
+        }
+      })();
+      opening.current = { id, promise };
+      return promise;
     },
-    [progress],
+    [savePosition, savedPlace],
   );
 
   /**
