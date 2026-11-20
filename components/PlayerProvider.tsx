@@ -26,6 +26,12 @@ import { useLibrary } from "./player/useLibrary";
 import { useMediaSession } from "./player/useMediaSession";
 import { useSleepTimer } from "./player/useSleepTimer";
 import { getBook, getProgress, getSettings, saveSettings } from "@/lib/client/api";
+import {
+  audioSrc,
+  removeBook as removeKeptBook,
+  removeChapter,
+  removeChapters,
+} from "@/lib/client/offline";
 import { useBackgroundJob } from "./player/useBackgroundJob";
 import { narrateDirect, narrateViaQueue } from "./player/narration";
 import {
@@ -416,7 +422,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
       }
       if (token !== loadToken.current) return;
 
-      audio.src = `/api/audio/${b.id}/${index}`;
+      audio.src = audioSrc(b.id, index);
       loadedRef.current = `${b.id}:${index}`;
       audio.defaultPlaybackRate = rateRef.current;
       audio.playbackRate = rateRef.current;
@@ -724,6 +730,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         setJob(null);
       }
       await fetch(`/api/books/${id}`, { method: "DELETE" }).catch(() => {});
+      void removeKeptBook(id);
       await refreshLibrary();
     },
     [refreshLibrary],
@@ -746,6 +753,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         return data.error ?? "Couldn't do that.";
       }
       readyRef.current.delete(`${bookId}:${index}`);
+      void removeChapter(bookId, index);
       void refreshLibrary();
       const fresh = await fetch(`/api/books/${bookId}`).catch(() => null);
       if (!fresh || !fresh.ok) return "Re-read, but couldn't reload the book. Open it to narrate.";
@@ -780,6 +788,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ chapters: indices }),
       }).catch(() => null);
       for (const i of indices) readyRef.current.delete(`${bookId}:${i}`);
+      void removeChapters(bookId, indices);
       void refreshLibrary();
       if (bookRef.current?.id === bookId) void refreshBook(bookId);
       if (!run || !run.ok) {
@@ -887,7 +896,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     setChapter(next);
     setPosition(0);
     setDuration(0);
-    audio.src = `/api/audio/${b.id}/${next}`;
+    audio.src = audioSrc(b.id, next);
     audio.defaultPlaybackRate = rateRef.current;
     audio.playbackRate = rateRef.current;
     audio.play().catch(() => {});
@@ -907,7 +916,7 @@ export function PlayerProvider({ children }: { children: ReactNode }) {
     if (next >= b.chapters.length || !isReadyIdx(b, next)) return;
     spareForRef.current = key;
     spare.preload = "auto";
-    spare.src = `/api/audio/${b.id}/${next}`;
+    spare.src = audioSrc(b.id, next);
     spare.load();
   }
 

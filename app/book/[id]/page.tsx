@@ -10,6 +10,7 @@ import { BookReader } from "@/components/reader/BookReader";
 import { Reader } from "@/components/reader/Reader";
 import { ViewSwitch } from "@/components/reader/ViewSwitch";
 import { useReaderView } from "@/components/reader/useReaderView";
+import { keepChapter, offlineSupported, removeChapter, useKept } from "@/lib/client/offline";
 import { costUsd, formatUsd } from "@/lib/narrators-shared";
 
 function clock(seconds: number): string {
@@ -27,6 +28,8 @@ export default function Player() {
   const { book, selectBook } = p;
   const [missing, setMissing] = useState(false);
   const reader = useReaderView(id);
+  const kept = useKept(id);
+  const [keeping, setKeeping] = useState<number | null>(null);
 
   // The book-only view has its own copy of the book and never touches the player, so it must not
   // open the book here: that would move the listening place (see components/reader/BookReader.tsx).
@@ -269,6 +272,28 @@ export default function Player() {
                     }
                   >
                     <Icon name="retry" size={20} />
+                  </button>
+                ) : null}
+                {ready && offlineSupported() ? (
+                  <button
+                    className="dl"
+                    disabled={keeping === c.index}
+                    aria-label={
+                      kept.has(c.index)
+                        ? `Remove ${c.title} from this device`
+                        : `Keep ${c.title} for offline listening`
+                    }
+                    aria-pressed={kept.has(c.index)}
+                    style={kept.has(c.index) ? { color: "var(--amber)" } : undefined}
+                    onClick={async () => {
+                      if (kept.has(c.index)) return void removeChapter(book.id, c.index);
+                      setKeeping(c.index);
+                      const err = await keepChapter(book.id, c.index);
+                      setKeeping(null);
+                      if (err) dialog.notify(err);
+                    }}
+                  >
+                    <Icon name={kept.has(c.index) ? "kept" : "keep"} size={22} />
                   </button>
                 ) : null}
                 {ready ? (

@@ -6,6 +6,7 @@ import { Icon } from "@/components/Icon";
 import { usePlayer } from "@/components/PlayerProvider";
 import { useNarrators } from "@/components/useNarrators";
 import { formatUsd } from "@/lib/narrators-shared";
+import { offlineSupported, removeAll, storageUsed, useKeptCount } from "@/lib/client/offline";
 import { getUsage, saveBudget, type Usage } from "@/lib/client/api";
 import { SLEEP_OPTIONS, SPEEDS } from "@/lib/settings-shared";
 
@@ -23,6 +24,12 @@ export default function Settings() {
   const [limitError, setLimitError] = useState("");
   const [savingLimit, setSavingLimit] = useState(false);
   const previewRef = useRef<HTMLAudioElement | null>(null);
+  const keptCount = useKeptCount();
+  const [used, setUsed] = useState<number | null>(null);
+
+  useEffect(() => {
+    void storageUsed().then(setUsed);
+  }, [keptCount]);
 
   useEffect(() => () => previewRef.current?.pause(), []);
 
@@ -307,6 +314,28 @@ export default function Settings() {
           />
         </div>
       </section>
+
+      {offlineSupported() ? (
+        <section className="section" aria-label="Offline listening">
+          <div className="option">
+            <div className="grow">
+              <div className="label">Kept for offline listening</div>
+              <div className="muted" style={{ fontSize: 13, marginTop: 3, lineHeight: 1.4 }}>
+                {keptCount === 0
+                  ? "Nothing yet. Use the circle arrow on a narrated chapter to keep it on this device."
+                  : `${keptCount} ${keptCount === 1 ? "chapter" : "chapters"} on this device.`}
+                {used !== null ? ` This app uses about ${Math.round(used / 1_000_000)} MB.` : ""}{" "}
+                Adding Lamplight to your Home Screen makes the phone far less likely to clear them.
+              </div>
+            </div>
+            {keptCount > 0 ? (
+              <button className="btn ghost" onClick={() => void removeAll()}>
+                Remove all
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       <section className="section" aria-label="Narrating ahead">
         <div className="option">

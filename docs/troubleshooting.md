@@ -29,3 +29,5 @@
 **Is the container up (Docker)?** `GET /health` returns `{"ok":true}` without a login.
 
 **Locked out of login.** After 5 wrong passwords an address is locked out for 15 minutes.
+
+**A kept chapter won't play offline.** The phone may have cleared it (iPhone Safari does this when space is low, mostly for sites not added to the Home Screen). Keep it again while online. The service worker only runs on the deployed (production) app, over https.
