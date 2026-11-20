@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Atkinson_Hyperlegible_Next, Fraunces, Hanken_Grotesk, Literata } from "next/font/google";
 import type { ReactNode } from "react";
 import { DialogProvider } from "@/components/Dialog";
+import { OfflineRegistrar } from "@/components/OfflineRegistrar";
 import { AppChrome } from "@/components/AppChrome";
 import { PlayerProvider } from "@/components/PlayerProvider";
 import "./globals.css";
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <DialogProvider>
             {children}
             <AppChrome />
+            <OfflineRegistrar />
           </DialogProvider>
         </PlayerProvider>
       </body>
