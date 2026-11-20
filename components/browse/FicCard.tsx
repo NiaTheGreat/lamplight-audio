@@ -10,7 +10,7 @@ import type { LibraryEntry } from "@/lib/types";
 export const fmt = (n: number) => n.toLocaleString("en-US");
 
 /** "Chapter 12 of 24", with a thin bar; or Unread / Finished. */
-export function ReadBadge({ state }: { state: ReadState }) {
+export function ReadBadge({ state, isNew }: { state: ReadState; isNew?: boolean }) {
   if (state.kind === "finished") {
     return (
       <div className="bw-read fin">
@@ -35,6 +35,7 @@ export function ReadBadge({ state }: { state: ReadState }) {
   }
   return (
     <div className="bw-read">
+      {isNew ? <span className="bw-state new">NEW</span> : null}
       <span className="bw-state un">UNREAD</span>
     </div>
   );
@@ -48,6 +49,7 @@ export function statsLine(item: CatalogItem): string[] {
       : `${item.chapters} chapter${item.chapters === 1 ? "" : "s"}`,
   );
   if (item.updated) out.push(`updated ${item.updated}`);
+  if (item.addedAt > 0) out.push(`added ${new Date(item.addedAt).toISOString().slice(0, 10)}`);
   if (item.language) out.push(item.language);
   return out;
 }
@@ -65,6 +67,7 @@ export function narrateCost(item: CatalogItem, shelf: LibraryEntry | undefined, 
 export function FicCard({
   item,
   state,
+  isNew,
   shelf,
   voice,
   reader,
@@ -75,6 +78,7 @@ export function FicCard({
 }: {
   item: CatalogItem;
   state: ReadState;
+  isNew?: boolean;
   shelf?: LibraryEntry;
   voice: string;
   reader: boolean;
@@ -149,7 +153,7 @@ export function FicCard({
           <span key={s}>{s}</span>
         ))}
       </div>
-      <ReadBadge state={state} />
+      <ReadBadge state={state} isNew={isNew} />
       <div className="bw-acts">
         {reader ? (
           <button className="btn" onClick={onRead}>

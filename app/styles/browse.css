@@ -311,6 +311,12 @@
   gap: 4px;
 }
 
+.bw-state.new {
+  color: var(--bg, #1a1612);
+  background: var(--amber);
+  border-color: var(--amber);
+}
+
 .bw-state.reading {
   color: var(--amber);
   border-color: var(--ember-line);

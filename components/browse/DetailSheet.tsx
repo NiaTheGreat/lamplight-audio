@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDialog } from "@/components/Dialog";
 import { Icon } from "@/components/Icon";
-import { isComplete } from "@/lib/catalog/filter";
+import { isComplete, isNew } from "@/lib/catalog/filter";
 import { ao3WorkUrl, type CatalogItem, type ReadingEntry } from "@/lib/catalog/meta";
 import type { ReadState } from "@/lib/catalog/readstate";
 import { editFic, getBook, getFullSummary, removeFic, saveReading } from "@/lib/client/api";
@@ -139,7 +139,7 @@ export function DetailSheet({
             ))}
             {item.published ? <span>published {item.published}</span> : null}
           </div>
-          <ReadBadge state={state} />
+          <ReadBadge state={state} isNew={isNew(item, state)} />
 
           {summary || item.summary ? (
             <p className="bw-dsum">{summary ?? item.summary}</p>

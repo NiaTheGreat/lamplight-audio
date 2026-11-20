@@ -15,12 +15,12 @@ The Add page (**Add a fic** on the Shelf) still adds straight to the Shelf, with
 The side column on a wide screen, or the **Filters** button on a phone, offers:
 
 - **Search**: every word must match somewhere in the title, author, summary, fandom, tags, pairings or characters.
-- **Your reading**: Unread, In progress, Finished. The All / Unread / Reading / Finished switch above the list does the same.
+- **Your reading**: Unread, In progress, Finished. **New this week** shows fics added to Lamplight in the last 7 days that you haven't opened, read or listened to; the All / New / Unread / Reading / Finished switch above the list does the same. New fics carry an amber **NEW** badge until you open them or a week passes, and each card shows the date it was added.
 - **Narration**: not narrated, partly, fully.
 - **Length**: any, under 20k, 20–100k, 100k+ words. **Complete works only.**
 - **Language**, **rating**, **fandom**.
 - **Tags**: include and exclude (type two or more letters), plus popular tags with counts; tap once to include, again to exclude. Pairings, characters, warnings and category also match here, and so do tags you added yourself.
-- **Sort**: recently opened (the default), date added, last updated, published, title, author, word count; either direction.
+- **Sort**: recently opened (the default; fics you have never opened come first, newest added first, so a fresh upload is on top), date added, last updated, published, title, author, word count; either direction.
 
 The list shows 25 fics a page. The filters, sort and page are kept in the address (`/browse?complete=1&min=100000&page=2`), so Back, refresh and bookmarks return to the same view. Counts next to filters come from the whole library.
 
