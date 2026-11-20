@@ -116,12 +116,19 @@ export function FilterPanel({
       <div className="bw-group">
         <span className="eyebrow">Your reading</span>
         <div className="bw-chips">
+          <button
+            className={`bw-chip${filters.fresh ? " on" : ""}`}
+            aria-pressed={filters.fresh}
+            onClick={() => set({ fresh: !filters.fresh, read: "" })}
+          >
+            New this week
+          </button>
           {READ.map((r) => (
             <button
               key={r.key}
               className={`bw-chip${filters.read === r.key ? " on" : ""}`}
               aria-pressed={filters.read === r.key}
-              onClick={() => set({ read: filters.read === r.key ? "" : r.key })}
+              onClick={() => set({ read: filters.read === r.key ? "" : r.key, fresh: false })}
             >
               {r.label}
             </button>

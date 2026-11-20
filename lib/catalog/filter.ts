@@ -25,6 +25,8 @@ export type Filters = {
   include: string[];
   exclude: string[];
   read: "" | "unread" | "reading" | "finished";
+  /** Only fics added in the last week that haven't been opened. */
+  fresh: boolean;
   narr: "" | "none" | "partly" | "full";
   sort: SortKey;
   dir: "asc" | "desc";
@@ -40,6 +42,7 @@ export const DEFAULT_FILTERS: Filters = {
   include: [],
   exclude: [],
   read: "",
+  fresh: false,
   narr: "",
   sort: "opened",
   dir: "desc",
@@ -51,7 +54,17 @@ export type FilterContext = {
   read: (id: string) => ReadState;
   /** Chapters narrated, out of the total. */
   narrated: (id: string) => { done: number; total: number };
+  /** The time to judge "new" against (defaults to now). */
+  now?: number;
 };
+
+/** How long a fic counts as new after it was added. */
+export const NEW_DAYS = 7;
+
+/** A fic added in the last week that has not been opened, read or listened to. */
+export function isNew(item: CatalogItem, state: ReadState, now = Date.now()): boolean {
+  return state.kind === "unread" && item.addedAt > 0 && now - item.addedAt < NEW_DAYS * 86_400_000;
+}
 
 const list = (v: string | null) =>
   (v ?? "")
@@ -80,6 +93,7 @@ export function parseFilters(params: URLSearchParams): Filters {
     include: list(params.get("tag")),
     exclude: list(params.get("not")),
     read: read === "unread" || read === "reading" || read === "finished" ? read : "",
+    fresh: params.get("new") === "1",
     narr: narr === "none" || narr === "partly" || narr === "full" ? narr : "",
     sort: SORTS.some((s) => s.key === sort) ? (sort as SortKey) : DEFAULT_FILTERS.sort,
     dir: params.get("dir") === "asc" ? "asc" : "desc",
@@ -101,6 +115,7 @@ export function filtersToParams(f: Filters): URLSearchParams {
   if (f.include.length) p.set("tag", f.include.join("|"));
   if (f.exclude.length) p.set("not", f.exclude.join("|"));
   if (f.read) p.set("read", f.read);
+  if (f.fresh) p.set("new", "1");
   if (f.narr) p.set("narr", f.narr);
   if (f.sort !== d.sort) p.set("sort", f.sort);
   if (f.dir !== d.dir) p.set("dir", f.dir);
@@ -120,6 +135,7 @@ export function activeCount(f: Filters): number {
     f.include.length +
     f.exclude.length +
     (f.read ? 1 : 0) +
+    (f.fresh ? 1 : 0) +
     (f.narr ? 1 : 0)
   );
 }
@@ -186,6 +202,7 @@ export function applyFilters(items: CatalogItem[], f: Filters, ctx: FilterContex
       if (exclude.some((t) => tags.includes(t))) return false;
     }
     if (f.read && ctx.read(i.id).kind !== f.read) return false;
+    if (f.fresh && !isNew(i, ctx.read(i.id), ctx.now)) return false;
     if (f.narr) {
       const n = ctx.narrated(i.id);
       const kind = n.done === 0 ? "none" : n.done >= n.total ? "full" : "partly";
@@ -198,6 +215,10 @@ export function applyFilters(items: CatalogItem[], f: Filters, ctx: FilterContex
   return out.sort((a, b) => {
     const x = sortValue(a, f.sort, ctx);
     const y = sortValue(b, f.sort, ctx);
+    // Recently opened, newest first: fics never opened lead (newest added first), so a fresh upload
+    // is on top instead of buried.
+    if (f.sort === "opened" && f.dir === "desc" && (x === undefined) !== (y === undefined))
+      return x === undefined ? -1 : 1;
     // Fics with no value for this sort go last, whichever way it runs.
     if (x === undefined && y !== undefined) return 1;
     if (y === undefined && x !== undefined) return -1;

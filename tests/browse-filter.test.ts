@@ -114,8 +114,38 @@ describe("applyFilters", () => {
     expect(run({ sort: "words", dir: "desc" })).toEqual(["a", "c", "b"]);
     expect(run({ sort: "updated", dir: "desc" })).toEqual(["a", "b", "c"]);
     expect(run({ sort: "updated", dir: "asc" })).toEqual(["b", "a", "c"]);
-    // Recently opened: the one read last first, never-opened ones after, newest added first.
-    expect(run({ sort: "opened" })).toEqual(["b", "c", "a"]);
+    // Recently opened: never-opened fics lead (newest added first), then the one read last.
+    expect(run({ sort: "opened" })).toEqual(["a", "b", "c"]);
+    expect(run({ sort: "opened", dir: "asc" })).toEqual(["c", "b", "a"]);
+  });
+});
+
+describe("new fics", () => {
+  const DAY = 86_400_000;
+  const fresh = (now: number) =>
+    applyFilters(
+      [item({ id: "n", title: "N", addedAt: 10 * DAY }), B, A],
+      { ...DEFAULT_FILTERS, fresh: true },
+      { ...ctx, now },
+    ).map((i) => i.id);
+
+  it("is an unread fic added in the last 7 days", () => {
+    expect(fresh(12 * DAY)).toEqual(["n"]);
+    expect(fresh(18 * DAY)).toEqual([]);
+  });
+
+  it("is not new once opened", () => {
+    const opened = {
+      ...ctx,
+      read: () => readState({ chapter: 0, done: [], updatedAt: 5 }, undefined, 3),
+    };
+    expect(
+      applyFilters(
+        [item({ id: "n", title: "N", addedAt: 10 * DAY })],
+        { ...DEFAULT_FILTERS, fresh: true },
+        { ...opened, now: 11 * DAY },
+      ),
+    ).toEqual([]);
   });
 });
 
@@ -130,6 +160,7 @@ describe("filters in the address", () => {
       include: ["Slow Burn", "Found Family"],
       exclude: ["Angst"],
       read: "reading" as const,
+      fresh: true,
       sort: "words" as const,
       dir: "asc" as const,
       page: 3,

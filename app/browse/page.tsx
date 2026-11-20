@@ -14,6 +14,7 @@ import { writeStore } from "@/components/player/store";
 import {
   activeCount,
   applyFilters,
+  isNew,
   facets as facetsOf,
   filtersToParams,
   pageSlice,
@@ -135,6 +136,7 @@ function Browse() {
       label: `not ${t}`,
       clear: { exclude: filters.exclude.filter((x) => x !== t) },
     })),
+    ...(filters.fresh ? [{ label: "New", clear: { fresh: false } }] : []),
     ...(filters.read
       ? [
           {
@@ -248,6 +250,7 @@ function Browse() {
             {(
               [
                 ["", "All"],
+                ["new", "New"],
                 ["unread", "Unread"],
                 ["reading", "Reading"],
                 ["finished", "Finished"],
@@ -255,9 +258,15 @@ function Browse() {
             ).map(([k, label]) => (
               <button
                 key={k}
-                className={filters.read === k ? "on" : ""}
-                aria-pressed={filters.read === k}
-                onClick={() => setFilters({ read: k })}
+                className={
+                  (k === "new" ? filters.fresh : !filters.fresh && filters.read === k) ? "on" : ""
+                }
+                aria-pressed={k === "new" ? filters.fresh : !filters.fresh && filters.read === k}
+                onClick={() =>
+                  setFilters(
+                    k === "new" ? { fresh: !filters.fresh, read: "" } : { read: k, fresh: false },
+                  )
+                }
               >
                 {label}
               </button>
@@ -294,6 +303,7 @@ function Browse() {
                 key={item.id}
                 item={item}
                 state={data.ctx.read(item.id)}
+                isNew={isNew(item, data.ctx.read(item.id))}
                 shelf={data.shelf.get(item.id)}
                 voice={p.settings.voice}
                 reader={data.reader}
