@@ -13,6 +13,7 @@ Next.js 15 (App Router, TypeScript), meant for Vercel. Storage is Cloudflare R2 
 | Area | Files |
 | --- | --- |
 | EPUB parsing | `lib/epub.ts`, `lib/narration/text.ts` |
+| Offline listening | `public/sw.js`, `lib/client/offline.ts`, `components/OfflineRegistrar.tsx` (see [Offline](offline.md)) |
 | Providers | `lib/providers/` (one file per provider), `PROVIDER_INFO` in `lib/narrators-shared.ts` |
 | Narration | `lib/narration/tts.ts`, `lib/narrators-shared.ts`, `lib/narration/narrator.ts`, `lib/narration/mp3.ts` |
 | Background jobs | `lib/narration/narration.ts`, `app/api/worker/[id]`, `app/api/books/[id]/narrate`, `lib/storage/live.ts` |

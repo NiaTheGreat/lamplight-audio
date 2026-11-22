@@ -37,7 +37,7 @@ The listening place and the reading place are separate. Listening is `progress.j
 
 ## Downloading
 
-Any narrated chapter can be downloaded as a named MP3. It is the same cached file that streams.
+Any narrated chapter can be downloaded as a named MP3. It is the same cached file that streams. To listen without a connection, keep chapters on the device instead; see [Offline listening](offline.md).
 
 ## Reading along
 
